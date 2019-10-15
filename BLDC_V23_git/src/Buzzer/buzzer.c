@@ -8,12 +8,12 @@ static uint32_t sound_length = 0;
 static uint32_t sound_step = 1;
 
 static const BuzzerDictionaryRow sound_dictionary[] = {
-		{ buzzer_sound_start, 		sizeof(buzzer_sound_start) / 		sizeof(BuzzerSoundStep)}, //BUZZER_SOUND_START
-		{ buzzer_sound_mario, 		sizeof(buzzer_sound_mario) / 		sizeof(BuzzerSoundStep)}, //BUZZER_SOUND_MARIO
+		{ buzzer_sound_start, 		sizeof(buzzer_sound_start) 		 / 	sizeof(BuzzerSoundStep)}, //BUZZER_SOUND_START
+		{ buzzer_sound_mario, 		sizeof(buzzer_sound_mario) 		 / 	sizeof(BuzzerSoundStep)}, //BUZZER_SOUND_MARIO
 		{ buzzer_sound_single_peak, sizeof(buzzer_sound_single_peak) /  sizeof(BuzzerSoundStep)}, //BUZZER_SOUND_SINGLE_PEAK
 		{ buzzer_sound_double_peak, sizeof(buzzer_sound_double_peak) /  sizeof(BuzzerSoundStep)}, //BUZZER_SOUND_DOUBLE_PEAK
 		{ buzzer_sound_triple_peak, sizeof(buzzer_sound_triple_peak) /  sizeof(BuzzerSoundStep)}, //BUZZER_SOUND_TRIPLE_PEAK
-		{ buzzer_sound_turn_off, 	sizeof(buzzer_sound_turn_off) / 	sizeof(BuzzerSoundStep)}  //BUZZER_SOUND_TURN_OFF
+		{ buzzer_sound_turn_off, 	sizeof(buzzer_sound_turn_off) 	 / 	sizeof(BuzzerSoundStep)}  //BUZZER_SOUND_TURN_OFF
 };
 
 void buzzer_test(void) {
@@ -102,6 +102,7 @@ void buzzer_generate_sound(BuzzerSoundType sound_type) {
 	sound_ptr = sound_dictionary[sound_type].sound_ptr;
 	sound_length = sound_dictionary[sound_type].sound_length;
 	sound_step = 0;
+
 	rybos_task_enable(MARKER_TASK_BUZZER, true);
 }
 

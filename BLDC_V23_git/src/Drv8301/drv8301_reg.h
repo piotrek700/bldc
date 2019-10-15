@@ -14,19 +14,35 @@
 #define DRV8301_READ_FAULT							0x8000
 #define DRV8301_DATA_MASK							0x07FF
 
+#define DRV8301_SR1_FAULT_MASK						0x07FF
+#define DRV8301_SR2_FAULT_MASK						0x0100
+
+//Mask of the FAULT bits
 #define DRV8301_SR1_FAULT							0x0040
+//Mask of the GVDD_UV (DRV8301 Vdd, Under Voltage) bits
 #define DRV8301_SR1_GVDD_UV							0x0020
+//Mask of the PVDD_UV (Power supply Vdd, Under Voltage) bits
 #define DRV8301_SR1_PVDD_UV							0x0010
+//Mask of the OTSD (Over Temperature Shut Down) bits
 #define DRV8301_SR1_OTSD							0x0080
+//Mask of the OTW (Over Temperature Warning) bits
 #define DRV8301_SR1_OTW								0x0040
+//Mask of the FETHA_OC (FET High side, Phase A Over Current) bits
 #define DRV8301_SR1_FETHA_OC						0x0020
+//Mask of the FETLA_OC (FET Low side, Phase A Over Current) bits
 #define DRV8301_SR1_FETLA_OC						0x0010
+//Mask of the FETHB_OC (FET High side, Phase B Over Current) bits
 #define DRV8301_SR1_FETHB_OC						0x0008
+//Mask of the FETLB_OC (FET Low side, Phase B Over Current) bits
 #define DRV8301_SR1_FETLB_OC						0x0004
+//Mask of the FETHC_OC (FET High side, Phase C Over Current) bits
 #define DRV8301_SR1_FETHC_OC						0x0002
+//Mask of the FETLC_OC (FET Low side, Phase C Over Current) bits
 #define DRV8301_SR1_FETLC_OC						0x0001
 
+//Mask of the Device ID bits
 #define DRV8301_SR2_Device ID						0x000F
+//Mask of the GVDD_OV (DRV8301 Vdd, Over Voltage) bits
 #define DRV8301_SR2_GVDD_OV							0x0100
 
 #define DRV8301_CR1_GATE_CURRENT					0x0003
@@ -48,12 +64,16 @@
 #define DRV8301_CR1_OCP_MODE_REPORT_ONLY			0x0020
 #define DRV8301_CR1_OCP_MODE_OC_DISABLE				0x0040
 
+//Overcurrent Trip = OC_ADJ_SET / MOSFET RDS(on) (5)
+//NTMFS5C604NL RDS ON 10V  = TYP 0.93mOhm
+//NTMFS5C604NL RDS ON 4.5V = TYP 1.25mOHm
+
 #define DRV8301_CR1_OC_ADJ_SET						0xF800
 #define DRV8301_CR1_OC_ADJ_SET_0P060				(0<<6)
 #define DRV8301_CR1_OC_ADJ_SET_0P068				(1<<6)
 #define DRV8301_CR1_OC_ADJ_SET_0P076				(2<<6)
 #define DRV8301_CR1_OC_ADJ_SET_0P086				(3<<6)
-#define DRV8301_CR1_OC_ADJ_SET_0P097				(4<<6)
+#define DRV8301_CR1_OC_ADJ_SET_0P097				(4<<6) //104 A
 #define DRV8301_CR1_OC_ADJ_SET_0P109				(5<<6)
 #define DRV8301_CR1_OC_ADJ_SET_0P123				(6<<6)
 #define DRV8301_CR1_OC_ADJ_SET_0P138				(7<<6)

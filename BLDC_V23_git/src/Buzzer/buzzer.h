@@ -21,7 +21,7 @@ typedef enum {
 	BUZZER_SOUND_TURN_OFF
 } BuzzerSoundType;
 
-typedef struct{
+typedef struct {
 	const BuzzerSoundStep *sound_ptr;
 	uint32_t sound_length;
 } BuzzerDictionaryRow;
