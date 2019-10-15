@@ -155,7 +155,7 @@ void __attribute__((weak)) frame_cb_frame_uart_stat(void *buff, uint8_t params) 
 	//TODO FrameUartStat *frame = (FrameUartStat *) buff;
 }
 
-static FrameDictonary frame_dictionary[] = {
+static const FrameDictonary frame_dictionary[] = {
 		{ frame_cb_frame_req_init_data, 			FRAME_TYPE_REQ_INIT_DATA, 				sizeof(FrameReqInitData) },
 		{ frame_cb_frame_resp_init_data, 			FRAME_TYPE_RESP_INIT_DATA, 				sizeof(FrameRespInitData) },
 		{ frame_cb_frame_error_log, 				FRAME_TYPE_ERROR_LOG, 					sizeof(FrameErrorLog) },

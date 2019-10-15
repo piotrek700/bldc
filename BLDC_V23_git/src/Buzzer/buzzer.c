@@ -7,6 +7,15 @@ static const BuzzerSoundStep *sound_ptr;
 static uint32_t sound_length = 0;
 static uint32_t sound_step = 1;
 
+static const BuzzerDictionaryRow sound_dictionary[] = {
+		{ buzzer_sound_start, 		sizeof(buzzer_sound_start) / 		sizeof(BuzzerSoundStep)}, //BUZZER_SOUND_START
+		{ buzzer_sound_mario, 		sizeof(buzzer_sound_mario) / 		sizeof(BuzzerSoundStep)}, //BUZZER_SOUND_MARIO
+		{ buzzer_sound_single_peak, sizeof(buzzer_sound_single_peak) /  sizeof(BuzzerSoundStep)}, //BUZZER_SOUND_SINGLE_PEAK
+		{ buzzer_sound_double_peak, sizeof(buzzer_sound_double_peak) /  sizeof(BuzzerSoundStep)}, //BUZZER_SOUND_DOUBLE_PEAK
+		{ buzzer_sound_triple_peak, sizeof(buzzer_sound_triple_peak) /  sizeof(BuzzerSoundStep)}, //BUZZER_SOUND_TRIPLE_PEAK
+		{ buzzer_sound_turn_off, 	sizeof(buzzer_sound_turn_off) / 	sizeof(BuzzerSoundStep)}  //BUZZER_SOUND_TURN_OFF
+};
+
 void buzzer_test(void) {
 	if (!DEBUG_TEST_ENABLE) {
 		return;
@@ -82,51 +91,16 @@ static void buzzer_set_frequency(uint32_t freq) {
 		TIM2->CCR1 = period / 2;
 		TIM2->EGR = TIM_PSCReloadMode_Immediate;
 
-		/*
-		 uint32_t period = TICK_CPU_FREQUENCY_HZ / freq;
-		 TIM2->ARR = period;
-		 TIM2->CCR1 = period / 2;
-		 TIM2->EGR = TIM_PSCReloadMode_Immediate;
-		 */
+		//uint32_t period = TICK_CPU_FREQUENCY_HZ / freq;
+		//TIM2->ARR = period;
+		//TIM2->CCR1 = period / 2;
+		//TIM2->EGR = TIM_PSCReloadMode_Immediate;
 	}
 }
 
 void buzzer_generate_sound(BuzzerSoundType sound_type) {
-	switch (sound_type) {
-	case BUZZER_SOUND_START:
-		sound_ptr = buzzer_sound_start;
-		sound_length = sizeof(buzzer_sound_start) / sizeof(BuzzerSoundStep);
-		break;
-
-	case BUZZER_SOUND_MARIO:
-		sound_ptr = buzzer_sound_mario;
-		sound_length = sizeof(buzzer_sound_mario) / sizeof(BuzzerSoundStep);
-		break;
-
-	case BUZZER_SOUND_SINGLE_PEAK:
-		sound_ptr = buzzer_sound_single_peak;
-		sound_length = sizeof(buzzer_sound_single_peak) / sizeof(BuzzerSoundStep);
-		break;
-
-	case BUZZER_SOUND_DOUBLE_PEAK:
-		sound_ptr = buzzer_sound_double_peak;
-		sound_length = sizeof(buzzer_sound_double_peak) / sizeof(BuzzerSoundStep);
-		break;
-
-	case BUZZER_SOUND_TRIPLE_PEAK:
-		sound_ptr = buzzer_sound_triple_peak;
-		sound_length = sizeof(buzzer_sound_triple_peak) / sizeof(BuzzerSoundStep);
-		break;
-
-	case BUZZER_SOUND_TURN_OFF:
-		sound_ptr = buzzer_sound_turn_off;
-		sound_length = sizeof(buzzer_sound_turn_off) / sizeof(BuzzerSoundStep);
-		break;
-
-	default:
-		debug_error(BUZZER_SOUND_NOT_RECOGNISED);
-	}
-
+	sound_ptr = sound_dictionary[sound_type].sound_ptr;
+	sound_length = sound_dictionary[sound_type].sound_length;
 	sound_step = 0;
 	rybos_task_enable(MARKER_TASK_BUZZER, true);
 }
