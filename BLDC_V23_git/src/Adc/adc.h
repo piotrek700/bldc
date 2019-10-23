@@ -33,7 +33,7 @@
 #define ADC_INJ_P2_BEMF				ADC3->JDR2
 #define ADC_INJ_P3_BEMF				ADC4->JDR2
 
-#define ADC_VREF_V					3.2f //3.3f TODO Verify - errata
+#define ADC_VREF_V					3.3f //3.3f TODO Verify - errata
 #define ADC_MAX_VALUE				4095.0f
 #define ADC_NTC_B_25_100_K			3455.0f
 #define ADC_NTC_R0_OHM				10000.0f

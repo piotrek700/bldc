@@ -32,8 +32,8 @@ static volatile float p3_i_offset = 0;
 static volatile float i_offset_ldo = 0;
 
 //MOTO
-#define MOTOR_R									0.08f
-#define MOTOR_L									8.5e-6f
+#define MOTOR_R									0.088f
+#define MOTOR_L									9.27e-6f
 #define MOTOR_PID_TIME_CONSTANT					0.0005f
 
 #define MOTOR_KA								(MOTOR_L/MOTOR_PID_TIME_CONSTANT)
@@ -61,7 +61,7 @@ static volatile float kki = MOTOR_KB * MOTOR_KA;
 
 float tetha = 0;
 float i_d_ref = 0;
-float i_q_ref = 2.0;
+float i_q_ref = 0.5;		//2
 float i_d_err_acc = 0;
 float i_q_err_acc = 0;
 float dt = BLDC_DT;
@@ -220,6 +220,20 @@ void bldc_svm(float alpha, float beta, uint32_t PWMHalfPeriod, uint32_t* tAout, 
 	*svm_sector = sector;
 }
 
+static void bldc_enable_all_pwm_output(void){
+	TIM_SelectOCxM(TIM1, TIM_Channel_1, TIM_OCMode_PWM1);
+	TIM_CCxCmd(TIM1, TIM_Channel_1, TIM_CCx_Enable);
+	TIM_CCxNCmd(TIM1, TIM_Channel_1, TIM_CCxN_Enable);
+
+	TIM_SelectOCxM(TIM1, TIM_Channel_2, TIM_OCMode_PWM1);
+	TIM_CCxCmd(TIM1, TIM_Channel_2, TIM_CCx_Enable);
+	TIM_CCxNCmd(TIM1, TIM_Channel_2, TIM_CCxN_Enable);
+
+	TIM_SelectOCxM(TIM1, TIM_Channel_3, TIM_OCMode_PWM1);
+	TIM_CCxCmd(TIM1, TIM_Channel_3, TIM_CCx_Enable);
+	TIM_CCxNCmd(TIM1, TIM_Channel_3, TIM_CCxN_Enable);
+}
+
 static void bldc_calibrate_v(void) {
 	static uint32_t time = 0;
 	static uint32_t p_offset_cnt = 0;
@@ -238,18 +252,7 @@ static void bldc_calibrate_v(void) {
 			drv8301_set_pwm(DRV8301_PWM_3F_PWM_MAX, DRV8301_PWM_3F_PWM_MAX, DRV8301_PWM_3F_PWM_MAX);
 		}
 
-		TIM_SelectOCxM(TIM1, TIM_Channel_1, TIM_OCMode_PWM1);
-		TIM_CCxCmd(TIM1, TIM_Channel_1, TIM_CCx_Enable);
-		TIM_CCxNCmd(TIM1, TIM_Channel_1, TIM_CCxN_Enable);
-
-		TIM_SelectOCxM(TIM1, TIM_Channel_2, TIM_OCMode_PWM1);
-		TIM_CCxCmd(TIM1, TIM_Channel_2, TIM_CCx_Enable);
-		TIM_CCxNCmd(TIM1, TIM_Channel_2, TIM_CCxN_Enable);
-
-		TIM_SelectOCxM(TIM1, TIM_Channel_3, TIM_OCMode_PWM1);
-		TIM_CCxCmd(TIM1, TIM_Channel_3, TIM_CCx_Enable);
-		TIM_CCxNCmd(TIM1, TIM_Channel_3, TIM_CCxN_Enable);
-
+		bldc_enable_all_pwm_output();
 		DRV8301_PWM_UPDATE_EVENT;
 	} else if (tick_get_time_ms() - time > BEMF_V_CALIBRATION_WAIT_TIME_MS) {	//TODO define
 		if (h_complete) {
@@ -277,11 +280,12 @@ static void bldc_calibrate_v(void) {
 				float v3 = v3_bemf_offset * ADC_V_GAIN;
 				v3 *= v_bemf_offset_ldo / ADC_MAX_VALUE;
 
-				printf("Calibration BEMF V1[V]: %f\n", v1);
-				printf("Calibration BEMF V2[V]: %f\n", v2);
-				printf("Calibration BEMF V3[V]: %f\n", v3);
-				printf("Calibration BEMF VLDO[V]: %f\n", v_bemf_offset_ldo);
-				printf("Calibration BEMF VCC[V]: %f\n", v_bemf_offset_vcc);
+				//GND floor measurement
+				printf("Calibration BEMF L V1[V]: %f\n", v1);
+				printf("Calibration BEMF L V2[V]: %f\n", v2);
+				printf("Calibration BEMF L V3[V]: %f\n", v3);
+				printf("Calibration BEMF L VLDO[V]: %f\n", v_bemf_offset_ldo);
+				printf("Calibration BEMF L VCC[V]: %f\n", v_bemf_offset_vcc);
 
 				state_machine = BLDC_STATE_CALIBRATE_FINISH;
 			}
@@ -310,6 +314,7 @@ static void bldc_calibrate_v(void) {
 				float v3 = v3_bemf_h * ADC_V_GAIN;
 				v3 *= v_bemf_h_ldo / ADC_MAX_VALUE;
 
+				//VCC measurement
 				printf("Calibration BEMF H V1[V]: %f\n", v1);
 				printf("Calibration BEMF H V2[V]: %f\n", v2);
 				printf("Calibration BEMF H V3[V]: %f\n", v3);
@@ -353,21 +358,10 @@ static void bldc_calibrate_i(void) {
 }
 
 void bldc_stop(void) {
-	//TODO optimize and veryfy
+	//TODO optimize and verify
 	drv8301_set_pwm(0, 0, 0);
 
-	TIM_SelectOCxM(TIM1, TIM_Channel_1, TIM_OCMode_PWM1);
-	TIM_CCxCmd(TIM1, TIM_Channel_1, TIM_CCx_Enable);
-	TIM_CCxNCmd(TIM1, TIM_Channel_1, TIM_CCxN_Enable);
-
-	TIM_SelectOCxM(TIM1, TIM_Channel_2, TIM_OCMode_PWM1);
-	TIM_CCxCmd(TIM1, TIM_Channel_2, TIM_CCx_Enable);
-	TIM_CCxNCmd(TIM1, TIM_Channel_2, TIM_CCxN_Enable);
-
-	TIM_SelectOCxM(TIM1, TIM_Channel_3, TIM_OCMode_PWM1);
-	TIM_CCxCmd(TIM1, TIM_Channel_3, TIM_CCx_Enable);
-	TIM_CCxNCmd(TIM1, TIM_Channel_3, TIM_CCxN_Enable);
-
+	bldc_enable_all_pwm_output();
 	DRV8301_PWM_UPDATE_EVENT;
 }
 
@@ -797,6 +791,19 @@ void bldc_foc(void) {
 	float v_d = i_d_err * BLDC_PID_KP + i_d_err_acc;
 	float v_q = i_q_err * BLDC_PID_KP + i_q_err_acc;
 
+	//Inject pulse
+	/*
+	static uint32_t pulse_cnt = 0;
+	pulse_cnt++;
+
+	if(pulse_cnt< 5){
+		v_d += BLDC_VDQ_MAX_LIMIT / 8.0f;
+	}
+
+	if(pulse_cnt>DRV8301_PWM_3F_SWITCHING_FREQ_HZ / 250){ //TODO enum 250hz
+		pulse_cnt=0;
+	}
+	*/
 	//TODO dynamic I limit
 
 	//Maximum limitation
@@ -995,10 +1002,10 @@ void bldc_task(void) {
 
 	case BLDC_STATE_FOC:
 		//TODO enable
-		//bldc_foc();
+		bldc_foc();
 
 		//TODO remove
-		bldc_send_data();
+		//bldc_send_data();
 		break;
 
 	case BLDC_STATE_MEASURE_R:

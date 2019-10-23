@@ -20,8 +20,6 @@ void drv8301_status_register1_cb(uint8_t *rx) {
 	drv8301_check_fault(stat_reg1);
 
 	status_reg1 = (*stat_reg1) & DRV8301_SR1_FAULT_MASK;
-
-	//TODO implement analysis
 }
 
 //2
@@ -32,8 +30,6 @@ void drv8301_status_register2_cb(uint8_t *rx) {
 	drv8301_check_fault(stat_reg2);
 
 	status_reg2 = (*stat_reg2) & DRV8301_SR2_FAULT_MASK;
-
-	//TODO implement analysis
 }
 
 //3
