@@ -11,18 +11,18 @@ static void debug_critical_error(DebugError error, uint8_t *file, int32_t line) 
 
 static void debug_message_error(DebugError error, uint8_t *file, int32_t line) {
 	if(error ==RADIO_RX_FRAME_SIZE_OUT_OF_RANGE){	//TODO remove
-		LED_RED_ON;									//TODO remove
+		//LED_RED_ON;									//TODO remove
 	}
 
 	if(error ==SI4468_PACKET_CRC_ERROR_IRQ){	//TODO remove
-		LED_RED_ON;									//TODO remove
-		LED_RED_OFF;
+		//LED_RED_ON;									//TODO remove
+		//LED_RED_OFF;
 	}
 
 	//LED_RED_ON; //todo uncomment
 	//LED_RED_OFF; //todo uncomment
 
-	printf("Error: %u, file: %s, line: %d\n", (unsigned int)error, file, (int)line);
+	//printf("Error: %u, file: %s, line: %d\n", (unsigned int)error, file, (int)line);
 }
 
 void debug_error_handler(DebugError error, uint8_t *file, int32_t line){

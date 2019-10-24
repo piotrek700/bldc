@@ -309,6 +309,9 @@ float adc_bldc_left_time(void){
 }
 
 void ADC1_2_IRQHandler(void) {															//3%
+	LED_RED_ON;									//TODO remove
+	LED_RED_OFF;
+
 	left_cycles = tick_get_clock_tick()-left_cycles;
 	//asm volatile("" ::: "memory");
 	//LED_RED_ON;

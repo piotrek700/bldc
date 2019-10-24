@@ -88,51 +88,51 @@ static void print_bldc_status(uint16_t status_reg1, uint16_t status_reg2) {
 	//TODO add frame send to master
 
 	if (status_reg1 & DRV8301_SR1_FAULT) {
-		printf("DRV8310 Fault: FAULT");
+		printf("DRV8310 Fault: FAULT\n");
 	}
 
 	if (status_reg1 & DRV8301_SR1_GVDD_UV) {
-		printf("DRV8310 Fault: GVDD_UV (DRV8301 Vdd, Under Voltage)");
+		printf("DRV8310 Fault: GVDD_UV (DRV8301 Vdd, Under Voltage)\n");
 	}
 
 	if (status_reg1 & DRV8301_SR1_PVDD_UV) {
-		printf("DRV8310 Fault: VDD_UV (Power supply Vdd, Under Voltage)");
+		printf("DRV8310 Fault: VDD_UV (Power supply Vdd, Under Voltage)\n");
 	}
 
 	if (status_reg1 & DRV8301_SR1_OTSD) {
-		printf("DRV8310 Fault: OTSD (Over Temperature Shut Down)");
+		printf("DRV8310 Fault: OTSD (Over Temperature Shut Down)\n");
 	}
 
 	if (status_reg1 & DRV8301_SR1_OTW) {
-		printf("DRV8310 Fault: OTW (Over Temperature Warning)");
+		printf("DRV8310 Fault: OTW (Over Temperature Warning)\n");
 	}
 
 	if (status_reg1 & DRV8301_SR1_FETHA_OC) {
-		printf("DRV8310 Fault: FETHA_OC (FET High side, Phase A Over Current)");
+		printf("DRV8310 Fault: FETHA_OC (FET High side, Phase A Over Current)\n");
 	}
 
 	if (status_reg1 & DRV8301_SR1_FETLA_OC) {
-		printf("DRV8310 Fault: FETLA_OC (FET Low side, Phase A Over Current)");
+		printf("DRV8310 Fault: FETLA_OC (FET Low side, Phase A Over Current)\n");
 	}
 
 	if (status_reg1 & DRV8301_SR1_FETHB_OC) {
-		printf("DRV8310 Fault: FETHB_OC (FET High side, Phase B Over Current)");
+		printf("DRV8310 Fault: FETHB_OC (FET High side, Phase B Over Current)\n");
 	}
 
 	if (status_reg1 & DRV8301_SR1_FETLB_OC) {
-		printf("DRV8310 Fault: FETLB_OC (FET Low side, Phase B Over Current)");
+		printf("DRV8310 Fault: FETLB_OC (FET Low side, Phase B Over Current)\n");
 	}
 
 	if (status_reg1 & DRV8301_SR1_FETHC_OC) {
-		printf("DRV8310 Fault: FETHC_OC (FET High side, Phase C Over Current)");
+		printf("DRV8310 Fault: FETHC_OC (FET High side, Phase C Over Current)\n");
 	}
 
 	if (status_reg1 & DRV8301_SR1_FETLC_OC) {
-		printf("DRV8310 Fault: FETLC_OC (FET Low side, Phase C Over Current)");
+		printf("DRV8310 Fault: FETLC_OC (FET Low side, Phase C Over Current)\n");
 	}
 
 	if (status_reg2 & DRV8301_SR2_GVDD_OV) {
-		printf("DRV8310 Fault: GVDD_OV (DRV8301 Vdd, Over Voltage)");
+		printf("DRV8310 Fault: GVDD_OV (DRV8301 Vdd, Over Voltage)\n");
 	}
 }
 

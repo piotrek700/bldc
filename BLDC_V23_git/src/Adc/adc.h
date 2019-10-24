@@ -49,7 +49,7 @@
 #define ADC_V_OFFSET_COUNTER_MAX	4096
 
 #define ADC_V_GAIN					((15.0f+3.3f)/3.3f)
-#define ADC_I_GAIN					20.0f //DRV OP amp gain
+#define ADC_I_GAIN					80.0f //DRV OP amp gain
 #define ADC_I_R_OHM					0.004f
 
 #define ADC_DMA_LENGTH				48
