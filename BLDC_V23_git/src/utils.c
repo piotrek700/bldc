@@ -27,7 +27,7 @@ float fast_atan2f(float y, float x) {
 
 	float atan;
 	float z = y / x;
-	if (fabs(z) < 1.0f) {
+	if (fabsf(z) < 1.0f) {
 		atan = z / (1.0f + 0.28f * z * z);
 		if (x < 0.0f) {
 			if (y < 0.0f)

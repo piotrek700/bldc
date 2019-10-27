@@ -10,7 +10,7 @@
 
 #define BLDC_L_MEASUREMENT_START_TIME_MS		500
 #define BLDC_MEASURE_L_WAIT_CYCLES				64
-#define BLDC_MEASURE_L_DUTY						0.4
+#define BLDC_MEASURE_L_DUTY						0.4f
 #define BLDC_MEASURE_L_SAMPLES					1024*BLDC_MEASURE_L_WAIT_CYCLES
 
 static volatile float v1_bemf_h = 0;
@@ -34,7 +34,7 @@ static volatile float i_offset_ldo = 0;
 //MOTO
 #define MOTOR_R									0.088f
 #define MOTOR_L									9.27e-6f
-#define MOTOR_PID_TIME_CONSTANT					0.0005f
+#define MOTOR_PID_TIME_CONSTANT					0.0005f	//0.0005f
 
 #define MOTOR_KA								(MOTOR_L/MOTOR_PID_TIME_CONSTANT)
 #define MOTOR_KB								(MOTOR_R/MOTOR_L)
@@ -47,6 +47,12 @@ static volatile float i_offset_ldo = 0;
 
 //#define BLDC_PID_KP 							MOTOR_KA					//0.2
 //#define BLDC_PID_KI								MOTOR_KB * MOTOR_KA		//100
+
+//Speed PID
+#define BLDC_SPEED_PID_KP						0.005f
+#define BLDC_SPEED_PID_KI						0.0f
+#define BLDC_SPEED_PID_KD						0.0f
+#define BLDC_SPEED_PID_I_LIMIT					1.0f
 
 static volatile float kkp = MOTOR_KA;
 static volatile float kki = MOTOR_KB * MOTOR_KA;
@@ -68,7 +74,9 @@ float dt = BLDC_DT;
 float i_d_lpf = 0;
 float i_q_lpf = 0;
 
-#define BLDC_DQ_LPF_ALPHA						BLDC_DQ_LPF_CUTOFF_FREQ/(BLDC_DQ_LPF_CUTOFF_FREQ+((float)DRV8301_PWM_3F_SWITCHING_FREQ_HZ)/(2.0f*M_PI))
+float speed_err_acc = 0;
+
+#define BLDC_DQ_LPF_ALPHA						BLDC_DQ_LPF_CUTOFF_FREQ/(BLDC_DQ_LPF_CUTOFF_FREQ+((float)DRV8301_PWM_3F_SWITCHING_FREQ_HZ)/(2.0f*(float)M_PI))
 
 float dq_lpf_alpha = BLDC_DQ_LPF_ALPHA;
 
@@ -574,7 +582,7 @@ void bldc_measure_l(void) {
 			float i2 = (measure_l_i1_avr_2 + measure_l_i3_avr_2) / (float) measure_l_cnt;
 			float v1 = measure_l_vcc_avr_1 / (float) measure_l_cnt;
 			float v2 = measure_l_vcc_avr_2 / (float) measure_l_cnt;
-			float l = -(i1 * v2 + (-i2 - i1) * v1) * duty_time / (2.0f * i1 * i1) * 2.0f / 3.0f * 1e6;
+			float l = -(i1 * v2 + (-i2 - i1) * v1) * duty_time / (2.0f * i1 * i1) * 2.0f / 3.0f * 1e6f;
 
 			printf("Measured L AVR L[uH]: %f\n", l);
 
@@ -607,10 +615,10 @@ float utils_fast_atan2(float y, float x) {
 }
 
 #define UTILS_IS_NAN(x)		((x) != (x))
-#define UTILS_NAN_ZERO(x)	(x = UTILS_IS_NAN(x) ? 0.0 : x)
+#define UTILS_NAN_ZERO(x)	(x = UTILS_IS_NAN(x) ? 0.0f : x)
 #define SQ(x)				((x) * (x))
 
-float m_gamma_now = 5e8;
+float m_gamma_now = 5e8;//2696282635.13f;//5e8;
 static float x1 = 0;
 static float x2 = 0;
 
@@ -639,7 +647,7 @@ void observer_update(float v_alpha, float v_beta, float i_alpha, float i_beta, f
 		const float R_ia = R * i_alpha;
 		const float R_ib = R * i_beta;
 		const float lambda_2 = SQ(lambda);
-		const float gamma_half = m_gamma_now * 0.5;
+		const float gamma_half = m_gamma_now * 0.5f;
 
 		// Original
 	//	float err = lambda_2 - (SQ(*x1 - L_ia) + SQ(*x2 - L_ib));
@@ -654,8 +662,8 @@ void observer_update(float v_alpha, float v_beta, float i_alpha, float i_beta, f
 		for (int i = 0;i < iterations;i++) {
 			float err = lambda_2 - (SQ(x1 - L_ia) + SQ(x2 - L_ib));
 			float gamma_tmp = gamma_half;
-			if (utils_truncate_number_abs(&err, lambda_2 * 0.2)) {
-				gamma_tmp *= 10.0;
+			if (utils_truncate_number_abs(&err, lambda_2 * 0.2f)) {
+				gamma_tmp *= 10.0f;
 			}
 			float x1_dot = -R_ia + v_alpha + gamma_tmp * (x1 - L_ia) * err;
 			float x2_dot = -R_ib + v_beta + gamma_tmp * (x2 - L_ib) * err;
@@ -707,12 +715,12 @@ volatile float foc_pll_ki = 40000.0;
 
 
 void utils_norm_angle_rad(float *angle) {
-	while (*angle < -M_PI) {
-		*angle += 2.0 * M_PI;
+	while (*angle < -(float)M_PI) {
+		*angle += 2.0f * (float)M_PI;
 	}
 
-	while (*angle > M_PI) {
-		*angle -= 2.0 * M_PI;
+	while (*angle > (float)M_PI) {
+		*angle -= 2.0f * (float)M_PI;
 	}
 }
 
@@ -737,12 +745,14 @@ void bldc_foc(void) {
 	float v_ldo_v = adc_get_v_ldo_v();
 
 	//I1
-	float p1_i = -(((float) ADC_INJ_P1_I) - p1_i_offset) / ADC_I_GAIN;
+	float p1_i = -(((float) ADC_INJ_P1_I) - p1_i_offset)  *ADC_ONE_OVER_I_GAIN;
 	p1_i *= v_ldo_v / ADC_MAX_VALUE / ADC_I_R_OHM;
 
 	//I3
-	float p3_i = -(((float) ADC_INJ_P3_I) - p3_i_offset) / ADC_I_GAIN;
+	float p3_i = -(((float) ADC_INJ_P3_I) - p3_i_offset)  *ADC_ONE_OVER_I_GAIN;
 	p3_i *= v_ldo_v / ADC_MAX_VALUE / ADC_I_R_OHM;
+
+
 
 	//VCC
 	float vcc = adc_get_v_vcc_v();
@@ -841,6 +851,45 @@ void bldc_foc(void) {
 
 	tetha = tetha * (180.0f / (float) M_PI);
 
+	//Startup
+	/*
+	static uint32_t start_cnt=0;
+	static uint32_t stepup_steps = 0;
+	start_cnt++;
+	if(start_cnt==DRV8301_PWM_3F_SWITCHING_FREQ_HZ/2){
+		start_cnt=0;
+		if(stepup_steps<25){		//5A
+			stepup_steps++;
+
+			i_q_ref+=0.2;
+		}
+	}*/
+
+/*
+	//PID speed
+	float speed_ref = 500.0f;
+
+	//PID P error
+	float speed_err = speed_ref - m_pll_speed;
+*/
+	/*
+	//PID I error
+	speed_err_acc += speed_err_acc * dt * BLDC_SPEED_PID_KI;
+
+	//PID I limit
+	if (speed_err_acc > BLDC_SPEED_PID_I_LIMIT) {
+		speed_err_acc = BLDC_SPEED_PID_I_LIMIT;
+	} else if (speed_err_acc < -BLDC_PID_I_LIMIT) {
+		speed_err_acc = -BLDC_PID_I_LIMIT;
+	}
+	*/
+	//PID out limit
+	//float pid_speed_out = speed_err * BLDC_SPEED_PID_KP;// + speed_err_acc;
+
+	//i_q_ref = pid_speed_out;
+	//if(i_q_ref<0){
+	//	i_q_ref=0;
+	//}
 
 	//Additional
 	g_i_d=i_d;

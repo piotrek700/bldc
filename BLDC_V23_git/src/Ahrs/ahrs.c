@@ -117,15 +117,15 @@ void ahrs_rotate_0(void) {
 
 //Tait-bryan http://www.chrobotics.com/library/understanding-quaternions
 float ahrs_get_yaw(void) {
-	return fast_atan2f(2.0f * (q2y * q2z + q2w * q2x), q2w * q2w - q2x * q2x - q2y * q2y + q2z * q2z) * 180.0f * M_1_PI;
+	return fast_atan2f(2.0f * (q2y * q2z + q2w * q2x), q2w * q2w - q2x * q2x - q2y * q2y + q2z * q2z) * 180.0f * (float)M_1_PI;
 }
 
 float ahrs_get_pitch(void) {
-	return asinf(2.0f * (q2x * q2z - q2w * q2y)) * 180.0f * M_1_PI;
+	return asinf(2.0f * (q2x * q2z - q2w * q2y)) * 180.0f * (float)M_1_PI;
 }
 
 float ahrs_get_roll(void) {
-	return -fast_atan2f(2.0f * (q2x * q2y + q2w * q2z), q2w * q2w + q2x * q2x - q2y * q2y - q2z * q2z) * 180.0f * M_1_PI;
+	return -fast_atan2f(2.0f * (q2x * q2y + q2w * q2z), q2w * q2w + q2x * q2x - q2y * q2y - q2z * q2z) * 180.0f * (float)M_1_PI;
 }
 
 float *ahrs_get_q1(void) {

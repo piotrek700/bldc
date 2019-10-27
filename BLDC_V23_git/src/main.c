@@ -310,10 +310,10 @@ static void print_fast_param(void) {
 	frame.ahrs.q[2] = q[2] * 32767.0f;																		//	  -1 	-     1
 	frame.ahrs.q[3] = q[3] * 32767.0f;																		//	  -1 	-     1
 
-	frame.servo.angle[0] = (angle[0] * 32767.0f) / 180.0;													//	-180 	-  	180		deg
-	frame.servo.angle[1] = (angle[1] * 32767.0f) / 180.0;													//	-180 	-  	180		deg
-	frame.servo.angle[2] = (angle[2] * 32767.0f) / 180.0;													//	-180 	-  	180		deg
-	frame.servo.angle[3] = (angle[3] * 32767.0f) / 180.0;													//	-180 	-  	180		deg
+	frame.servo.angle[0] = (angle[0] * 32767.0f) / 180.0f;													//	-180 	-  	180		deg
+	frame.servo.angle[1] = (angle[1] * 32767.0f) / 180.0f;													//	-180 	-  	180		deg
+	frame.servo.angle[2] = (angle[2] * 32767.0f) / 180.0f;													//	-180 	-  	180		deg
+	frame.servo.angle[3] = (angle[3] * 32767.0f) / 180.0f;													//	-180 	-  	180		deg
 
 	//Slave->Master->PC
 	frame_radio_send(FRAME_TYPE_FAST_PARAMS_SLAVE, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);

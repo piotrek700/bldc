@@ -349,25 +349,31 @@ void ADC1_2_IRQHandler(void) {															//3%
 	}
 
 	//Check left time
-	left_time = 100.0f * (float) DRV8301_PWM_3F_SWITCHING_FREQ_HZ * (float) left_cycles / (float) TICK_CPU_FREQUENCY_HZ;
+	//left_time = 100.0f * (float) DRV8301_PWM_3F_SWITCHING_FREQ_HZ * (float) left_cycles / (float) TICK_CPU_FREQUENCY_HZ;
+	left_time = 0.0277777777777778f * left_cycles;
+
 
 	//V LDO calculate
 	v_ldo_v = ADC_VREF_V * ((float) (*VREFINT_CAL)) / ((float) ADC_INJ_VREF_INT);		//21%
 
+	//TODO calclate 1/100
 	//Calculate NTC temperature
 	float tmp;
 	tmp = (ADC_NTC_R2_OHM * ((float) ADC_INJ_NTC)) / (ADC_MAX_VALUE - ((float) ADC_INJ_NTC));
 	ntc_temperature_c = ADC_NTC_B_25_100_K / fast_log(tmp / ADC_NTC_R_INF) - ADC_KELVIN_OFFSET;
 
+	//TODO calclate 2/100
 	//Calculate uP temperature
 	tmp = (((float) ADC_INJ_TEMP_SENS) - (float) *ADC_TEMP30_CAL_ADDR) * (110.0f - 30.0f);
 	up_temperature_c = tmp / (float) (*ADC_TEMP110_CAL_ADDR - *ADC_TEMP30_CAL_ADDR) + 30.0f;
 
 	//Voltage calculation
-	v_vcc_v = ((float) ADC_INJ_VCC) * ADC_V_GAIN;
-	v_vcc_v *= v_ldo_v / ADC_MAX_VALUE;
+	//v_vcc_v = ((float) ADC_INJ_VCC) * ADC_V_GAIN;
+	//v_vcc_v *= v_ldo_v / ADC_MAX_VALUE;
+	v_vcc_v = ((float) ADC_INJ_VCC) * v_ldo_v * 0.0013542013542014f;
 
 	if(bldc_enable){
+		//TODO redesign that to use reference
 		bldc_task();
 	}
 

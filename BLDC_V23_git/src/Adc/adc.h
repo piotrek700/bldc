@@ -35,6 +35,7 @@
 
 #define ADC_VREF_V					3.3f //3.3f TODO Verify - errata
 #define ADC_MAX_VALUE				4095.0f
+
 #define ADC_NTC_B_25_100_K			3455.0f
 #define ADC_NTC_R0_OHM				10000.0f
 #define ADC_NTC_R2_OHM				10000.0f
@@ -50,11 +51,16 @@
 
 #define ADC_V_GAIN					((15.0f+3.3f)/3.3f)
 #define ADC_I_GAIN					80.0f //DRV OP amp gain
+
 #define ADC_I_R_OHM					0.004f
 
 #define ADC_DMA_LENGTH				48
 
 #define ADC_TIEMOUT_CYCLES			500000
+
+#define ADC_ONE_OVER_I_GAIN					(1.0f/ADC_I_GAIN) //DRV OP amp gain
+#define ADC_ONE_OVER_MAX_VALUE				(1.0f/ADC_MAX_VALUE)
+#define ADC_ONE_OVER_I_R_OHM				(1.0f/ADC_I_R_OHM)
 
 void adc_init(void);
 
