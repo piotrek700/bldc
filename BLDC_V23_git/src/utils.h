@@ -6,12 +6,14 @@
 
 //Define
 #define SWAP_UINT16(x) 								((uint16_t)((x) >> 8) | (uint16_t)((x) << 8))	//TODO instuction in arm
-#define UNUSED(x) (void)(x)
+#define UNUSED(x) 									(void)(x)
+#define IS_NAN(x)									((x) != (x))
 
 //Functions
 float inv_sqrtf(float x);
 
 float fast_atan2f(float y, float x);
+float fast_atan2f_sec(float y, float x);
 float fast_log(float val);
 
 void safe_increment(uint32_t *addr);

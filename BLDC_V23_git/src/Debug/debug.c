@@ -1,8 +1,11 @@
 #include "debug.h"
+#include "../Bldc/bldc.h"
 
 static void debug_critical_error(DebugError error, uint8_t *file, int32_t line) {
 	LED_RED_ON;	//todo uncomment
 	//LED_RED_OFF; //todo uncomment
+
+	bldc_set_active_state(BLDC_STATE_STOP);
 
 	printf("Critical error code: %u, file: %s, line: %d\n", (unsigned int)error, file, (int)line);
 	log_tx_flush();

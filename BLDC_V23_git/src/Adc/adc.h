@@ -44,13 +44,13 @@
 #define ADC_NTC_R_INF				0.09275567347300997333f	//r_inf=ADC_NTC_R0_OHM*exp(-ADC_NTC_B_25_100_K/ADC_NTC_T0_K)
 
 #define ADC_MIN_BAT_V				9.5f	//3.1f*3+margin
-#define ADC_NTC_MAX_TEMP_C			80.0f
+#define ADC_NTC_MAX_TEMP_C			75.0f
 
 #define ADC_I_OFFSET_COUNTER_MAX	4096
 #define ADC_V_OFFSET_COUNTER_MAX	4096
 
 #define ADC_V_GAIN					((15.0f+3.3f)/3.3f)
-#define ADC_I_GAIN					80.0f //DRV OP amp gain
+#define ADC_I_GAIN					20.0f //DRV OP amp gain
 
 #define ADC_I_R_OHM					0.004f
 
@@ -58,9 +58,9 @@
 
 #define ADC_TIEMOUT_CYCLES			500000
 
-#define ADC_ONE_OVER_I_GAIN					(1.0f/ADC_I_GAIN) //DRV OP amp gain
-#define ADC_ONE_OVER_MAX_VALUE				(1.0f/ADC_MAX_VALUE)
-#define ADC_ONE_OVER_I_R_OHM				(1.0f/ADC_I_R_OHM)
+static volatile uint16_t *VREFINT_CAL = (uint16_t *) ((uint32_t) 0x1FFFF7BA);
+static volatile uint16_t *ADC_TEMP110_CAL_ADDR = (uint16_t *) ((uint32_t) 0x1FFFF7C2);
+static volatile uint16_t *ADC_TEMP30_CAL_ADDR = (uint16_t *) ((uint32_t) 0x1FFFF7B8);
 
 void adc_init(void);
 
@@ -68,24 +68,10 @@ void adc_test(void);
 
 bool adc_get_init_status(void);
 
-float adc_get_v_ldo_v(void);
-
-float adc_get_v_vcc_v(void);
-
-float adc_get_ntc_temperature_c(void);
-
-float adc_get_up_temperature_c(void);
-
 void adc_dma_reinit(void);
 
 uint16_t * adc_get_dma_adc2_buffer(void);
 
 uint16_t * adc_get_dma_adc4_buffer(void);
-
-bool adc_bldc_status(void);
-
-void adc_set_bldc_enable(bool status);
-
-float adc_bldc_left_time(void);
 
 #endif

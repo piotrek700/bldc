@@ -8,7 +8,8 @@ static volatile uint16_t status_reg2 = 0;
 
 static void drv8301_check_fault(uint16_t * value) {
 	if ((*value & DRV8301_READ_FAULT)) {
-		debug_error(DRV8301_READ_FRAME_FAULT);
+		//TODO enable
+		//debug_error(DRV8301_READ_FRAME_FAULT);
 	}
 }
 

@@ -1,31 +1,14 @@
 #include "adc.h"
 
-static volatile uint16_t *VREFINT_CAL = (uint16_t *) ((uint32_t) 0x1FFFF7BA);
-static volatile uint16_t *ADC_TEMP110_CAL_ADDR = (uint16_t *) ((uint32_t) 0x1FFFF7C2);
-static volatile uint16_t *ADC_TEMP30_CAL_ADDR = (uint16_t *) ((uint32_t) 0x1FFFF7B8);
-
 static bool init_status = false;
-static bool bldc_enable = false;
 
 static volatile uint32_t adc_calib_value_ch1 = 0;
 static volatile uint32_t adc_calib_value_ch2 = 0;
 static volatile uint32_t adc_calib_value_ch3 = 0;
 static volatile uint32_t adc_calib_value_ch4 = 0;
 
-static volatile float v_vcc_v = 0;
-static volatile float v_ldo_v = 0;
-static volatile float up_temperature_c = 0;
-static volatile float ntc_temperature_c = 0;
-
 static volatile uint16_t adc2_dma[ADC_DMA_LENGTH];
 static volatile uint16_t adc4_dma[ADC_DMA_LENGTH];
-
-static volatile uint32_t left_cycles=0;
-static volatile float left_time =0;
-
-static void adc_stop_bldc(void){
-	//TODO implement
-}
 
 static void adc_gpio_init(void) {
 	//NTC		ADC1	CH2		PA1
@@ -281,18 +264,18 @@ static void adc_nvic_init(void) {
 	NVIC_InitTypeDef NVIC_InitStructure;
 
 	NVIC_InitStructure.NVIC_IRQChannel = ADC1_2_IRQn;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 4;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 3;
 	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
 	NVIC_Init(&NVIC_InitStructure);
 
-	NVIC_SetPriority(ADC1_2_IRQn, 4);
+	NVIC_SetPriority(ADC1_2_IRQn, 3);
 /*
 	NVIC_InitStructure.NVIC_IRQChannel = ADC4_IRQn;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 3;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 2;
 	NVIC_Init(&NVIC_InitStructure);
 
-	NVIC_SetPriority(ADC4_IRQn, 3);
+	NVIC_SetPriority(ADC4_IRQn, 2);
 
 	NVIC_InitStructure.NVIC_IRQChannel = DMA2_Channel2_IRQn;
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1;
@@ -302,28 +285,35 @@ static void adc_nvic_init(void) {
 	*/
 }
 
+void ADC1_2_IRQHandler(void) {
+	static uint32_t start_tick=0;
+	static uint32_t stop_tick=0;
+	static uint32_t run_cnt=0;
+	static uint32_t max_tick=0;
+	static uint32_t min_tick=UINT32_MAX;
+	static uint32_t avr_tick=0;
 
+	//Check left time
+	//left_time = 100.0f * (float) DRV8301_PWM_3F_SWITCHING_FREQ_HZ * (float) left_cycles / (float) TICK_CPU_FREQUENCY_HZ;
 
-float adc_bldc_left_time(void){
-	return left_time;
-}
+	rybos_task_start_marker(MARKER_IRQ_ADC_NTC);
 
-void ADC1_2_IRQHandler(void) {															//3%
-	LED_RED_ON;									//TODO remove
+	//TODO remove time verification
+
+	//Blink LED
+	LED_RED_ON;
 	LED_RED_OFF;
 
-	left_cycles = tick_get_clock_tick()-left_cycles;
-	//asm volatile("" ::: "memory");
-	//LED_RED_ON;
-	rybos_task_start_marker(MARKER_IRQ_ADC_NTC);										//15%
+	//Start time
+	start_tick = tick_get_clock_tick();
 
-	//ADC1 clear pending iqr bit 	ADC_ClearITPendingBit(ADC1, ADC_IT_JEOS);
+	//ADC1 clear pending IRQ bit
 	ADC1->ISR = (uint32_t) 0x7FF;
 	ADC2->ISR = (uint32_t) 0x7FF;//ADC_IT_JEOS;
 	ADC3->ISR = (uint32_t) 0x7FF;//ADC_IT_JEOS;
 	ADC4->ISR = (uint32_t) 0x7FF;//ADC_IT_JEOS;
 
-
+	/*
 	//Check if ADC1 IRQ complete
 	if (ADC_GetITStatus(ADC1, ADC_IT_JEOS)) {
 		ADC_ClearITPendingBit(ADC1, ADC_IT_JEOS);
@@ -347,41 +337,53 @@ void ADC1_2_IRQHandler(void) {															//3%
 	if (ADC_GetITStatus(ADC4, ADC_IT_OVR)) {
 		//debug_error_handler(ADC234_OVERRUN_ERROR);
 	}
+	*/
 
-	//Check left time
-	//left_time = 100.0f * (float) DRV8301_PWM_3F_SWITCHING_FREQ_HZ * (float) left_cycles / (float) TICK_CPU_FREQUENCY_HZ;
-	left_time = 0.0277777777777778f * left_cycles;
+	//FOC
+	bldc_adc_irq_hanlder();
 
+	//Stop time
+	stop_tick = tick_get_clock_tick();
 
-	//V LDO calculate
-	v_ldo_v = ADC_VREF_V * ((float) (*VREFINT_CAL)) / ((float) ADC_INJ_VREF_INT);		//21%
-
-	//TODO calclate 1/100
-	//Calculate NTC temperature
-	float tmp;
-	tmp = (ADC_NTC_R2_OHM * ((float) ADC_INJ_NTC)) / (ADC_MAX_VALUE - ((float) ADC_INJ_NTC));
-	ntc_temperature_c = ADC_NTC_B_25_100_K / fast_log(tmp / ADC_NTC_R_INF) - ADC_KELVIN_OFFSET;
-
-	//TODO calclate 2/100
-	//Calculate uP temperature
-	tmp = (((float) ADC_INJ_TEMP_SENS) - (float) *ADC_TEMP30_CAL_ADDR) * (110.0f - 30.0f);
-	up_temperature_c = tmp / (float) (*ADC_TEMP110_CAL_ADDR - *ADC_TEMP30_CAL_ADDR) + 30.0f;
-
-	//Voltage calculation
-	//v_vcc_v = ((float) ADC_INJ_VCC) * ADC_V_GAIN;
-	//v_vcc_v *= v_ldo_v / ADC_MAX_VALUE;
-	v_vcc_v = ((float) ADC_INJ_VCC) * v_ldo_v * 0.0013542013542014f;
-
-	if(bldc_enable){
-		//TODO redesign that to use reference
-		bldc_task();
+	//Calculate difference
+	//Overflow protection
+	uint32_t time_diff;
+	if (stop_tick >= start_tick) {
+		time_diff = stop_tick - start_tick;
+	} else {
+		time_diff = (uint32_t) 0xFFFFFFFF - (start_tick - stop_tick) + (uint32_t)1;
 	}
 
-	rybos_task_stop_marker(MARKER_IRQ_ADC_NTC);		//15%
-	//LED_RED_OFF;
-	//asm volatile("" ::: "memory");
-	left_cycles = tick_get_clock_tick();
+	//Average
+	avr_tick += time_diff;
+
+	//Max
+	if(time_diff>max_tick){
+		max_tick = time_diff;
+	}
+
+	//Min
+	if(time_diff<min_tick){
+		min_tick = time_diff;
+	}
+
+	//Print
+	run_cnt++;
+	if(run_cnt==DRV8301_PWM_3F_SWITCHING_FREQ_HZ){
+		float avr_f= (float)avr_tick / (float)run_cnt;
+		printf("FOC Cycles Min, Max, AVR: %u, %u, %.3f\n", min_tick, max_tick, avr_f);
+
+		run_cnt=0;
+		max_tick=0;
+		min_tick=UINT32_MAX;
+		avr_tick=0;
+	}
+
+	rybos_task_stop_marker(MARKER_IRQ_ADC_NTC);
+
+	//left_cycles = tick_get_clock_tick();
 }
+
 /*
 void ADC4_IRQHandler(void) {
 	rybos_task_start_marker(MARKER_IRQ_ADC_BLDC);
@@ -401,6 +403,7 @@ void ADC4_IRQHandler(void) {
 	rybos_task_stop_marker(MARKER_IRQ_ADC_BLDC);
 }
 */
+
 uint16_t * adc_get_dma_adc2_buffer(void) {
 	return (uint16_t *) adc2_dma;
 }
@@ -493,39 +496,11 @@ void adc_init(void) {
 	init_status = true;
 }
 
-float adc_get_v_ldo_v(void) {
-	return v_ldo_v;
-}
-
-float adc_get_v_vcc_v(void) {
-	return v_vcc_v;
-}
-
-float adc_get_ntc_temperature_c(void) {
-	return ntc_temperature_c;
-}
-
-float adc_get_up_temperature_c(void) {
-	return up_temperature_c;
-}
-
 void adc_test(void) {
 	if (!DEBUG_TEST_ENABLE) {
 		return;
 	}
 	//TODO Test
-}
-
-bool adc_bldc_status(void) {
-	return bldc_enable;
-}
-
-void adc_set_bldc_enable(bool status) {
-	bldc_enable = status;
-
-	if(bldc_enable==false){
-		adc_stop_bldc();
-	}
 }
 
 bool adc_get_init_status(void) {

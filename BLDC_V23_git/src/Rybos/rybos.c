@@ -109,7 +109,7 @@ void rybos_task_stop_marker(TaskMarker marker) {
 	if (task_stop_tick >= stack[stack_ptr].start_cnt) {
 		task_execution_time = task_stop_tick - stack[stack_ptr].start_cnt;
 	} else {
-		task_execution_time = (uint32_t) 0xFFFFFFFF - (stack[stack_ptr].start_cnt - task_stop_tick);
+		task_execution_time = (uint32_t) 0xFFFFFFFF - (stack[stack_ptr].start_cnt - task_stop_tick) + (uint32_t)1;
 	}
 
 	if (stack_ptr > 0) {

@@ -21,6 +21,7 @@
 #include "Printf/printf.h"
 #include "uuid.h"
 #include "Spi/spi.h"
+#include "Bldc/bldc.h"
 
 #define TASK_LED_PERIOD_MS							50
 #define TASK_LED_BLINK_PERIOD						1000/TASK_LED_PERIOD_MS
@@ -305,15 +306,15 @@ static void print_fast_param(void) {
 	float *q = ahrs_get_q2();
 	float *angle = servo_get_angle();
 
-	frame.ahrs.q[0] = q[0] * 32767.0f;																		//	  -1 	-     1
-	frame.ahrs.q[1] = q[1] * 32767.0f;																		//	  -1 	-     1
-	frame.ahrs.q[2] = q[2] * 32767.0f;																		//	  -1 	-     1
-	frame.ahrs.q[3] = q[3] * 32767.0f;																		//	  -1 	-     1
+	frame.ahrs.q[0] = (int16_t)(q[0] * 32767.0f);																		//	  -1 	-     1
+	frame.ahrs.q[1] = (int16_t)(q[1] * 32767.0f);																		//	  -1 	-     1
+	frame.ahrs.q[2] = (int16_t)(q[2] * 32767.0f);																		//	  -1 	-     1
+	frame.ahrs.q[3] = (int16_t)(q[3] * 32767.0f);																		//	  -1 	-     1
 
-	frame.servo.angle[0] = (angle[0] * 32767.0f) / 180.0f;													//	-180 	-  	180		deg
-	frame.servo.angle[1] = (angle[1] * 32767.0f) / 180.0f;													//	-180 	-  	180		deg
-	frame.servo.angle[2] = (angle[2] * 32767.0f) / 180.0f;													//	-180 	-  	180		deg
-	frame.servo.angle[3] = (angle[3] * 32767.0f) / 180.0f;													//	-180 	-  	180		deg
+	frame.servo.angle[0] = (int16_t)((angle[0] * 32767.0f) / 180.0f);													//	-180 	-  	180		deg
+	frame.servo.angle[1] = (int16_t)((angle[1] * 32767.0f) / 180.0f);													//	-180 	-  	180		deg
+	frame.servo.angle[2] = (int16_t)((angle[2] * 32767.0f) / 180.0f);													//	-180 	-  	180		deg
+	frame.servo.angle[3] = (int16_t)((angle[3] * 32767.0f) / 180.0f);													//	-180 	-  	180		deg
 
 	//Slave->Master->PC
 	frame_radio_send(FRAME_TYPE_FAST_PARAMS_SLAVE, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
@@ -323,28 +324,28 @@ static void print_slow_param(void) {
 	FrameSlowParamSlave frame;
 
 	//ADC
-	frame.adc.ntc_temp = ((adc_get_ntc_temperature_c() + 128.0f) * 65535.0f) / (128.0f + 256.0f);			//	-128 	- 	256		C
-	frame.adc.up_temp = ((adc_get_up_temperature_c() + 128.0f) * 65535.0f) / (128.0f + 256.0f);				//	-128 	- 	256		C
-	frame.adc.bat_v = (adc_get_v_vcc_v() * 65535.0f) / 32.0f;												//	   0 	-  	 32 	V
-	frame.adc.ldo_v = (adc_get_v_ldo_v() * 65535.0f) / 4.0f;												//	   0 	-     4		V
+	frame.adc.ntc_temp = (uint16_t)(((bldc_get_ntc_temperature_c() + 128.0f) * 65535.0f) / (128.0f + 256.0f));			//	-128 	- 	256		C
+	frame.adc.up_temp = (uint16_t)(((bldc_get_up_temperature_c() + 128.0f) * 65535.0f) / (128.0f + 256.0f));				//	-128 	- 	256		C
+	frame.adc.bat_v = (uint16_t)((bldc_get_v_vcc_v() * 65535.0f) / 32.0f);												//	   0 	-  	 32 	V
+	frame.adc.ldo_v = (uint16_t)((bldc_get_v_ldo_v() * 65535.0f) / 4.0f);												//	   0 	-     4		V
 
 	//IMU
 	float *acc = imu_get_imu_acceleration();
 
-	frame.imu.acc[0] = (acc[0] * 32767.0f) / 80.0f;															//	 -80 	-    80		m/s2
-	frame.imu.acc[1] = (acc[1] * 32767.0f) / 80.0f;															//	 -80 	-    80		m/s2
-	frame.imu.acc[2] = (acc[2] * 32767.0f) / 80.0f;															//	 -80 	-    80		m/s2
+	frame.imu.acc[0] = (int16_t)((acc[0] * 32767.0f) / 80.0f);															//	 -80 	-    80		m/s2
+	frame.imu.acc[1] = (int16_t)((acc[1] * 32767.0f) / 80.0f);															//	 -80 	-    80		m/s2
+	frame.imu.acc[2] = (int16_t)((acc[2] * 32767.0f) / 80.0f);															//	 -80 	-    80		m/s2
 
-	frame.imu.vel[0] = (vel_compensated[0] * 32767.0f) / 2000.0f;											//   -2k 	-  	 2k		deg/s
-	frame.imu.vel[1] = (vel_compensated[1] * 32767.0f) / 2000.0f;											//   -2k 	-  	 2k		deg/s
-	frame.imu.vel[2] = (vel_compensated[2] * 32767.0f) / 2000.0f;											//   -2k 	-  	 2k		deg/s
+	frame.imu.vel[0] = (int16_t)((vel_compensated[0] * 32767.0f) / 2000.0f);											//   -2k 	-  	 2k		deg/s
+	frame.imu.vel[1] = (int16_t)((vel_compensated[1] * 32767.0f) / 2000.0f);											//   -2k 	-  	 2k		deg/s
+	frame.imu.vel[2] = (int16_t)((vel_compensated[2] * 32767.0f) / 2000.0f);											//   -2k 	-  	 2k		deg/s
 
-	frame.imu.temp = ((imu_get_temperature_c() + 128.0f) * 65535.0f) / (128.0f + 256.0f);					//	-128 	- 	256		C
+	frame.imu.temp = (uint16_t)(((imu_get_temperature_c() + 128.0f) * 65535.0f) / (128.0f + 256.0f));					//	-128 	- 	256		C
 
 	//Pressure
-	frame.pressure.height = (height_compensated * 32767.0f) / 1000.0f;										//	 -1000 	-  1000		m
-	frame.pressure.press = ((pressure_get_pressure_pa() - 90000.0f) * 65535.0f) / (110000.0f - 90000.0f);	//	 90k	-  110k 	Pa
-	frame.pressure.temp = ((pressure_get_temperature_c() + 128.0f) * 65535.0f) / (128.0f + 256.0f);			//	-128 	- 	256		C
+	frame.pressure.height = (int16_t)((height_compensated * 32767.0f) / 1000.0f);										//	 -1000 	-  1000		m
+	frame.pressure.press = (uint16_t)(((pressure_get_pressure_pa() - 90000.0f) * 65535.0f) / (110000.0f - 90000.0f));	//	 90k	-  110k 	Pa
+	frame.pressure.temp = (uint16_t)(((pressure_get_temperature_c() + 128.0f) * 65535.0f) / (128.0f + 256.0f));			//	-128 	- 	256		C
 
 	//Slave->Master->PC
 	frame_radio_send(FRAME_TYPE_SLOW_PARAMS_SLAVE, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
@@ -353,7 +354,7 @@ static void print_slow_param(void) {
 static void undervoltage_protection(void) {
 	static uint32_t time = 0;
 
-	if (adc_get_v_vcc_v() < ADC_MIN_BAT_V) {
+	if (bldc_get_v_vcc_v() < ADC_MIN_BAT_V) {
 		if (tick_get_time_ms() - time > UNDEVOLTAGE_SOUND_PERIOD_MS) {
 			time = tick_get_time_ms();
 			buzzer_generate_sound(BUZZER_SOUND_SINGLE_PEAK);
@@ -364,7 +365,7 @@ static void undervoltage_protection(void) {
 static void overtemperature_protection(void) {
 	static uint32_t time = 0;
 
-	if (adc_get_ntc_temperature_c() > ADC_NTC_MAX_TEMP_C) {
+	if (bldc_get_ntc_temperature_c() > ADC_NTC_MAX_TEMP_C) {
 		if (tick_get_time_ms() - time > OVERTEMPERATURE_SOUND_PERIOD_MS) {
 			time = tick_get_time_ms();
 			buzzer_generate_sound(BUZZER_SOUND_DOUBLE_PEAK);
@@ -451,9 +452,9 @@ static void print_cpu_load(void) {
 static void print_radio_parameters(void) {
 	FrameRadioStat frame;
 
-	frame.avarage_rssi = ((radio_get_avarage_rssi() + 256.0f) * 65535.0f) / (256.0f + 32.0f);	//Scale -256 - 32
-	frame.max_rssi = (((float) radio_get_max_rssi() + 256.0f) * 65535.0f) / (256.0f + 32.0f);	//Scale -256 - 32
-	frame.min_rssi = (((float) radio_get_min_rssi() + 256.0f) * 65535.0f) / (256.0f + 32.0f);	//Scale -256 - 32
+	frame.avarage_rssi = (uint16_t)(((radio_get_avarage_rssi() + 256.0f) * 65535.0f) / (256.0f + 32.0f));	//Scale -256 - 32
+	frame.max_rssi = (uint16_t)((((float) radio_get_max_rssi() + 256.0f) * 65535.0f) / (256.0f + 32.0f));	//Scale -256 - 32
+	frame.min_rssi = (uint16_t)((((float) radio_get_min_rssi() + 256.0f) * 65535.0f) / (256.0f + 32.0f));	//Scale -256 - 32
 
 	frame.max_tran_deph = radio_get_max_queue_depth();
 	frame.rettransmition = radio_get_retransmition_cnt();
@@ -503,6 +504,7 @@ static void task_load_monitor(void) {
 	print_uart_param();
 }
 
+extern float i_q_ref;
 
 void frame_cb_frame_rc_control(void *buff, uint8_t params) {
 	UNUSED(params);
@@ -515,6 +517,10 @@ void frame_cb_frame_rc_control(void *buff, uint8_t params) {
 		rc_roll = frame->roll;
 		rc_throttle = frame->throttle;
 		rc_status = frame->status;
+
+		if(rc_throttle>0){
+			i_q_ref = (float)rc_throttle / 2048.0f * 5.0f;
+		}
 	}else{
 		rc_disconnected();
 	}
@@ -524,7 +530,7 @@ void frame_cb_frame_rc_control(void *buff, uint8_t params) {
  * ####################################################################################################################
  * Name		| IRQ		| P	| E | Peripherals 	| Finished 	| To do
  * ####################################################################################################################
- * ADC		|			| 4	|	|				|	-		| ????
+ * ADC		|			| 3	|	|				|	-		| ????
  * --------------------------------------------------------------------------------------------------------------------
  * Ahrs		| -			| -	| -	| -				|	+		| -
  * --------------------------------------------------------------------------------------------------------------------
@@ -606,6 +612,8 @@ void frame_cb_frame_rc_control(void *buff, uint8_t params) {
  * TODO add to frame PID ID defines
  * TODO unique name for all transactions
  * TODO implement reset of sensors like a pressure ang imu after startup
+ * TODO chenge the priority of systick to have the highest one
+ * TODO chenge critical functions to inline
  */
 
 int main(void) {
@@ -618,8 +626,8 @@ int main(void) {
 	imu_init();
 	pressure_init();
 	servo_init();
+	bldc_init();
 	adc_init();
-	adc_set_bldc_enable(true);
 	drv8301_init();
 	radio_init();
 

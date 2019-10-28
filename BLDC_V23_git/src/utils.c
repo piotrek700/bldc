@@ -42,6 +42,28 @@ float fast_atan2f(float y, float x) {
 	return atan;
 }
 
+float fast_atan2f_sec(float y, float x) {
+	float abs_y = fabsf(y) + 1e-20f; // kludge to prevent 0/0 condition
+	float angle;
+
+	if (x >= 0) {
+		float r = (x - abs_y) / (x + abs_y);
+		float rsq = r * r;
+		angle = ((0.1963f * rsq) - 0.9817f) * r + ((float) M_PI / 4.0f);
+	} else {
+		float r = (x + abs_y) / (abs_y - x);
+		float rsq = r * r;
+		angle = ((0.1963f * rsq) - 0.9817f) * r + (3.0f * (float) M_PI / 4.0f);
+	}
+
+	if (y < 0) {
+		return (-angle);
+	} else {
+		return (angle);
+	}
+}
+
+
 void enter_critical(void) {
 	__disable_irq();
 	critical_cnt++;	//TODO safe increment
@@ -70,7 +92,7 @@ float fast_log(float val) {
 	x += 127 << 23;
 	*exp_ptr = x;
 
-	val = ((-1.0f / 3.0f) * val + 2.0f) * val - 2.0f / 3.0f;
+	val = ((-1.0f / 3.0f) * val + 2.0f) * val - (2.0f / 3.0f);
 
 	return (val + log_2) * 0.69314718f;
 }

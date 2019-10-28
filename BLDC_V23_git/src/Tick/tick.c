@@ -1,9 +1,5 @@
 #include "tick.h"
 
-static volatile uint32_t *DWT_CYCCNT = (uint32_t *) 0xE0001004;
-static volatile uint32_t *DWT_CONTROL = (uint32_t *) 0xE0001000;
-static volatile uint32_t *SCB_DEMCR = (uint32_t *) 0xE000EDFC;
-
 static volatile uint32_t tick_counter = 0;
 static bool init_status = false;
 
@@ -38,16 +34,16 @@ void tick_init(void) {
 	*DWT_CONTROL = *DWT_CONTROL | 1;
 
 	SysTick_Config(SystemCoreClock / TICK_FREQUENCY_HZ);
-	NVIC_SetPriority(SysTick_IRQn, 1);
+	NVIC_SetPriority(SysTick_IRQn, 4);	//TODO replace to 1
 
 	tick_test();
 
 	init_status = true;
 }
-
+/*
 uint32_t tick_get_clock_tick(void) {
 	return *DWT_CYCCNT;
-}
+}*/
 
 void SysTick_Handler(void) {
 	rybos_task_start_marker(MARKER_IRQ_TICK);
