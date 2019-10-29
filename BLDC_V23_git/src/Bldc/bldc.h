@@ -28,6 +28,8 @@ typedef struct{
 	void (*state_cb)(void);
 }BldcStateDictionaryRow;
 
+void bldc_set_i_d(float i_d);
+
 float bldc_get_v_ldo_v(void);
 
 float bldc_get_v_vcc_v(void);

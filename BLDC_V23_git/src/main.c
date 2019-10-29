@@ -504,8 +504,6 @@ static void task_load_monitor(void) {
 	print_uart_param();
 }
 
-extern float i_q_ref;
-
 void frame_cb_frame_rc_control(void *buff, uint8_t params) {
 	UNUSED(params);
 
@@ -519,7 +517,7 @@ void frame_cb_frame_rc_control(void *buff, uint8_t params) {
 		rc_status = frame->status;
 
 		if(rc_throttle>0){
-			i_q_ref = (float)rc_throttle / 2048.0f * 5.0f;
+			bldc_set_i_d((float)rc_throttle / 2048.0f * 15.0f);
 		}
 	}else{
 		rc_disconnected();

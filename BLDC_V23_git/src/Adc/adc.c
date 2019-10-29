@@ -286,12 +286,12 @@ static void adc_nvic_init(void) {
 }
 
 void ADC1_2_IRQHandler(void) {
-	static uint32_t start_tick=0;
-	static uint32_t stop_tick=0;
-	static uint32_t run_cnt=0;
-	static uint32_t max_tick=0;
-	static uint32_t min_tick=UINT32_MAX;
-	static uint32_t avr_tick=0;
+//	static uint32_t start_tick=0;
+//	static uint32_t stop_tick=0;
+//	static uint32_t run_cnt=0;
+//	static uint32_t max_tick=0;
+//	static uint32_t min_tick=UINT32_MAX;
+//	static uint32_t avr_tick=0;
 
 	//Check left time
 	//left_time = 100.0f * (float) DRV8301_PWM_3F_SWITCHING_FREQ_HZ * (float) left_cycles / (float) TICK_CPU_FREQUENCY_HZ;
@@ -304,8 +304,8 @@ void ADC1_2_IRQHandler(void) {
 	LED_RED_ON;
 	LED_RED_OFF;
 
-	//Start time
-	start_tick = tick_get_clock_tick();
+//	//Start time
+//	start_tick = tick_get_clock_tick();
 
 	//ADC1 clear pending IRQ bit
 	ADC1->ISR = (uint32_t) 0x7FF;
@@ -342,42 +342,42 @@ void ADC1_2_IRQHandler(void) {
 	//FOC
 	bldc_adc_irq_hanlder();
 
-	//Stop time
-	stop_tick = tick_get_clock_tick();
-
-	//Calculate difference
-	//Overflow protection
-	uint32_t time_diff;
-	if (stop_tick >= start_tick) {
-		time_diff = stop_tick - start_tick;
-	} else {
-		time_diff = (uint32_t) 0xFFFFFFFF - (start_tick - stop_tick) + (uint32_t)1;
-	}
-
-	//Average
-	avr_tick += time_diff;
-
-	//Max
-	if(time_diff>max_tick){
-		max_tick = time_diff;
-	}
-
-	//Min
-	if(time_diff<min_tick){
-		min_tick = time_diff;
-	}
-
-	//Print
-	run_cnt++;
-	if(run_cnt==DRV8301_PWM_3F_SWITCHING_FREQ_HZ){
-		float avr_f= (float)avr_tick / (float)run_cnt;
-		printf("FOC Cycles Min, Max, AVR: %u, %u, %.3f\n", min_tick, max_tick, avr_f);
-
-		run_cnt=0;
-		max_tick=0;
-		min_tick=UINT32_MAX;
-		avr_tick=0;
-	}
+//	//Stop time
+//	stop_tick = tick_get_clock_tick();
+//
+//	//Calculate difference
+//	//Overflow protection
+//	uint32_t time_diff;
+//	if (stop_tick >= start_tick) {
+//		time_diff = stop_tick - start_tick;
+//	} else {
+//		time_diff = (uint32_t) 0xFFFFFFFF - (start_tick - stop_tick) + (uint32_t)1;
+//	}
+//
+//	//Average
+//	avr_tick += time_diff;
+//
+//	//Max
+//	if(time_diff>max_tick){
+//		max_tick = time_diff;
+//	}
+//
+//	//Min
+//	if(time_diff<min_tick){
+//		min_tick = time_diff;
+//	}
+//
+//	//Print
+//	run_cnt++;
+//	if(run_cnt==DRV8301_PWM_3F_SWITCHING_FREQ_HZ){
+//		float avr_f= (float)avr_tick / (float)run_cnt;
+//		printf("FOC Cycles Min, Max, AVR: %u, %u, %.3f\n", min_tick, max_tick, avr_f);
+//
+//		run_cnt=0;
+//		max_tick=0;
+//		min_tick=UINT32_MAX;
+//		avr_tick=0;
+//	}
 
 	rybos_task_stop_marker(MARKER_IRQ_ADC_NTC);
 

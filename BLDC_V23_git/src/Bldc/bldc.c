@@ -38,6 +38,7 @@ static float i_offset_ldo = 0;
 //MOTO
 #define MOTOR_R									0.088f
 #define MOTOR_L									9.27e-6f
+#define MOTOR_LAMBDA							0.000609f
 #define MOTOR_PID_TIME_CONSTANT					0.0005f
 
 #define MOTOR_KA								(MOTOR_L/MOTOR_PID_TIME_CONSTANT)
@@ -46,7 +47,7 @@ static float i_offset_ldo = 0;
 #define SQRT3_BY_2_MUL_2_OVER_3					0.57735026919f
 
 //FOC
-#define BLDC_DQ_LPF_CUTOFF_FREQ					1000.0f	//2000
+#define BLDC_DQ_LPF_CUTOFF_FREQ					2000.0f	//2000
 #define BLDC_DT									(1.0f/(float)DRV8301_PWM_3F_SWITCHING_FREQ_HZ)
 #define BLDC_VDQ_MAX_LIMIT						ONE_BY_SQRT3 	//(SQRT3_BY_2 * 2.0f / 3.0f)
 
@@ -61,7 +62,7 @@ static float i_offset_ldo = 0;
 
 
 #define BLDC_PID_KP 							MOTOR_KA
-#define BLDC_PID_KI								(MOTOR_KB * MOTOR_KA)
+#define BLDC_PID_KI								(MOTOR_KB* MOTOR_KA)
 #define BLDC_PID_I_LIMIT						BLDC_VDQ_MAX_LIMIT
 #define BLDC_PID_OUT_LIMIT 						BLDC_VDQ_MAX_LIMIT
 
@@ -139,6 +140,10 @@ static volatile float g_v_q=0;
 
 static float adc_vref_mul_vrefint_cal = 0;
 static float one_over_adc_temp_call = 0;
+
+void bldc_set_i_d(float i_d){
+	i_q_ref = i_d;
+}
 
 float bldc_get_v_ldo_v(void) {
 	return v_ldo_v;
@@ -662,7 +667,7 @@ static void bldc_state_measure_l(void) {
 void observer_update(float v_alpha, float v_beta, float i_alpha, float i_beta, /*volatile*/float *phase) {
 	float L = MOTOR_L * 3.0f / 2.0f;
 	float R = MOTOR_R * 3.0f / 2.0f;
-	float lambda = 0.000609f;
+	float lambda = MOTOR_LAMBDA;
 
 	const float L_ia = L * i_alpha;
 	const float L_ib = L * i_beta;
@@ -731,6 +736,13 @@ void bldc_init(void){
 	one_over_adc_temp_call = 1.0f / (float) (*ADC_TEMP110_CAL_ADDR - *ADC_TEMP30_CAL_ADDR);
 	bldc_set_active_state(BLDC_STATE_CALIBRATE_I);
 }
+
+volatile static float w1 = 0;
+volatile static float theta_est = 0;
+volatile static float LAMBDA = 2.5f;
+
+volatile static float WLIM = 1000.0f;
+volatile static float ALPHA0 = 100.0f;//0.1f* WLIM;
 
 static void bldc_state_foc(void) {
 	//Before optimization
@@ -828,8 +840,8 @@ static void bldc_state_foc(void) {
 
 
 	//PID out limit
-	float v_d = i_d_err * BLDC_PID_KP + i_d_err_acc;
-	float v_q = i_q_err * BLDC_PID_KP + i_q_err_acc;
+	volatile float v_d = i_d_err * BLDC_PID_KP + i_d_err_acc;
+	volatile float v_q = i_q_err * BLDC_PID_KP + i_q_err_acc;
 
 	//Inject pulse
 
@@ -877,17 +889,52 @@ static void bldc_state_foc(void) {
 	bldc_svm(v_alpha, v_beta, DRV8301_PWM_3F_PWM_MAX, &duty1, &duty3, &duty2, &svm_sector);
 
 	drv8301_set_pwm(duty1, duty2, duty3);
-	//DRV8301_PWM_UPDATE_EVENT;
+	//DRV8301_PWM_UPDATE_EVENT;	//TODO veryfi if required
 
 	//Update angle
-	observer_update(v_alpha2, v_beta2, i_alpha, i_beta, &tetha);
-	pll_run(tetha, BLDC_DT, &m_pll_phase, &m_pll_speed);
+	//observer_update(v_alpha2, v_beta2, i_alpha, i_beta, &tetha);
+	//pll_run(tetha, BLDC_DT, &m_pll_phase, &m_pll_speed);
 
 	//tetha = tetha * (180.0f / (float) M_PI);
-	tetha = tetha * RAD_TO_DEG;
+	//tetha = tetha * RAD_TO_DEG;
+
+///////////////////////////////////////////////////////////////////////////////
 
 
+	const float PSIMH = MOTOR_LAMBDA;
 
+	if (fabsf(w1) > WLIM) {
+		i_d = 0;
+	} else {
+		if (w1 >= 0.0f) {
+			i_d = i_d / LAMBDA * 1.0f;
+		} else {
+			i_d = i_d / LAMBDA * -1.0f;
+		}
+	}
+
+	volatile float L = MOTOR_L * 3.0f / 2.0f;
+	volatile float R = MOTOR_R * 3.0f / 2.0f;
+
+	volatile float ed = v_d - R * i_d + w1 * L * i_q;
+	volatile float eq = v_q - R * i_q - w1 * L * i_d;
+	volatile float alpha = ALPHA0 + 2 * LAMBDA * fabsf(w1);
+
+	if (w1 >= 0.0f) {
+		w1 += BLDC_DT * alpha * ((eq - LAMBDA * 1.0f * ed) / PSIMH - w1);
+	} else {
+		w1 += BLDC_DT * alpha * ((eq - LAMBDA * -1.0f * ed) / PSIMH - w1);
+	}
+	theta_est += BLDC_DT * w1;
+	while (theta_est > (float)M_PI){
+		theta_est -= 2.0f * (float)M_PI;
+	}
+	while (theta_est < -(float)M_PI){
+		theta_est += 2.0f * (float)M_PI;
+	}
+
+	pll_run(theta_est, BLDC_DT, &m_pll_phase, &m_pll_speed);
+	tetha = theta_est * RAD_TO_DEG;
 ///////////////////////////////////////////////////////////////////////////////
 
 	//Startup
@@ -1118,8 +1165,10 @@ static void bldc_state_do_nothing(void){
 
 	if(start_foc == false){
 		start_foc = true;
-		//bldc_set_active_state(BLDC_STATE_FOC);
-		bldc_measure_r_init();
+		bldc_enable_all_pwm_output();
+		DRV8301_PWM_UPDATE_EVENT;
+		bldc_set_active_state(BLDC_STATE_FOC);
+		//bldc_measure_r_init();
 		//ldc_measure_l_init();
 	}
 
