@@ -47,7 +47,7 @@ static float i_offset_ldo = 0;
 #define SQRT3_BY_2_MUL_2_OVER_3					0.57735026919f
 
 //FOC
-#define BLDC_DQ_LPF_CUTOFF_FREQ					2000.0f	//2000
+#define BLDC_DQ_LPF_CUTOFF_FREQ					500.0f	//2000
 #define BLDC_DT									(1.0f/(float)DRV8301_PWM_3F_SWITCHING_FREQ_HZ)
 #define BLDC_VDQ_MAX_LIMIT						ONE_BY_SQRT3 	//(SQRT3_BY_2 * 2.0f / 3.0f)
 
@@ -69,7 +69,7 @@ static float i_offset_ldo = 0;
 
 float tetha = 0;
 float i_d_ref = 0;
-float i_q_ref = 0.5;		//2
+float i_q_ref = 0.0;		//2
 float i_d_err_acc = 0;
 float i_q_err_acc = 0;
 float i_d_lpf = 0;
@@ -78,6 +78,11 @@ float i_q_lpf = 0;
 float speed_err_acc = 0;
 
 #define BLDC_DQ_LPF_ALPHA						(BLDC_DQ_LPF_CUTOFF_FREQ/(BLDC_DQ_LPF_CUTOFF_FREQ+((float)DRV8301_PWM_3F_SWITCHING_FREQ_HZ)/(2.0f*(float)M_PI)))
+
+//HFI
+#define BLDC_HFI_LPF_CUTOFF_FREQ				5000.0f
+#define BLDC_HFI_LPF_ALPHA						(BLDC_HFI_LPF_CUTOFF_FREQ/(BLDC_HFI_LPF_CUTOFF_FREQ+((float)DRV8301_PWM_3F_SWITCHING_FREQ_HZ)/(2.0f*(float)M_PI)))
+
 
 static uint32_t meaure_r_start_time = 0;
 static uint32_t measure_r_cnt = 0;
@@ -129,8 +134,8 @@ static float x2 = 0;
 /*volatile*/ float m_pll_phase = 0;
 /*volatile*/ float m_pll_speed = 0;
 
-/*volatile*/ float foc_pll_kp = 2000.0;
-/*volatile*/ float foc_pll_ki = 40000.0;
+volatile float foc_pll_kp = 2000.0;
+volatile float foc_pll_ki = 40000.0;
 
 static volatile float g_i_abs=0;
 static volatile float g_i_d=0;
@@ -741,8 +746,41 @@ volatile static float w1 = 0;
 volatile static float theta_est = 0;
 volatile static float LAMBDA = 2.5f;
 
-volatile static float WLIM = 1000.0f;
-volatile static float ALPHA0 = 100.0f;//0.1f* WLIM;
+volatile static float WLIM = 25.0f;
+volatile static float ALPHA0 = 60.0f;//0.1f* WLIM;
+
+//HFI
+volatile float i_sense_hfi_lpf = 0.0f;
+volatile float BLDC_HFI_KP = 1.0f;
+volatile float BLDC_HFI_KI = 0.0f;
+volatile float inj_i = 0.0f;
+volatile float inj_phase = 0.0f;
+volatile float inj_phase_deg = 0.0f;
+volatile float inj_omega = 0.0f;
+
+volatile float xx1 = 0.0f;
+volatile float xx2 = 0.0f;
+volatile float xx3 = 0.0f;
+volatile float xx4 = 0.0f;
+
+int utils_truncate_number(float *number, float min, float max) {
+	int did_trunc = 0;
+
+	if (*number > max) {
+		*number = max;
+		did_trunc = 1;
+	} else if (*number < min) {
+		*number = min;
+		did_trunc = 1;
+	}
+
+	return did_trunc;
+}
+
+volatile float MCCONF_S_PID_KP					=1.0f;//0.004;// Proportional gain
+volatile float MCCONF_S_PID_KI					=0.0002;//0.004;	// Integral gain
+volatile float MCCONF_S_PID_KD					=500.0;//.0001;	// Derivative gain
+volatile float MCCONF_S_PID_KD_FILTER			=0.0005;	// Derivative filter
 
 static void bldc_state_foc(void) {
 	//Before optimization
@@ -794,9 +832,17 @@ static void bldc_state_foc(void) {
 	i_d_lpf = BLDC_DQ_LPF_ALPHA * i_d + lpf_val * i_d_lpf;
 	i_q_lpf = BLDC_DQ_LPF_ALPHA * i_q + lpf_val * i_q_lpf;
 
-	//i_d = i_d_lpf;
-	//i_q = i_q_lpf;
-
+	i_d = i_d_lpf;
+	i_q = i_q_lpf;
+	if (fabsf(w1) > WLIM) {
+		i_d = 0;
+	} else {
+		if (w1 >= 0.0f) {
+			i_d = i_q / LAMBDA * 1.0f;
+		} else {
+			i_d = i_q / LAMBDA * -1.0f;
+		}
+	}
 	//PID P error
 	//float i_d_err = i_d_ref - i_d;
 	//float i_q_err = i_q_ref - i_q;
@@ -842,6 +888,59 @@ static void bldc_state_foc(void) {
 	//PID out limit
 	volatile float v_d = i_d_err * BLDC_PID_KP + i_d_err_acc;
 	volatile float v_q = i_q_err * BLDC_PID_KP + i_q_err_acc;
+
+	//HFI
+	const float BLDC_HFI_V=0.2f;
+	const float BLDC_HFI_F=5000.0f;
+	static float hfi_t=0;
+	hfi_t +=BLDC_DT;
+	//if(hfi_t >(float)M_PI/(2.0f * (float)M_PI * BLDC_HFI_F)){
+	//	hfi_t-= 2.0f*(float)M_PI/(2.0f * (float)M_PI * BLDC_HFI_F);
+	//}
+
+	if(hfi_t >1.0f/(2.0f * BLDC_HFI_F)){
+		hfi_t-= 1.0f/(BLDC_HFI_F);
+	}
+	static float sin_inj;
+	static float cos_inj;
+
+
+//	//Inject
+//	v_d += BLDC_HFI_V * cos_inj;
+//
+//	//First calculate sin then inject
+//	arm_sin_cos_f32(2.0f * (float)M_PI * BLDC_HFI_F * hfi_t *RAD_TO_DEG, &sin_inj, &cos_inj);
+//
+//	//Sense from prevoius loop
+//	i_sense_hfi_lpf = BLDC_HFI_LPF_ALPHA * i_q * sin_inj + (1.0f - BLDC_HFI_LPF_ALPHA) * i_sense_hfi_lpf;
+//	i_sense_hfi_lpf = i_q;
+//
+//	inj_i += i_sense_hfi_lpf * BLDC_DT;
+//	float tmp = i_sense_hfi_lpf * BLDC_HFI_KP + inj_i * BLDC_HFI_KI;
+//	inj_phase += tmp;
+//
+//	while (inj_phase > (float) M_PI) {
+//		inj_phase -= 2.0f * (float) M_PI;
+//	}
+//	while (inj_phase < -(float) M_PI) {
+//		inj_phase += 2.0f * (float) M_PI;
+//	}
+//
+//	tetha = inj_phase;
+//		pll_run(tetha, BLDC_DT, &m_pll_phase, &m_pll_speed);
+//
+//	static uint32_t cnt =0;
+//	cnt ++;
+//	if(cnt == 25000/100){
+//		cnt =0;
+//		xx1=tetha;
+//		xx2=m_pll_phase* RAD_TO_DEG;
+//		xx3=m_pll_speed;
+//		xx4+=m_pll_speed * BLDC_DT* RAD_TO_DEG;
+//	}
+
+
+
 
 	//Inject pulse
 
@@ -896,46 +995,105 @@ static void bldc_state_foc(void) {
 	//pll_run(tetha, BLDC_DT, &m_pll_phase, &m_pll_speed);
 
 	//tetha = tetha * (180.0f / (float) M_PI);
-	//tetha = tetha * RAD_TO_DEG;
-
-///////////////////////////////////////////////////////////////////////////////
-
-
-	const float PSIMH = MOTOR_LAMBDA;
-
-	if (fabsf(w1) > WLIM) {
-		i_d = 0;
-	} else {
-		if (w1 >= 0.0f) {
-			i_d = i_d / LAMBDA * 1.0f;
-		} else {
-			i_d = i_d / LAMBDA * -1.0f;
+	/*
+	tetha = tetha * RAD_TO_DEG;
+	if(m_pll_speed<-10){
+		tetha +=180;
+		if(tetha>360){
+			tetha-=360;
 		}
-	}
+	}*/
 
-	volatile float L = MOTOR_L * 3.0f / 2.0f;
-	volatile float R = MOTOR_R * 3.0f / 2.0f;
+	///////////////////////////////////////////////////////////////////////////////
 
-	volatile float ed = v_d - R * i_d + w1 * L * i_q;
-	volatile float eq = v_q - R * i_q - w1 * L * i_d;
-	volatile float alpha = ALPHA0 + 2 * LAMBDA * fabsf(w1);
 
-	if (w1 >= 0.0f) {
-		w1 += BLDC_DT * alpha * ((eq - LAMBDA * 1.0f * ed) / PSIMH - w1);
-	} else {
-		w1 += BLDC_DT * alpha * ((eq - LAMBDA * -1.0f * ed) / PSIMH - w1);
-	}
-	theta_est += BLDC_DT * w1;
-	while (theta_est > (float)M_PI){
-		theta_est -= 2.0f * (float)M_PI;
-	}
-	while (theta_est < -(float)M_PI){
-		theta_est += 2.0f * (float)M_PI;
-	}
+const float PSIMH = MOTOR_LAMBDA;
 
-	pll_run(theta_est, BLDC_DT, &m_pll_phase, &m_pll_speed);
-	tetha = theta_est * RAD_TO_DEG;
+
+
+volatile float L = MOTOR_L * 3.0f / 2.0f;
+volatile float R = MOTOR_R * 3.0f / 2.0f;
+
+volatile float ed = v_d - R * i_d + w1 * L * i_q;
+volatile float eq = v_q - R * i_q - w1 * L * i_d;
+volatile float alpha = ALPHA0 + 2 * LAMBDA * fabsf(w1);
+
+if (w1 >= 0.0f) {
+	w1 += BLDC_DT * alpha * ((eq - LAMBDA * 1.0f * ed) / PSIMH - w1);
+} else {
+	w1 += BLDC_DT * alpha * ((eq - LAMBDA * -1.0f * ed) / PSIMH - w1);
+}
+theta_est += BLDC_DT * w1;
+while (theta_est > (float)M_PI){
+	theta_est -= 2.0f * (float)M_PI;
+}
+while (theta_est < -(float)M_PI){
+	theta_est += 2.0f * (float)M_PI;
+}
+
+pll_run(theta_est, BLDC_DT, &m_pll_phase, &m_pll_speed);
+tetha = theta_est * RAD_TO_DEG;
+
 ///////////////////////////////////////////////////////////////////////////////
+
+
+///////////////////////////////////////////////////////////////////////////////
+	static float i_term = 0.0;
+	static float prev_error = 0.0;
+	float p_term;
+	float d_term;
+	float m_speed_pid_set_rpm;
+	if (tick_get_time_ms() < 10 * 1000) {
+		m_speed_pid_set_rpm = 1000.0f;
+	} else {
+		m_speed_pid_set_rpm = -1000.0f;
+	}
+
+	const float rpm = m_pll_speed;
+	float error = m_speed_pid_set_rpm - rpm;
+
+//		// Too low RPM set. Reset state and return.
+//		if (fabsf(m_speed_pid_set_rpm) < m_conf->s_pid_min_erpm) {
+//			i_term = 0.0;
+//			prev_error = error;
+//			return;
+//		}
+
+	// Speed PID parameters
+
+	static uint32_t cnt = 0;
+	cnt++;
+	if (cnt == 25000 / 100) {
+		cnt = 0;
+		xx1 = tetha;
+		xx2 = i_q_ref;
+		xx3 = w1;
+		//xx4+=m_pll_speed * BLDC_DT* RAD_TO_DEG;
+	}
+
+#define UTILS_LP_FAST(value, sample, filter_constant)	(value -= (filter_constant) * (value - (sample)))
+
+	// Compute parameters
+	p_term = error * MCCONF_S_PID_KP * (1.0 / 20.0);
+	i_term += error * MCCONF_S_PID_KI * (1.0 / 20.0);
+	d_term = (error - prev_error) * MCCONF_S_PID_KD * (1.0 / 20.0);
+
+	// Filter D
+	static float d_filter = 0.0;
+	UTILS_LP_FAST(d_filter, d_term, MCCONF_S_PID_KD_FILTER);
+	d_term = d_filter;
+
+	// I-term wind-up protection
+	utils_truncate_number(&i_term, -1.0, 1.0);
+
+	// Store previous error
+	prev_error = error;
+
+	// Calculate output
+	float output = p_term + i_term + d_term;
+	utils_truncate_number(&output, -1.0, 1.0);
+
+	i_q_ref = output * 4.0f;
 
 	//Startup
 
