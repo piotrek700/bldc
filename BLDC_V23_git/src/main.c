@@ -503,7 +503,7 @@ static void task_load_monitor(void) {
 	print_system_param();
 	print_uart_param();
 }
-
+extern float m_speed_pid_set;
 void frame_cb_frame_rc_control(void *buff, uint8_t params) {
 	UNUSED(params);
 
@@ -517,7 +517,9 @@ void frame_cb_frame_rc_control(void *buff, uint8_t params) {
 		rc_status = frame->status;
 
 		if(rc_throttle>0){
-			bldc_set_i_d((float)rc_throttle / 2048.0f * 15.0f);
+			m_speed_pid_set=(float)rc_throttle / 2048.0f * 2000.0f;
+		}else{
+			m_speed_pid_set=0;
 		}
 	}else{
 		rc_disconnected();
