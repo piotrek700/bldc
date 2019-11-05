@@ -228,16 +228,16 @@ static void control_drone(void) {
 	 */
 
 	float tmp;
-	tmp = (float)rc_yaw * 45.0f/2048.0f;
+	tmp = (float)rc_pitch * 45.0f/2048.0f;
 	servo_set_position_angle(SERVO_POSITION_2_TOP, tmp);
 
 	tmp = (float)rc_pitch * 45.0f/2048.0f;
 	servo_set_position_angle(SERVO_POSITION_4_BOTTOM, tmp);
 
-	tmp = (float)rc_roll * 45.0f/2048.0f;
+	tmp = (float)rc_pitch * 45.0f/2048.0f;
 	servo_set_position_angle(SERVO_POSITION_1_LEFT, tmp);
 
-	tmp = (float)rc_throttle * 45.0f/2048.0f;
+	tmp = (float)rc_pitch * 45.0f/2048.0f;
 	servo_set_position_angle(SERVO_POSITION_3_RIGHT, tmp);
 }
 
@@ -504,6 +504,7 @@ static void task_load_monitor(void) {
 	print_uart_param();
 }
 extern float m_speed_pid_set;
+extern float i_q_ref;
 void frame_cb_frame_rc_control(void *buff, uint8_t params) {
 	UNUSED(params);
 
@@ -516,11 +517,11 @@ void frame_cb_frame_rc_control(void *buff, uint8_t params) {
 		rc_throttle = frame->throttle;
 		rc_status = frame->status;
 
-		if(rc_throttle>0){
-			m_speed_pid_set=(float)rc_throttle / 2048.0f * 2000.0f;
-		}else{
-			m_speed_pid_set=0;
-		}
+		//if(rc_throttle>0){
+			i_q_ref=(float)rc_throttle / 2048.0f * 10.0f;
+		//}else{
+		//	m_speed_pid_set=0;
+		//}
 	}else{
 		rc_disconnected();
 	}

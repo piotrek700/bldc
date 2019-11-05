@@ -12,7 +12,7 @@
 #define BLDC_MEASURE_L_WAIT_CYCLES				64
 #define BLDC_MEASURE_L_DUTY						0.4f
 #define BLDC_MEASURE_L_SAMPLES					1024*BLDC_MEASURE_L_WAIT_CYCLES
-#define BLDC_MAX_DUTY							0.9f	//todo can be increased
+#define BLDC_MAX_DUTY							0.8f	//todo can be increased
 
 static float v1_bemf_h = 0;
 static float v2_bemf_h = 0;
@@ -37,8 +37,8 @@ static float i_offset_ldo = 0;
 
 
 //MOTO
-#define MOTOR_R									(0.088f * (2.0f/3.0f))			//TODO sprawdcz czy mnozyc czy nie
-#define MOTOR_L									(9.27e-6f * (2.0f/3.0f))		//TODO sprawdcz czy mnozyc czy nie
+#define MOTOR_R									(0.084f * (3.0f/3.0f))			//TODO sprawdcz czy mnozyc czy nie 0.088
+#define MOTOR_L									(10.0e-6f * (3.0f/3.0f))		//TODO sprawdcz czy mnozyc czy nie 9.27e-6f
 #define MOTOR_LAMBDA							0.000609f						//TODO sprawdcz czy mnozyc czy nie
 #define MOTOR_PID_TIME_CONSTANT					0.001f
 
@@ -69,8 +69,10 @@ static float i_offset_ldo = 0;
 
 
 float tetha = 0;
+
 float i_d_ref = 0;
-float i_q_ref = 2.0;		//2
+float i_q_ref = 0;		//2
+float i_q_max = 15.0;
 float i_d_err_acc = 0;
 float i_q_err_acc = 0;
 float i_d_lpf = 0;
@@ -137,7 +139,7 @@ static float x2 = 0;
 /*volatile*/ float m_pll_speed = 0;
 
 volatile float foc_pll_kp = 2000.0;
-volatile float foc_pll_ki = 30000.0;		//1000000
+volatile float foc_pll_ki = 40000.0;		//1000000
 
 static volatile float g_i_abs=0;
 static volatile float g_i_d=0;
@@ -672,8 +674,8 @@ static void bldc_state_measure_l(void) {
 }
 
 void observer_update(float v_alpha, float v_beta, float i_alpha, float i_beta, /*volatile*/float *phase) {
-	float L = MOTOR_L * 3.0f / 2.0f;
-	float R = MOTOR_R * 3.0f / 2.0f;
+	float L = MOTOR_L * 3.0f / 3.0f;
+	float R = MOTOR_R * 3.0f / 3.0f;
 	float lambda = MOTOR_LAMBDA;
 
 	const float L_ia = L * i_alpha;
@@ -786,7 +788,20 @@ volatile float MCCONF_S_PID_KI					=0.0002;//0.004f;	// Integral gain
 volatile float MCCONF_S_PID_KD					=0.0001f;	// Derivative gain
 volatile float MCCONF_S_PID_KD_FILTER			=0.2f;	// Derivative filter
 volatile float m_speed_pid_set=0;
+
+float i_alpha = 0;
+float i_beta = 0;
+float v_alpha = 0;
+float v_beta = 0;
+float tetha_start = -90;
+
 static void bldc_state_foc(void) {
+
+	//tetha_start+=0.1f;
+	//if(tetha_start>180.0f){
+	//	tetha_start-=360.0f;
+	//}
+
 	//Before optimization
 	//FOC Cycles Min, Max, AVR: 1802, 1924, 1863.931
 	//FOC Cycles Min, Max, AVR: 1753, 1919, 1850.076
@@ -804,6 +819,27 @@ static void bldc_state_foc(void) {
 	//FOC Cycles Min, Max, AVR: 295, 326, 314.599
 
 
+	//Current limit
+	if (i_q_ref > i_q_max) {
+		i_q_ref = i_q_max;
+	} else if (i_q_ref < -i_q_max) {
+		i_q_ref = -i_q_max;
+	}
+	//Check saturation
+	float i_dq_mag = 1e-10f;
+	arm_sqrt_f32(i_d_ref * i_d_ref + i_q_ref * i_q_ref, &i_dq_mag);
+
+	if (i_dq_mag < 1e-10f) {
+		i_dq_mag = 1e-10f;
+	}
+
+	if (i_dq_mag > i_q_max) {
+		//Risk of division by zero v_dq_mag
+		float dq_scale = i_q_max / i_dq_mag;
+		i_d_ref *= dq_scale;
+		i_q_ref *= dq_scale;
+	}
+
 	//I1
 	//float p1_i = -(((float) ADC_INJ_P1_I) - p1_i_offset) / ADC_I_GAIN;
 	//p1_i *= v_ldo_v / ADC_MAX_VALUE / ADC_I_R_OHM;
@@ -817,8 +853,8 @@ static void bldc_state_foc(void) {
 	float p3_i = -(((float) ADC_INJ_P3_I) - p3_i_offset) * v_ldo_v / (  ADC_MAX_VALUE * ADC_I_R_OHM * ADC_I_GAIN);
 
 	//Clarke Transform
-	float i_alpha = p1_i;
-	float i_beta = ONE_BY_SQRT3 * p1_i + TWO_BY_SQRT3 * p3_i;
+	i_alpha = p1_i;
+	i_beta = ONE_BY_SQRT3 * p1_i + TWO_BY_SQRT3 * p3_i;
 
 	//Park Transform
 	float sin_tetha;
@@ -869,9 +905,13 @@ static void bldc_state_foc(void) {
 
 	//Maximum limitation
 	//float v_dq_mag = sqrtf(v_d * v_d + v_q * v_q);
-	float v_dq_mag;
+	float v_dq_mag=1e-10f;
 	arm_sqrt_f32(v_d * v_d + v_q * v_q, &v_dq_mag);
 	float v_dq_max = BLDC_VDQ_MAX_LIMIT * v_vcc_v * BLDC_MAX_DUTY;
+
+	if (v_dq_mag < 1e-10f) {
+		v_dq_mag = 1e-10f;
+	}
 
 	if (v_dq_mag > v_dq_max) {
 		//Risk of division by zero v_dq_mag
@@ -913,27 +953,90 @@ static void bldc_state_foc(void) {
 
 	i_bus = mod_d * i_d + mod_q * i_q;	//TODO check
 
-	 float mod_alpha = cos_tetha * mod_d - sin_tetha * mod_q;
-	 float mod_beta  = cos_tetha * mod_q + sin_tetha * mod_d;
+	float mod_alpha = cos_tetha * mod_d - sin_tetha * mod_q;
+	float mod_beta = cos_tetha * mod_q + sin_tetha * mod_d;
 
+	v_alpha = mod_alpha * (2.0f / 3.0f) * v_vcc_v;
+	v_beta = mod_beta * (2.0f / 3.0f) * v_vcc_v;
 
-		float v_alpha = mod_alpha*(2.0f/3.0f)*v_vcc_v;
-		float v_beta = mod_beta*(2.0f/3.0f)*v_vcc_v;
+	//TODO dead time compensation !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	observer_update(v_alpha, v_beta, i_alpha, i_beta, &tetha);
+	/*
+	if (tick_get_time_ms() < 500) {		//0.1, 0.3, 0.5
+		float add_min_speed = (400.0f * 2.0f * M_PI) / 60.0f * BLDC_DT;		//400, 500, 600
+		tetha += -add_min_speed * RAD_TO_DEG;
+		//tetha_start+=0.02f;
+		//tetha_start += 90.0f;
+		if (tetha_start < 180.0f) {
+			tetha_start += 360.0f;
+		}
+		tetha = tetha_start;
 
-		//TODO dead time compensation
-
-		//SVM
-		uint32_t duty1, duty2, duty3, svm_sector;
-		bldc_svm(mod_alpha, mod_beta, DRV8301_PWM_3F_PWM_MAX, &duty1, &duty3, &duty2, &svm_sector);
-		drv8301_set_pwm(duty1, duty2, duty3);
-		//DRV8301_PWM_UPDATE_EVENT;	//TODO veryfi if required
-
-		observer_update(v_alpha, v_beta, i_alpha, i_beta, &tetha);
-		pll_run(tetha, BLDC_DT, &m_pll_phase, &m_pll_speed);
-
+	} else {
 		tetha = tetha * (180.0f / (float) M_PI);
 
+	}
+	*/
 
+	//SVM
+	uint32_t duty1, duty2, duty3, svm_sector;
+	bldc_svm(mod_alpha, mod_beta, DRV8301_PWM_3F_PWM_MAX, &duty1, &duty3, &duty2, &svm_sector);
+
+	/*
+	if(tick_get_time_ms()<1000*5){
+		//Park Transform
+		float teta0;
+		float teta120;
+		float teta240;
+		float sin_tetha0;
+		float cos_tetha0;
+		float sin_tetha120;
+		float cos_tetha120;
+		float sin_tetha240;
+		float cos_tetha240;
+
+		teta0 = tetha_start;
+		teta120 = tetha_start+120.0f;
+		teta240 = tetha_start-120.0f;
+		if(teta120>180.0f){
+			teta120 -=360.0f;
+		}
+
+		if(teta240<-180.0f){
+			teta120 +=360.0f;
+		}
+
+		arm_sin_cos_f32(teta0,  &sin_tetha0, &cos_tetha0);
+		arm_sin_cos_f32(teta120, &sin_tetha120, &cos_tetha120);
+		arm_sin_cos_f32(teta240, &sin_tetha240, &cos_tetha240);
+
+
+		duty1=DRV8301_PWM_3F_PWM_MAX/2*(1.0f+sin_tetha0 *0.05f);
+		duty2=DRV8301_PWM_3F_PWM_MAX/2*(1.0f+sin_tetha120*0.05f);
+		duty3=DRV8301_PWM_3F_PWM_MAX/2*(1.0f+sin_tetha240*0.05f);
+	}
+	*/
+	TIM1->CR1 |= TIM_CR1_UDIS;
+	drv8301_set_pwm(duty1, duty2, duty3);
+	TIM1->CR1 &= ~TIM_CR1_UDIS;
+
+	pll_run(tetha, BLDC_DT, &m_pll_phase, &m_pll_speed);
+	tetha = tetha * (180.0f / (float) M_PI);
+
+
+		/*
+		if(fabsf(i_q_ref)<0.01f){
+			drv8301_set_pwm(0, 0, 0);
+
+		}else{
+			drv8301_set_pwm(duty1, duty2, duty3);
+
+		}*/
+		//DRV8301_PWM_UPDATE_EVENT;	//TODO veryfi if required
+
+
+
+/*
 
 		/////////////////////////////////////////////////////////////////checked
 		static float i_term = 0.0;
@@ -944,11 +1047,11 @@ static void bldc_state_foc(void) {
 		//reverse direction after 10s
 
 
-		/*if (tick_get_time_ms() < 10 * 1000) {
-			m_speed_pid_set_rpm = 1000.0f;
-		} else {
-			m_speed_pid_set_rpm = -1000.0f;
-		}*/
+//		if (tick_get_time_ms() < 10 * 1000) {
+//			m_speed_pid_set_rpm = 1000.0f;
+//		} else {
+//			m_speed_pid_set_rpm = -1000.0f;
+//		}
 
 		float m_speed_pid_set_rpm =m_speed_pid_set/ ((2.0f * (float)M_PI) / 60.0f);
 
@@ -985,19 +1088,18 @@ static void bldc_state_foc(void) {
 		float output = p_term + i_term + d_term;
 		utils_truncate_number(&output, -1.0, 1.0);
 
-		i_q_ref = output * 4.0f;
-
-
+		i_q_ref = output * 10.0f;
+*/
 		// Speed PID parameters
 
 	static uint32_t cnt = 0;
 	cnt++;
-	if (cnt == 25000 / 100) {
+	if (cnt == 10000 / 100) {
 		cnt = 0;
 		xx1 = m_pll_speed;
 		xx2 = i_q_ref;
-		xx3 = i_q;
-		xx4 = i_d;
+		xx3 = m_pll_phase - tetha;
+		xx4 = p1_i;
 	}
 
 
@@ -1213,7 +1315,7 @@ static void bldc_state_foc(void) {
 
 
 //	//PID speed
-//	float speed_ref = 500.0f;
+//	float speed_ref = 500.0f;		//TODO run with period 1000hz
 //
 //	//PID P error
 //	float speed_err = speed_ref - m_pll_speed;
@@ -1404,8 +1506,10 @@ void bldc_adc_irq_hanlder(void){
 	//v_vcc_v *= v_ldo_v / ADC_MAX_VALUE;
 
 	//FOC Cycles Min, Max, AVR: 275, 305, 293.599 next - not optimal
-	v_vcc_v = ((float) ADC_INJ_VCC) * v_ldo_v * (ADC_V_GAIN / ADC_MAX_VALUE);
-
+	float v_vcc_v_tmp = ((float) ADC_INJ_VCC) * v_ldo_v * (ADC_V_GAIN / ADC_MAX_VALUE);
+	//LPF
+	//v_vcc_v = v_vcc_v * 0.9f + v_vcc_v_tmp * 0.1f;
+	v_vcc_v = v_vcc_v_tmp;
 	//FOC Cycles Min, Max, AVR: 271, 290, 289.049
 	//v_vcc_v = ((float) ADC_INJ_VCC) * 0.0013542013542014f * v_ldo_v;
 
@@ -1429,7 +1533,7 @@ static void bldc_state_do_nothing(void){
 		DRV8301_PWM_UPDATE_EVENT;
 		bldc_set_active_state(BLDC_STATE_FOC);
 		//bldc_measure_r_init();
-		//ldc_measure_l_init();
+		//bldc_measure_l_init();
 	}
 
 
