@@ -38,8 +38,8 @@ static float i_offset_ldo = 0;
 
 //MOTO
 #define MOTOR_R									(0.084f * (3.0f/3.0f))			//TODO sprawdcz czy mnozyc czy nie 0.088
-#define MOTOR_L									(10.0e-6f * (3.0f/3.0f))		//TODO sprawdcz czy mnozyc czy nie 9.27e-6f
-#define MOTOR_LAMBDA							0.000609f						//TODO sprawdcz czy mnozyc czy nie
+#define MOTOR_L									(9.27e-6f * (3.0f/3.0f))		//TODO sprawdcz czy mnozyc czy nie 9.27e-6f
+#define MOTOR_LAMBDA							0.000f//0.000609f						//TODO sprawdcz czy mnozyc czy nie 0.000609f
 #define MOTOR_PID_TIME_CONSTANT					0.001f
 
 #define MOTOR_KA								(MOTOR_L/MOTOR_PID_TIME_CONSTANT)
@@ -62,8 +62,8 @@ static float i_offset_ldo = 0;
 #define BLDC_SPEED_PID_I_LIMIT					1.0f
 
 
-#define BLDC_PID_KP 							MOTOR_KA
-#define BLDC_PID_KI								(MOTOR_KB* MOTOR_KA)
+volatile float BLDC_PID_KP 					=		MOTOR_KA;
+volatile float BLDC_PID_KI					=			(MOTOR_KB* MOTOR_KA);
 #define BLDC_PID_I_LIMIT						BLDC_VDQ_MAX_LIMIT
 #define BLDC_PID_OUT_LIMIT 						BLDC_VDQ_MAX_LIMIT
 
@@ -71,7 +71,7 @@ static float i_offset_ldo = 0;
 float tetha = 0;
 
 float i_d_ref = 0;
-float i_q_ref = 0;		//2
+float i_q_ref = 1.0;		//2
 float i_q_max = 15.0;
 float i_d_err_acc = 0;
 float i_q_err_acc = 0;
@@ -793,8 +793,8 @@ float i_alpha = 0;
 float i_beta = 0;
 float v_alpha = 0;
 float v_beta = 0;
-float tetha_start = -90;
-
+float tetha_start = 0;
+volatile float linkage = 0;
 static void bldc_state_foc(void) {
 
 	//tetha_start+=0.1f;
@@ -961,26 +961,14 @@ static void bldc_state_foc(void) {
 
 	//TODO dead time compensation !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	observer_update(v_alpha, v_beta, i_alpha, i_beta, &tetha);
-	/*
-	if (tick_get_time_ms() < 500) {		//0.1, 0.3, 0.5
-		float add_min_speed = (400.0f * 2.0f * M_PI) / 60.0f * BLDC_DT;		//400, 500, 600
-		tetha += -add_min_speed * RAD_TO_DEG;
-		//tetha_start+=0.02f;
-		//tetha_start += 90.0f;
-		if (tetha_start < 180.0f) {
-			tetha_start += 360.0f;
-		}
-		tetha = tetha_start;
 
-	} else {
-		tetha = tetha * (180.0f / (float) M_PI);
-
-	}
-	*/
 
 	//SVM
 	uint32_t duty1, duty2, duty3, svm_sector;
 	bldc_svm(mod_alpha, mod_beta, DRV8301_PWM_3F_PWM_MAX, &duty1, &duty3, &duty2, &svm_sector);
+
+
+
 
 	/*
 	if(tick_get_time_ms()<1000*5){
@@ -1020,9 +1008,53 @@ static void bldc_state_foc(void) {
 	drv8301_set_pwm(duty1, duty2, duty3);
 	TIM1->CR1 &= ~TIM_CR1_UDIS;
 
+	//tetha = tetha * (180.0f / (float) M_PI);
 	pll_run(tetha, BLDC_DT, &m_pll_phase, &m_pll_speed);
-	tetha = tetha * (180.0f / (float) M_PI);
 
+
+	static float theta2=0;
+	static float add_min_speed = 0;
+	if (tick_get_time_ms() < 32000) {		//0.1, 0.3, 0.5
+		if(tick_get_time_ms() < 30000){
+			add_min_speed = (tick_get_time_ms() /3.0f * 2.0f * M_PI) / 60.0f;		//400, 500, 600
+		}
+		tetha_start += add_min_speed * RAD_TO_DEG * BLDC_DT;
+		//tetha_start+=0.02f;
+		//tetha_start += 90.0f;
+		if (tetha_start < 180.0f) {
+			tetha_start += 360.0f;
+		}
+
+		if (tetha_start > 180.0f) {
+			tetha_start -= 360.0f;
+		}
+		tetha = tetha_start;
+
+	} else {
+		tetha = tetha * (180.0f / (float) M_PI);
+	}
+
+	static float vq_avg = 0.0;
+	static float vd_avg = 0.0;
+	static float iq_avg = 0.0;
+	static float id_avg = 0.0;
+	static float samples2 = 0.0;
+	static bool finsihed= false;
+	if(tick_get_time_ms() == 31000 && finsihed == false){
+		finsihed = true;
+		vq_avg /= samples2;
+		vd_avg /= samples2;
+		iq_avg /= samples2;
+		id_avg /= samples2;
+
+		linkage = (sqrtf(vq_avg*vq_avg + vd_avg*vd_avg) - MOTOR_R *sqrtf(iq_avg*iq_avg + id_avg*id_avg)) / add_min_speed;// * ((2.0f * (float)M_PI) / 60.0f));
+	}else if(tick_get_time_ms() > 30000 && finsihed == false){
+		vq_avg+=v_q;
+		vd_avg+=v_d;
+		iq_avg+=i_q;
+		id_avg+=i_d;
+		samples2 +=1.0f;
+	}
 
 		/*
 		if(fabsf(i_q_ref)<0.01f){
@@ -1098,8 +1130,8 @@ static void bldc_state_foc(void) {
 		cnt = 0;
 		xx1 = m_pll_speed;
 		xx2 = i_q_ref;
-		xx3 = m_pll_phase - tetha;
-		xx4 = p1_i;
+		xx3 = m_pll_phase;
+		xx4 = tetha;
 	}
 
 
