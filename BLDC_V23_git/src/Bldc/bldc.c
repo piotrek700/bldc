@@ -39,7 +39,7 @@ static float i_offset_ldo = 0;
 //MOTO
 #define MOTOR_R									(0.084f * (3.0f/3.0f))			//TODO sprawdcz czy mnozyc czy nie 0.088
 #define MOTOR_L									(9.27e-6f * (3.0f/3.0f))		//TODO sprawdcz czy mnozyc czy nie 9.27e-6f
-#define MOTOR_LAMBDA							0.000f//0.000609f						//TODO sprawdcz czy mnozyc czy nie 0.000609f
+#define MOTOR_LAMBDA							0.000506f//0.000609f						//TODO sprawdcz czy mnozyc czy nie 0.000609f
 #define MOTOR_PID_TIME_CONSTANT					0.001f
 
 #define MOTOR_KA								(MOTOR_L/MOTOR_PID_TIME_CONSTANT)
@@ -71,7 +71,7 @@ volatile float BLDC_PID_KI					=			(MOTOR_KB* MOTOR_KA);
 float tetha = 0;
 
 float i_d_ref = 0;
-float i_q_ref = 1.0;		//2
+float i_q_ref = 0.0;		//2
 float i_q_max = 15.0;
 float i_d_err_acc = 0;
 float i_q_err_acc = 0;
@@ -1008,15 +1008,19 @@ static void bldc_state_foc(void) {
 	drv8301_set_pwm(duty1, duty2, duty3);
 	TIM1->CR1 &= ~TIM_CR1_UDIS;
 
-	//tetha = tetha * (180.0f / (float) M_PI);
-	pll_run(tetha, BLDC_DT, &m_pll_phase, &m_pll_speed);
 
+	pll_run(tetha, BLDC_DT, &m_pll_phase, &m_pll_speed);
+	//tetha = tetha * (180.0f / (float) M_PI);
 
 	static float theta2=0;
 	static float add_min_speed = 0;
-	if (tick_get_time_ms() < 32000) {		//0.1, 0.3, 0.5
-		if(tick_get_time_ms() < 30000){
-			add_min_speed = (tick_get_time_ms() /3.0f * 2.0f * M_PI) / 60.0f;		//400, 500, 600
+	uint32_t measurement_start_time_ms = 10000;
+	uint32_t measurement_time_ms = 2000;
+
+	if (tick_get_time_ms() < measurement_start_time_ms + measurement_time_ms * 2) {		//0.1, 0.3, 0.5
+		if(tick_get_time_ms() < measurement_start_time_ms-measurement_time_ms){
+			float t = tick_get_time_ms() *tick_get_time_ms() / 8000.0f;
+			add_min_speed = (t * 2.0f * M_PI) / 60.0f;		//400, 500, 600
 		}
 		tetha_start += add_min_speed * RAD_TO_DEG * BLDC_DT;
 		//tetha_start+=0.02f;
@@ -1040,7 +1044,28 @@ static void bldc_state_foc(void) {
 	static float id_avg = 0.0;
 	static float samples2 = 0.0;
 	static bool finsihed= false;
-	if(tick_get_time_ms() == 31000 && finsihed == false){
+	static bool bldc_off= false;
+
+	static float va_bemf_max = 0.0;
+	static float vb_bemf_max = 0.0;
+	static float vc_bemf_max = 0.0;
+
+	if(bldc_off){
+		float v1 = ADC_INJ_P1_BEMF * ADC_V_GAIN;
+		v1 *= v_ldo_v / ADC_MAX_VALUE;
+
+		float v2 = ADC_INJ_P2_BEMF * ADC_V_GAIN;
+		v2 *= v_ldo_v / ADC_MAX_VALUE;
+
+		float v3 = ADC_INJ_P3_BEMF * ADC_V_GAIN;
+		v3 *= v_ldo_v / ADC_MAX_VALUE;
+
+		float vdc = (v1+v2+v3)/3.0f;
+
+	}
+
+
+	if(tick_get_time_ms() == (measurement_start_time_ms + measurement_time_ms) && finsihed == false){
 		finsihed = true;
 		vq_avg /= samples2;
 		vd_avg /= samples2;
@@ -1048,7 +1073,26 @@ static void bldc_state_foc(void) {
 		id_avg /= samples2;
 
 		linkage = (sqrtf(vq_avg*vq_avg + vd_avg*vd_avg) - MOTOR_R *sqrtf(iq_avg*iq_avg + id_avg*id_avg)) / add_min_speed;// * ((2.0f * (float)M_PI) / 60.0f));
-	}else if(tick_get_time_ms() > 30000 && finsihed == false){
+
+		i_q_ref = 0;
+
+		drv8301_set_pwm(0, 0, 0);
+
+		TIM_SelectOCxM(TIM1, TIM_Channel_1, TIM_OCMode_PWM1);
+		TIM_CCxCmd(TIM1, TIM_Channel_1, TIM_CCx_Disable);
+		TIM_CCxNCmd(TIM1, TIM_Channel_1, TIM_CCxN_Disable);
+
+		TIM_SelectOCxM(TIM1, TIM_Channel_2, TIM_OCMode_PWM1);
+		TIM_CCxCmd(TIM1, TIM_Channel_2, TIM_CCx_Disable);
+		TIM_CCxNCmd(TIM1, TIM_Channel_2, TIM_CCxN_Disable);
+
+		TIM_SelectOCxM(TIM1, TIM_Channel_3, TIM_OCMode_PWM1);
+		TIM_CCxCmd(TIM1, TIM_Channel_3, TIM_CCx_Disable);
+		TIM_CCxNCmd(TIM1, TIM_Channel_3, TIM_CCxN_Disable);
+		DRV8301_PWM_UPDATE_EVENT;	//TODO veryfi if required
+		bldc_off = true;
+
+	}else if(tick_get_time_ms() > measurement_start_time_ms && finsihed == false){
 		vq_avg+=v_q;
 		vd_avg+=v_d;
 		iq_avg+=i_q;

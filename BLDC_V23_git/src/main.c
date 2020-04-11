@@ -615,6 +615,7 @@ void frame_cb_frame_rc_control(void *buff, uint8_t params) {
  * TODO implement reset of sensors like a pressure ang imu after startup
  * TODO chenge the priority of systick to have the highest one
  * TODO chenge critical functions to inline
+ * TODO add two separate section of CMM, 1 for variables, 1 for functions. Go to AN4296
  */
 
 int main(void) {

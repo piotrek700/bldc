@@ -19,7 +19,7 @@
 							<option id="com.atollic.truestudio.toolchain_options.mcu.1915469462" name="Microcontroller" superClass="com.atollic.truestudio.toolchain_options.mcu" useByScannerDiscovery="false" value="STM32F303CB" valueType="string"/>
 							<option id="com.atollic.truestudio.toolchain_options.vendor.1701996915" name="Vendor name" superClass="com.atollic.truestudio.toolchain_options.vendor" useByScannerDiscovery="false" value="STMicroelectronics" valueType="string"/>
 							<targetPlatform archList="all" binaryParser="org.eclipse.cdt.core.ELF" id="com.atollic.truestudio.exe.debug.toolchain.platform.2140062874" isAbstract="false" name="Debug platform" superClass="com.atollic.truestudio.exe.debug.toolchain.platform"/>
-							<builder buildPath="${workspace_loc:/STM32F3_Discovery_SysTick_Example/Debug}" customBuilderProperties="toolChainpathString=E:\\Programy\\TrueSTUDIO for STM32 9.0.1\\ARMTools\\bin|toolChainpathType=1|com.atollic.truestudio.common_options.target.vendor=STMicroelectronics|com.atollic.truestudio.common_options.target.mcu=STM32F303CB|" errorParsers="" id="com.atollic.truestudio.mbs.builder1.86097061" keepEnvironmentInBuildfile="false" managedBuildOn="true" name="CDT Internal Builder" superClass="com.atollic.truestudio.mbs.builder1">
+							<builder buildPath="${workspace_loc:/STM32F3_Discovery_SysTick_Example/Debug}" customBuilderProperties="toolChainpathString=E:\\Programy\\TrueSTUDIO for STM32 9.3.0\\ARMTools\\bin|toolChainpathType=1|com.atollic.truestudio.common_options.target.vendor=STMicroelectronics|com.atollic.truestudio.common_options.target.mcu=STM32F303CB|" errorParsers="" id="com.atollic.truestudio.mbs.builder1.86097061" keepEnvironmentInBuildfile="false" managedBuildOn="true" name="CDT Internal Builder" superClass="com.atollic.truestudio.mbs.builder1">
 								<outputEntries>
 									<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="outputPath" name="Debug"/>
 								</outputEntries>
@@ -61,11 +61,11 @@
 									<listOptionValue builtIn="false" value="STM32F303xC"/>
 								</option>
 								<option id="com.atollic.truestudio.gcc.directories.select.367690413" name="Include path" superClass="com.atollic.truestudio.gcc.directories.select" useByScannerDiscovery="false" valueType="includePath">
-									<listOptionValue builtIn="false" value="&quot;D:\Projekty\BLDC_2016\CMSIS_5-5.2.0\CMSIS\DSP\Include&quot;"/>
-									<listOptionValue builtIn="false" value="E:/D/Atollic/BLDC_V0/src"/>
-									<listOptionValue builtIn="false" value="E:/D/Atollic/BLDC_V0/Libraries/CMSIS/Include"/>
-									<listOptionValue builtIn="false" value="E:/D/Atollic/BLDC_V0/Libraries/CMSIS/Device/ST/STM32F30x/Include"/>
-									<listOptionValue builtIn="false" value="E:/D/Atollic/BLDC_V0/Libraries/STM32F30x_StdPeriph_Driver/inc"/>
+									<listOptionValue builtIn="false" value="&quot;D:\Projekty\_BLDC\02 Software\01 Embedded\CMSIS_5-5.2.0\CMSIS\DSP\Include&quot;"/>
+									<listOptionValue builtIn="false" value="D:/Git/BLDC_V23_git/git/bldc/BLDC_V23_git/src"/>
+									<listOptionValue builtIn="false" value="D:/Git/BLDC_V23_git/git/bldc/BLDC_V23_git/Libraries/CMSIS/Include"/>
+									<listOptionValue builtIn="false" value="D:/Git/BLDC_V23_git/git/bldc/BLDC_V23_git/Libraries/CMSIS/Device/ST/STM32F30x/Include"/>
+									<listOptionValue builtIn="false" value="D:/Git/BLDC_V23_git/git/bldc/BLDC_V23_git/Libraries/STM32F30x_StdPeriph_Driver/inc"/>
 								</option>
 								<option id="com.atollic.truestudio.common_options.target.endianess.2018523067" name="Endianess" superClass="com.atollic.truestudio.common_options.target.endianess" useByScannerDiscovery="false"/>
 								<option id="com.atollic.truestudio.gcc.optimization.prep_garbage.1484625847" name="Prepare dead code removal " superClass="com.atollic.truestudio.gcc.optimization.prep_garbage" useByScannerDiscovery="false" value="true" valueType="boolean"/>
@@ -92,7 +92,7 @@
 								<option id="com.atollic.truestudio.common_options.target.fpucore.690874066" name="FPU" superClass="com.atollic.truestudio.common_options.target.fpucore" useByScannerDiscovery="false" value="com.atollic.truestudio.common_options.target.fpucore.fpv4-sp-d16" valueType="enumerated"/>
 								<option id="com.atollic.truestudio.common_options.target.interwork.1569942513" name="Mix ARM/Thumb" superClass="com.atollic.truestudio.common_options.target.interwork" useByScannerDiscovery="false"/>
 								<option id="com.atollic.truestudio.ld.libraries.searchpath.891402423" name="Library search path" superClass="com.atollic.truestudio.ld.libraries.searchpath" useByScannerDiscovery="false" valueType="libPaths">
-									<listOptionValue builtIn="false" value="&quot;D:\Projekty\BLDC_2016\CMSIS_5-5.2.0\CMSIS\Lib\GCC&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;D:\Projekty\_BLDC\02 Software\01 Embedded\CMSIS_5-5.2.0\CMSIS\Lib\GCC&quot;"/>
 								</option>
 								<option id="com.atollic.truestudio.ld.misc.genmapfile.834380572" name="Create map file" superClass="com.atollic.truestudio.ld.misc.genmapfile" useByScannerDiscovery="false"/>
 								<option id="com.atollic.truestudio.ld.general.syscall_lib.1815748799" name="System calls" superClass="com.atollic.truestudio.ld.general.syscall_lib" useByScannerDiscovery="false" value="com.atollic.truestudio.ld.general.syscalls_lib.nosys" valueType="enumerated"/>
