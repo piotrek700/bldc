@@ -1,13 +1,9 @@
 #ifndef DRV8301_H_
 #define DRV8301_H_
 
-#include "stm32f30x.h"
-#include "../Debug/debug.h"
-#include <stdbool.h>
-#include "../Spi/spi.h"
-#include "../Tick/tick.h"
-#include "../utils.h"
+#include "platform.h"
 #include "drv8301_reg.h"
+#include "../Tick/tick.h"
 
 #define DRV8301_PWM_3F_SWITCHING_FREQ_HZ			15000
 #define DRV8301_PWM_PERIOD							(TICK_CPU_FREQUENCY_HZ / DRV8301_PWM_3F_SWITCHING_FREQ_HZ)

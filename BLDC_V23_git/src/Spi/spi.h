@@ -1,11 +1,7 @@
 #ifndef SPI_H_
 #define SPI_H_
 
-#include "stm32f30x.h"
-#include "../Debug/debug.h"
-#include "../Rybos/rybos.h"
-#include <stdbool.h>
-#include "../Cyclic/cyclic_ptr.h"
+#include "platform.h"
 
 #define SPI_IMU_NSS_SET_HIGH	 			GPIO_SetBits(GPIOB, GPIO_Pin_0)
 #define SPI_IMU_NSS_SET_LOW		 			GPIO_ResetBits(GPIOB, GPIO_Pin_0)

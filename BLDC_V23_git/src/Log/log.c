@@ -1,4 +1,8 @@
 #include "log.h"
+#include <stdio.h>
+#include "../Cyclic/cyclic_byte.h"
+#include "../Rybos/rybos.h"
+#include "../Debug/debug.h"
 
 static bool init_status = false;
 

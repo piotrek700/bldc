@@ -1,16 +1,8 @@
 #ifndef RADIO_H_
 #define RADIO_H_
 
-#include "stm32f30x.h"
-#include "../Debug/debug.h"
-#include "../Tick/tick.h"
-#include "../Si4468/si4468.h"
-#include <stdbool.h>
-#include "../Buzzer/buzzer.h"
-#include <string.h>
 #include <stdint.h>
-#include "../Frame/frame.h"
-#include "../Cyclic/cyclic.h"
+#include <stdbool.h>
 
 #define RADIO_MASTER							0
 

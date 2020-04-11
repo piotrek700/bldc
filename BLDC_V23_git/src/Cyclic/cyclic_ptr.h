@@ -1,9 +1,8 @@
 #ifndef CYCLIC_PTR_H_
 #define CYCLIC_PTR_H_
 
+#include <stdint.h>
 #include <stdbool.h>
-#include "../Debug/debug.h"
-#include "../utils.h"
 
 typedef void * type_buff;
 

@@ -1,4 +1,7 @@
 #include "rybos.h"
+#include "../Debug/debug.h"
+#include "../Tick/tick.h"
+#include "../utils.h"
 
 static volatile RybosTask task_list[RYBOS_NUMBER_OF_TASK];
 static volatile TaskLoadStack stack[RYBOS_TASK_MARKER_STACK_SIZE];

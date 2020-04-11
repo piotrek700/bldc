@@ -1,9 +1,8 @@
 #ifndef SERVO_H_
 #define SERVO_H_
 
-#include "stm32f30x.h"
-#include "../Debug/debug.h"
-#include <stdbool.h>
+#include "platform.h"
+#include "../Tick/tick.h"
 
 #define SERVO_CLOCK_PRESCALER	22
 #define SERVO_FREQUENCY_HZ		50

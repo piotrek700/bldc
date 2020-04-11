@@ -1,11 +1,7 @@
 #ifndef IMU_H_
 #define IMU_H_
 
-#include "stm32f30x.h"
-#include "../Debug/debug.h"
-#include <stdbool.h>
-#include "../Spi/spi.h"
-#include "imu_reg.h"
+#include "platform.h"
 
 #define IMU_OFFSET_COUNTER						1024
 

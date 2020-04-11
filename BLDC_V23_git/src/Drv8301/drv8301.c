@@ -1,5 +1,9 @@
 #include "drv8301.h"
 #include "drv8301_tran.h"
+#include "../Debug/debug.h"
+#include "../Spi/spi.h"
+#include "../utils.h"
+#include "../Rybos/rybos.h"
 
 static bool init_status = false;
 static volatile bool calibration_status = false;

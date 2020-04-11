@@ -22,6 +22,8 @@
 #include "uuid.h"
 #include "Spi/spi.h"
 #include "Bldc/bldc.h"
+#include "Frame/frame_frames.h"
+#include "utils.h"
 
 #define TASK_LED_PERIOD_MS							50
 #define TASK_LED_BLINK_PERIOD						1000/TASK_LED_PERIOD_MS

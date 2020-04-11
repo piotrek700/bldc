@@ -1,10 +1,7 @@
 #ifndef LOG_H_
 #define LOG_H_
 
-#include "stm32f30x.h"
-#include <stdbool.h>
-#include "../Cyclic/cyclic_byte.h"
-#include "../Rybos/rybos.h"
+#include "platform.h"
 
 #define LOG_TX_BUFFER_LENGTH	2048
 #define LOG_RX_BUFFER_LENGTH	16

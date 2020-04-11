@@ -4,6 +4,7 @@ static volatile uint32_t critical_cnt = 0;
 static volatile uint32_t critical_max = 0;
 
 float inv_sqrtf(float x) {
+	//TODO replace by sqrt from arm
 	float halfx = 0.5f * x;
 	float y = x;
 	long i = *(long*) &y;

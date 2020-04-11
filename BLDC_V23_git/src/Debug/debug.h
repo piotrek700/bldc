@@ -1,8 +1,7 @@
 #ifndef DEBUG_H_
 #define DEBUG_H_
-#include "../Led/led.h"
-#include "../Log/log.h"
-#include <stdio.h>
+
+#include <stdint.h>
 
 #define DEBUG_TEST_ENABLE	0
 

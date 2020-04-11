@@ -1,11 +1,7 @@
 #ifndef UART_H_
 #define UART_H_
 
-#include "stm32f30x.h"
-#include "../Debug/debug.h"
-#include "../Cyclic/cyclic.h"
-#include "../Frame/frame.h"
-#include <stdbool.h>
+#include "platform.h"
 
 #define UART_FRAME_QUEUE_SIZE			16
 #define UART_DMA_RX_BUFFER_LENGTH		256U

@@ -1,6 +1,8 @@
 #ifndef BUZZER_SOUNDS_H_
 #define BUZZER_SOUNDS_H_
 
+#include "buzzer.h"
+
 static const BuzzerSoundStep buzzer_sound_start[] = {
 		{ 100, 2500 },
 		{ 100, 0 },

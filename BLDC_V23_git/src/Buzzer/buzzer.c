@@ -1,5 +1,8 @@
 #include "buzzer.h"
 #include "buzzer_sounds.h"
+#include "../Debug/debug.h"
+#include "../Tick/tick.h"
+#include "../Rybos/rybos.h"
 
 static bool init_status = false;
 

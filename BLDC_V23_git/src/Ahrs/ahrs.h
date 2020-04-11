@@ -1,9 +1,6 @@
 #ifndef AHRS_H_
 #define AHRS_H_
 
-#include <math.h>
-#include "../utils.h"
-
 #define AHRS_BETA_INIT				1.0f
 #define AHRS_BETA_FINAL				0.1f
 #define AHRS_SAMPLE_FREQUENCY_HZ 	1000.0f

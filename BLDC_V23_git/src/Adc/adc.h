@@ -1,14 +1,7 @@
 #ifndef ADC_H_
 #define ADC_H_
 
-#include "stm32f30x.h"
-#include "../Debug/debug.h"
-#include "../Tick/tick.h"
-#include "../Rybos/rybos.h"
-#include "../Drv8301/drv8301.h"
-#include "../Bldc/bldc.h"
-#include <stdbool.h>
-#include "../utils.h"
+#include "platform.h"
 
 #define ADC_SAMPLING_CYCLES 		ADC_SampleTime_19Cycles5
 
@@ -22,7 +15,7 @@
 #define ADC_Channel_P1_I 			ADC_InjectedChannel_1
 #define ADC_Channel_Vcc 			ADC_InjectedChannel_1
 #define ADC_Channel_P3_I 			ADC_InjectedChannel_3
-#define ADC_Channel_P1_Bemf 		ADC_InjectedChannel_12	//Todo one chanell has slow convertion, chenge during next design
+#define ADC_Channel_P1_Bemf 		ADC_InjectedChannel_12						//Todo one channel has slow convertion, change during next design
 #define ADC_Channel_P2_Bemf 		ADC_InjectedChannel_5
 #define ADC_Channel_P3_Bemf 		ADC_InjectedChannel_4
 
@@ -33,7 +26,7 @@
 #define ADC_INJ_P2_BEMF				ADC3->JDR2
 #define ADC_INJ_P3_BEMF				ADC4->JDR2
 
-#define ADC_VREF_V					3.3f //3.3f TODO Verify - errata
+#define ADC_VREF_V					3.3f 										//3.3f TODO Verify - errata
 #define ADC_MAX_VALUE				4095.0f
 
 #define ADC_NTC_B_25_100_K			3455.0f
@@ -41,9 +34,9 @@
 #define ADC_NTC_R2_OHM				10000.0f
 #define ADC_KELVIN_OFFSET			273.15f
 #define ADC_NTC_T0_K				(25.0f+ADC_KELVIN_OFFSET)
-#define ADC_NTC_R_INF				0.09275567347300997333f	//r_inf=ADC_NTC_R0_OHM*exp(-ADC_NTC_B_25_100_K/ADC_NTC_T0_K)
+#define ADC_NTC_R_INF				0.09275567347300997333f						//r_inf=ADC_NTC_R0_OHM*exp(-ADC_NTC_B_25_100_K/ADC_NTC_T0_K)
 
-#define ADC_MIN_BAT_V				9.5f	//3.1f*3+margin
+#define ADC_MIN_BAT_V				9.5f										//3.1f*3+margin
 #define ADC_NTC_MAX_TEMP_C			75.0f
 
 #define ADC_I_OFFSET_COUNTER_MAX	4096
@@ -58,9 +51,9 @@
 
 #define ADC_TIEMOUT_CYCLES			500000
 
-static volatile uint16_t *VREFINT_CAL = (uint16_t *) ((uint32_t) 0x1FFFF7BA);
-static volatile uint16_t *ADC_TEMP110_CAL_ADDR = (uint16_t *) ((uint32_t) 0x1FFFF7C2);
-static volatile uint16_t *ADC_TEMP30_CAL_ADDR = (uint16_t *) ((uint32_t) 0x1FFFF7B8);
+UNUSED_WARNING_DISABLE static volatile uint16_t *VREFINT_CAL = (uint16_t *) ((uint32_t) 0x1FFFF7BA);
+UNUSED_WARNING_DISABLE static volatile uint16_t *ADC_TEMP110_CAL_ADDR = (uint16_t *) ((uint32_t) 0x1FFFF7C2);
+UNUSED_WARNING_DISABLE static volatile uint16_t *ADC_TEMP30_CAL_ADDR = (uint16_t *) ((uint32_t) 0x1FFFF7B8);
 
 void adc_init(void);
 

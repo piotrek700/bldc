@@ -1,4 +1,9 @@
 #include "frame.h"
+#include "frame_frames.h"
+#include "../Debug/debug.h"
+#include "../Uart/uart.h"
+#include "../Radio/radio.h"
+#include "../utils.h"
 
 static volatile uint8_t frame_buffer[FRAME_BUFFER_LENGTH + 1];	//TODO +2 not +1 = frame type + crc - add some buffer -mayby it will be good to have hera always 255
 static volatile FrameType frame_type;

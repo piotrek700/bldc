@@ -1,5 +1,7 @@
 #include "imu.h"
 #include "imu_trans.h"
+#include "../Debug/debug.h"
+#include "../Spi/spi.h"
 
 static bool init_status = false;
 static volatile float acceleration[3] = { 0, 0, 0 };

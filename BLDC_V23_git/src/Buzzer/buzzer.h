@@ -1,11 +1,7 @@
 #ifndef BUZZER_H_
 #define BUZZER_H_
 
-#include "stm32f30x.h"
-#include "../Debug/debug.h"
-#include "../Tick/tick.h"
-#include <stdbool.h>
-#include "../Rybos/rybos.h"
+#include "platform.h"
 
 typedef struct {
 	uint32_t generation_time_ms;

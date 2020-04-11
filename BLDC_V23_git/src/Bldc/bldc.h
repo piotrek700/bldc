@@ -48,7 +48,6 @@ void bldc_set_active_state(BldcStateMachine state);
 
 
 
-
 void bldc_phase_step(uint32_t step);
 
 void bldc_phase_stop(void);

@@ -1,4 +1,6 @@
 #include "tick.h"
+#include "../Debug/debug.h"
+#include "../Rybos/rybos.h"
 
 static volatile uint32_t tick_counter = 0;
 static bool init_status = false;

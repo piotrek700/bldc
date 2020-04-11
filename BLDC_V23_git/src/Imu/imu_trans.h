@@ -1,6 +1,9 @@
 #ifndef IMU_TRANS_H_
 #define IMU_TRANS_H_
 
+#include "imu_reg.h"
+#include "../Spi/spi.h"
+
 //1----------------------------------------------------------------------------
 static const uint8_t tx_who_am_i[2] = { LSM6DSL_SPI_READ_MASK | LSM6DSL_REG_WHO_AM_I };
 static volatile uint8_t rx_who_am_i[2];

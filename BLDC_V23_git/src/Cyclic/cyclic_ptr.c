@@ -1,4 +1,6 @@
 #include "cyclic_ptr.h"
+#include "../Debug/debug.h"
+#include "../utils.h"
 
 void cyclic_ptr_clear(CyclicPtrBuffer *cyclic) {
 	cyclic->elements = 0;

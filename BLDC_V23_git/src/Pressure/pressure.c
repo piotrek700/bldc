@@ -1,5 +1,8 @@
 #include "pressure.h"
 #include "pressure_tran.h"
+#include "../Debug/debug.h"
+#include "../Spi/spi.h"
+#include "math.h"
 
 static bool init_status = false;
 static volatile float pressure = 0;

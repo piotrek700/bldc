@@ -1,12 +1,7 @@
 #ifndef PRESSURE_H_
 #define PRESSURE_H_
 
-#include "stm32f30x.h"
-#include "../Debug/debug.h"
-#include "../Spi/spi.h"
-#include <stdbool.h>
-#include "pressure_reg.h"
-#include "math.h"
+#include "platform.h"
 
 #define PRESSURE_OFFSET_COUNTER		128
 

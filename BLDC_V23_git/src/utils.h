@@ -1,11 +1,11 @@
 #ifndef UTILS_H_
 #define UTILS_H_
 
-#include "stm32f30x.h"
+#include "platform.h"
 #include <math.h>
 
 //Define
-#define SWAP_UINT16(x) 								((uint16_t)((x) >> 8) | (uint16_t)((x) << 8))	//TODO instuction in arm
+#define SWAP_UINT16(x) 								((uint16_t)((x) >> 8) | (uint16_t)((x) << 8))	//TODO instruction in arm
 #define UNUSED(x) 									(void)(x)
 #define IS_NAN(x)									((x) != (x))
 

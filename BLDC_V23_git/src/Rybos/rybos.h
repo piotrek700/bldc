@@ -1,12 +1,11 @@
 #ifndef RYBOS_H_
 #define RYBOS_H_
 
+#include <stdint.h>
 #include <stdbool.h>
-#include "../Debug/debug.h"
-#include "../Tick/tick.h"
-#include "../utils.h"
 
 #define RYBOS_NUMBER_OF_TASK			12
+#define RYBOS_HIGHEST_PRIORITY			0
 #define RYBOS_LOWEST_PRIORITY			0xFFFFFFFF
 #define RYBOS_TASK_MARKER_STACK_SIZE	20
 #define RYBOS_TASK_NAME_MAX_SIZE		32
@@ -35,7 +34,7 @@ typedef enum {
 	MARKER_SYSTEM					//20 RYBOS
 } TaskMarker;
 
-static const uint8_t TASK_NAMES[][RYBOS_TASK_NAME_MAX_SIZE] ={
+static const uint8_t TASK_NAMES[][RYBOS_TASK_NAME_MAX_SIZE] ={		//TODO divide into separate array
 	"IRQ_TICK",						//0
 	"TASK_LED",						//1
 	"TASK_SLEEP",					//2

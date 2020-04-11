@@ -1,13 +1,7 @@
 #ifndef FRAME_H_
 #define FRAME_H_
 
-#include <stdio.h>
-#include <stdbool.h>
-#include "../Debug/debug.h"
-#include "../Uart/uart.h"
-#include "frame_frames.h"
-#include "../Radio/radio.h"
-#include "../utils.h"
+#include <stdint.h>
 
 //Frame parameters
 #define FRAME_START_SYMBOL				0xA5

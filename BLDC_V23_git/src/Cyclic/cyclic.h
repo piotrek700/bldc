@@ -1,10 +1,8 @@
 #ifndef CYCLIC_H_
 #define CYCLIC_H_
 
+#include <stdint.h>
 #include <stdbool.h>
-#include "../Debug/debug.h"
-#include "../utils.h"
-#include <string.h>
 
 typedef struct {
 	uint32_t write_ptr;

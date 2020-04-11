@@ -1,13 +1,7 @@
 #ifndef SI4468_H_
 #define SI4468_H_
 
-#include "stm32f30x.h"
-#include "../Debug/debug.h"
-#include "../Tick/tick.h"
-#include <stdbool.h>
-#include "../Spi/spi.h"
-#include "si4468_wds/bsp.h"
-#include "si4468_wds/Si446x/si446x_cmd.h"
+#include "platform.h"
 
 #define SI4468_CMD_ACK_VALUE		0xFF
 #define SI4468_TX_BUFF_MAX_SIZE		64

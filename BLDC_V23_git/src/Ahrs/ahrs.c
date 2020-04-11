@@ -1,4 +1,6 @@
 #include "ahrs.h"
+#include <math.h>
+#include "../utils.h"
 
 static float q1w = 1.0f, q1x = 0.0f, q1y = 0.0f, q1z = 0.0f;
 static float q2w = 1.0f, q2x = 0.0f, q2y = 0.0f, q2z = 0.0f;

@@ -1,4 +1,6 @@
 #include "bldc.h"
+#include "../Frame/frame_frames.h"
+#include "utils.h"
 
 //Calibration
 #define BEMF_V_CALIBRATION_WAIT_TIME_MS			10

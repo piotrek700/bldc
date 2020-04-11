@@ -1,6 +1,9 @@
 #ifndef PRESSURE_TRAN_H_
 #define PRESSURE_TRAN_H_
 
+#include "pressure_reg.h"
+#include "../Spi/spi.h"
+
 //1----------------------------------------------------------------------------
 static const uint8_t tx_who_am_i[2] = { LPS22HB_SPI_READ_MASK | LPS22HB_REG_WHO_AM_I };
 static volatile uint8_t rx_who_am_i[2];

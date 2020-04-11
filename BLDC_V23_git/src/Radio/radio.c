@@ -1,5 +1,13 @@
 #include "radio.h"
 #include "radio_tran.h"
+#include <string.h>
+#include "../Debug/debug.h"
+#include "../Tick/tick.h"
+#include "../Buzzer/buzzer.h"
+#include "../Frame/frame.h"
+#include "../Cyclic/cyclic.h"
+#include "../Rybos/rybos.h"
+#include "utils.h"
 
 static bool init_status = false;
 

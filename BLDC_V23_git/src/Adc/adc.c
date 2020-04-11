@@ -1,4 +1,11 @@
 #include "adc.h"
+#include "../Debug/debug.h"
+#include "../Tick/tick.h"
+#include "../Rybos/rybos.h"
+#include "../Drv8301/drv8301.h"
+#include "../Bldc/bldc.h"
+#include "../utils.h"
+#include "../Led/led.h"
 
 static bool init_status = false;
 
