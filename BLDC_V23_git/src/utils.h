@@ -8,6 +8,9 @@
 #define SWAP_UINT16(x) 								((uint16_t)((x) >> 8) | (uint16_t)((x) << 8))	//TODO instruction in arm
 #define UNUSED(x) 									(void)(x)
 #define IS_NAN(x)									((x) != (x))
+#define UNUSED_WARNING_DISABLE 						__attribute__((unused))
+#define CCM_VARIABLE
+#define CCM_FUCNTION
 
 //Functions
 float inv_sqrtf(float x);

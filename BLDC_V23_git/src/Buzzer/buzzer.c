@@ -83,7 +83,7 @@ bool buzzer_get_init_status(void) {
 	return init_status;
 }
 
-static void buzzer_set_frequency(uint32_t freq) {
+static void buzzer_set_frequency(uint16_t freq) {
 	if (freq == 0) {
 		TIM2->CCR1 = 0;
 	} else {

@@ -72,7 +72,7 @@ typedef enum {
 	DISPLAY_TYPE_NOT_SUPORTTED,					//61
 	PID_TYPE_FRAME_NOT_SUPPORTED,				//62
 	FRAME_DECODING_STATE_MASHINE_NO_STATE,		//63
-	NO_ERROR = 0xFF
+	NO_ERROR = 0xFF								//255
 } DebugError;
 
 void debug_error_handler(DebugError error, uint8_t *file, int32_t line);

@@ -41,7 +41,7 @@ static float i_offset_ldo = 0;
 //MOTO
 #define MOTOR_R									(0.084f * (3.0f/3.0f))			//TODO sprawdcz czy mnozyc czy nie 0.088
 #define MOTOR_L									(9.27e-6f * (3.0f/3.0f))		//TODO sprawdcz czy mnozyc czy nie 9.27e-6f
-#define MOTOR_LAMBDA							0.000506f//0.000609f						//TODO sprawdcz czy mnozyc czy nie 0.000609f
+#define MOTOR_LAMBDA							0.0006f//0.000609f						//TODO sprawdcz czy mnozyc czy nie 0.000609f
 #define MOTOR_PID_TIME_CONSTANT					0.001f
 
 #define MOTOR_KA								(MOTOR_L/MOTOR_PID_TIME_CONSTANT)
@@ -73,7 +73,7 @@ volatile float BLDC_PID_KI					=			(MOTOR_KB* MOTOR_KA);
 float tetha = 0;
 
 float i_d_ref = 0;
-float i_q_ref = 0.0;		//2
+float i_q_ref = 2.0;		//2
 float i_q_max = 15.0;
 float i_d_err_acc = 0;
 float i_q_err_acc = 0;
@@ -797,6 +797,11 @@ float v_alpha = 0;
 float v_beta = 0;
 float tetha_start = 0;
 volatile float linkage = 0;
+
+volatile static float linkage_bemf_a = 0.0;
+volatile static float linkage_bemf_b = 0.0;
+volatile static float linkage_bemf_c = 0.0;
+
 static void bldc_state_foc(void) {
 
 	//tetha_start+=0.1f;
@@ -1016,12 +1021,12 @@ static void bldc_state_foc(void) {
 
 	static float theta2=0;
 	static float add_min_speed = 0;
-	uint32_t measurement_start_time_ms = 10000;
+	uint32_t measurement_start_time_ms = 11000;
 	uint32_t measurement_time_ms = 2000;
 
 	if (tick_get_time_ms() < measurement_start_time_ms + measurement_time_ms * 2) {		//0.1, 0.3, 0.5
 		if(tick_get_time_ms() < measurement_start_time_ms-measurement_time_ms){
-			float t = tick_get_time_ms() *tick_get_time_ms() / 8000.0f;
+			float t = tick_get_time_ms() *tick_get_time_ms() / 7000.0f;
 			add_min_speed = (t * 2.0f * M_PI) / 60.0f;		//400, 500, 600
 		}
 		tetha_start += add_min_speed * RAD_TO_DEG * BLDC_DT;
@@ -1052,6 +1057,8 @@ static void bldc_state_foc(void) {
 	static float vb_bemf_max = 0.0;
 	static float vc_bemf_max = 0.0;
 
+
+
 	if(bldc_off){
 		float v1 = ADC_INJ_P1_BEMF * ADC_V_GAIN;
 		v1 *= v_ldo_v / ADC_MAX_VALUE;
@@ -1063,6 +1070,30 @@ static void bldc_state_foc(void) {
 		v3 *= v_ldo_v / ADC_MAX_VALUE;
 
 		float vdc = (v1+v2+v3)/3.0f;
+
+		v1-=vdc;
+		v2-=vdc;
+		v3-=vdc;
+
+		v1=fabsf(v1);
+		v2=fabsf(v2);
+		v3=fabsf(v3);
+
+		if(v1 > va_bemf_max){
+			va_bemf_max = v1;
+		}
+
+		if(v2 > va_bemf_max){
+			vb_bemf_max = v2;
+		}
+
+		if(v3 > va_bemf_max){
+			vc_bemf_max = v3;
+		}
+
+		linkage_bemf_a = va_bemf_max / add_min_speed;
+		linkage_bemf_b = vb_bemf_max / add_min_speed;
+		linkage_bemf_c = vc_bemf_max / add_min_speed;
 
 	}
 

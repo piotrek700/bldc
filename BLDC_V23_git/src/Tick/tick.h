@@ -2,6 +2,7 @@
 #define TICK_H_
 
 #include "platform.h"
+#include "utils.h"
 
 #define TICK_FREQUENCY_HZ		1000
 #define TICK_MAX_TIME_RANGE_S	0xFFFFFFFF/TICK_FREQUENCY_HZ
@@ -24,7 +25,6 @@ void tick_clear_clock_tick(void);
 
 bool tick_get_init_status(void);
 
-//__attribute__( ( always_inline ) ) __STATIC_INLINE
 static inline uint32_t tick_get_clock_tick(void){
 	return *DWT_CYCCNT;
 }

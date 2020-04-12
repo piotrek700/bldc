@@ -1,9 +1,9 @@
 #include "uart.h"
+#include "utils.h"
 #include "../Debug/debug.h"
 #include "../Cyclic/cyclic.h"
 #include "../Frame/frame.h"
 #include "../Rybos/rybos.h"
-#include "utils.h"
 
 static bool init_status = false;
 

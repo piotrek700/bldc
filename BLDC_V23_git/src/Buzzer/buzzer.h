@@ -4,8 +4,8 @@
 #include "platform.h"
 
 typedef struct {
-	uint32_t generation_time_ms;
-	uint32_t frequency_hz;
+	uint16_t generation_time_ms;
+	uint16_t frequency_hz;
 } BuzzerSoundStep;
 
 typedef enum {
