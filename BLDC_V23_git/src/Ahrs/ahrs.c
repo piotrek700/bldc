@@ -2,11 +2,11 @@
 #include <math.h>
 #include "../utils.h"
 
-static float q1w = 1.0f, q1x = 0.0f, q1y = 0.0f, q1z = 0.0f;
-static float q2w = 1.0f, q2x = 0.0f, q2y = 0.0f, q2z = 0.0f;
+CCMRAM_VARIABLE static float q1w = 1.0f, q1x = 0.0f, q1y = 0.0f, q1z = 0.0f;
+CCMRAM_VARIABLE static float q2w = 1.0f, q2x = 0.0f, q2y = 0.0f, q2z = 0.0f;
 
-static float beta = AHRS_BETA_INIT;
-static float sampling_t = 1.0f / AHRS_SAMPLE_FREQUENCY_HZ;
+CCMRAM_VARIABLE static float beta = AHRS_BETA_INIT;
+CCMRAM_VARIABLE static float sampling_t = 1.0f / AHRS_SAMPLE_FREQUENCY_HZ;
 
 void ahrs_set_beta(float value) {
 	beta = value;
@@ -16,7 +16,7 @@ void ahrs_set_sampling_frequency(float value) {
 	sampling_t = 1.0f / value;
 }
 
-void ahrs_update(float gx, float gy, float gz, float ax, float ay, float az) {
+CCMRAM_FUCNTION void ahrs_update(float gx, float gy, float gz, float ax, float ay, float az) {
 	float recipNorm;
 	float s0, s1, s2, s3;
 	float qDot1, qDot2, qDot3, qDot4;
@@ -97,7 +97,7 @@ void ahrs_update(float gx, float gy, float gz, float ax, float ay, float az) {
  * ]
  */
 
-void ahrs_rotate_45(void) {
+CCMRAM_FUCNTION void ahrs_rotate_45(void) {
 	q2w = AHRS_W_COS_45_2 * q1w - AHRS_Z_SIN_45_2 * q1z;
 	q2x = AHRS_W_COS_45_2 * q1x + AHRS_Z_SIN_45_2 * q1y;
 	q2y = AHRS_W_COS_45_2 * q1y - AHRS_Z_SIN_45_2 * q1x;
@@ -118,15 +118,15 @@ void ahrs_rotate_0(void) {
 }
 
 //Tait-bryan http://www.chrobotics.com/library/understanding-quaternions
-float ahrs_get_yaw(void) {
+CCMRAM_FUCNTION float ahrs_get_yaw(void) {
 	return fast_atan2f(2.0f * (q2y * q2z + q2w * q2x), q2w * q2w - q2x * q2x - q2y * q2y + q2z * q2z) * 180.0f * (float)M_1_PI;
 }
 
-float ahrs_get_pitch(void) {
+CCMRAM_FUCNTION float ahrs_get_pitch(void) {
 	return asinf(2.0f * (q2x * q2z - q2w * q2y)) * 180.0f * (float)M_1_PI;
 }
 
-float ahrs_get_roll(void) {
+CCMRAM_FUCNTION float ahrs_get_roll(void) {
 	return -fast_atan2f(2.0f * (q2x * q2y + q2w * q2z), q2w * q2w + q2x * q2x - q2y * q2y - q2z * q2z) * 180.0f * (float)M_1_PI;
 }
 

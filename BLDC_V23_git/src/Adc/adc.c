@@ -292,7 +292,7 @@ static void adc_nvic_init(void) {
 	*/
 }
 
-void ADC1_2_IRQHandler(void) {
+CCMRAM_FUCNTION void ADC1_2_IRQHandler(void) {
 //	static uint32_t start_tick=0;
 //	static uint32_t stop_tick=0;
 //	static uint32_t run_cnt=0;

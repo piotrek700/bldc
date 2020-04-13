@@ -28,9 +28,9 @@ static float v3_bemf_offset = 0;
 static float v_bemf_offset_ldo = 0;
 static float v_bemf_offset_vcc = 0;
 
-static float p1_i_offset = 0;
-static float p3_i_offset = 0;
-static float i_offset_ldo = 0;
+CCMRAM_VARIABLE static float p1_i_offset = 0;
+CCMRAM_VARIABLE static float p3_i_offset = 0;
+CCMRAM_VARIABLE static float i_offset_ldo = 0;
 
 #define ONE_BY_SQRT3							0.57735026919f
 #define TWO_BY_SQRT3							1.15470053838f
@@ -64,21 +64,21 @@ static float i_offset_ldo = 0;
 #define BLDC_SPEED_PID_I_LIMIT					1.0f
 
 
-volatile float BLDC_PID_KP 					=		MOTOR_KA;
-volatile float BLDC_PID_KI					=			(MOTOR_KB* MOTOR_KA);
+CCMRAM_VARIABLE volatile float BLDC_PID_KP 					=		MOTOR_KA;
+CCMRAM_VARIABLE volatile float BLDC_PID_KI					=			(MOTOR_KB* MOTOR_KA);
 #define BLDC_PID_I_LIMIT						BLDC_VDQ_MAX_LIMIT
 #define BLDC_PID_OUT_LIMIT 						BLDC_VDQ_MAX_LIMIT
 
 
-float tetha = 0;
+CCMRAM_VARIABLE float tetha = 0;
 
-float i_d_ref = 0;
-float i_q_ref = 2.0;		//2
-float i_q_max = 15.0;
-float i_d_err_acc = 0;
-float i_q_err_acc = 0;
-float i_d_lpf = 0;
-float i_q_lpf = 0;
+CCMRAM_VARIABLE float i_d_ref = 0;
+CCMRAM_VARIABLE float i_q_ref = 2.0;		//2
+CCMRAM_VARIABLE float i_q_max = 15.0;
+CCMRAM_VARIABLE float i_d_err_acc = 0;
+CCMRAM_VARIABLE float i_q_err_acc = 0;
+CCMRAM_VARIABLE float i_d_lpf = 0;
+CCMRAM_VARIABLE float i_q_lpf = 0;
 
 float speed_err_acc = 0;
 
@@ -104,10 +104,10 @@ static float measure_l_i1_avr_2 = 0;
 static float measure_l_i3_avr_2 = 0;
 static float measure_l_vcc_avr_2 = 0;
 
-static /*volatile*/ float v_vcc_v = 0;
-static /*volatile*/ float v_ldo_v = 0;
-static /*volatile*/ float up_temperature_c = 0;
-static /*volatile*/ float ntc_temperature_c = 0;
+CCMRAM_VARIABLE static /*volatile*/ float v_vcc_v = 0;
+CCMRAM_VARIABLE static /*volatile*/ float v_ldo_v = 0;
+CCMRAM_VARIABLE static /*volatile*/ float up_temperature_c = 0;
+CCMRAM_VARIABLE static /*volatile*/ float ntc_temperature_c = 0;
 
 static void bldc_state_calibrate_i(void);
 static void bldc_state_calibrate_v(void);
@@ -129,19 +129,19 @@ static BldcStateDictionaryRow state_dictionary[] = {
 		{BLDC_STATE_DO_NOTHING,			bldc_state_do_nothing}
 };
 
-static void (*bldc_active_state_cb)(void) = bldc_state_do_nothing;
+CCMRAM_VARIABLE static void (*bldc_active_state_cb)(void) = bldc_state_do_nothing;
 static BldcStateMachine bldc_active_state = BLDC_STATE_DO_NOTHING;
 
-float m_gamma_now = 2696282635.13f; //* 0.3f;//5e8;		//bw/(lambda * lambda) = 10000/
+CCMRAM_VARIABLE float m_gamma_now = 2696282635.13f; //* 0.3f;//5e8;		//bw/(lambda * lambda) = 10000/
 
-static float x1 = 0;
-static float x2 = 0;
+CCMRAM_VARIABLE static float x1 = 0;
+CCMRAM_VARIABLE static float x2 = 0;
 
-/*volatile*/ float m_pll_phase = 0;
-/*volatile*/ float m_pll_speed = 0;
+CCMRAM_VARIABLE /*volatile*/ float m_pll_phase = 0;
+CCMRAM_VARIABLE /*volatile*/ float m_pll_speed = 0;
 
-volatile float foc_pll_kp = 2000.0;
-volatile float foc_pll_ki = 40000.0;		//1000000
+CCMRAM_VARIABLE volatile float foc_pll_kp = 2000.0;
+CCMRAM_VARIABLE volatile float foc_pll_ki = 40000.0;		//1000000
 
 static volatile float g_i_abs=0;
 static volatile float g_i_d=0;
@@ -149,8 +149,8 @@ static volatile float g_i_q=0;
 static volatile float g_v_d=0;
 static volatile float g_v_q=0;
 
-static float adc_vref_mul_vrefint_cal = 0;
-static float one_over_adc_temp_call = 0;
+CCMRAM_VARIABLE static float adc_vref_mul_vrefint_cal = 0;
+CCMRAM_VARIABLE static float one_over_adc_temp_call = 0;
 
 void bldc_set_i_d(float i_d){
 	i_q_ref = i_d;
@@ -172,7 +172,7 @@ float bldc_get_up_temperature_c(void) {
 	return up_temperature_c;
 }
 
-static void bldc_svm(float alpha, float beta, uint32_t PWMHalfPeriod, uint32_t* tAout, uint32_t* tBout, uint32_t* tCout, uint32_t *svm_sector) {
+CCMRAM_FUCNTION static void bldc_svm(float alpha, float beta, uint32_t PWMHalfPeriod, uint32_t* tAout, uint32_t* tBout, uint32_t* tCout, uint32_t *svm_sector) {
 	uint32_t sector;
 
 	if (beta >= 0.0f) {
@@ -675,7 +675,7 @@ static void bldc_state_measure_l(void) {
 	}
 }
 
-void observer_update(float v_alpha, float v_beta, float i_alpha, float i_beta, /*volatile*/float *phase) {
+CCMRAM_FUCNTION void observer_update(float v_alpha, float v_beta, float i_alpha, float i_beta, /*volatile*/float *phase) {
 	float L = MOTOR_L * 3.0f / 3.0f;
 	float R = MOTOR_R * 3.0f / 3.0f;
 	float lambda = MOTOR_LAMBDA;
@@ -717,7 +717,7 @@ void observer_update(float v_alpha, float v_beta, float i_alpha, float i_beta, /
 	*phase = fast_atan2f_sec(x2 - L_ib, x1 - L_ia);
 }
 
-void utils_norm_angle_rad(float *angle) {
+CCMRAM_FUCNTION void utils_norm_angle_rad(float *angle) {
 	while (*angle < -(float)M_PI) {
 		*angle += 2.0f * (float)M_PI;
 	}
@@ -727,7 +727,7 @@ void utils_norm_angle_rad(float *angle) {
 	}
 }
 
-static void pll_run(float phase, float dt,  float *phase_var,  float *speed_var) {
+CCMRAM_FUCNTION static void pll_run(float phase, float dt,  float *phase_var,  float *speed_var) {
 	if(IS_NAN(*phase_var)){
 		*phase_var=0.0f;
 	}
@@ -769,7 +769,7 @@ volatile float xx2 = 0.0f;
 volatile float xx3 = 0.0f;
 volatile float xx4 = 0.0f;
 
-volatile float   i_bus = 0;
+CCMRAM_VARIABLE volatile float   i_bus = 0;
 
 int utils_truncate_number(float *number, float min, float max) {
 	int did_trunc = 0;
@@ -791,10 +791,10 @@ volatile float MCCONF_S_PID_KD					=0.0001f;	// Derivative gain
 volatile float MCCONF_S_PID_KD_FILTER			=0.2f;	// Derivative filter
 volatile float m_speed_pid_set=0;
 
-float i_alpha = 0;
-float i_beta = 0;
-float v_alpha = 0;
-float v_beta = 0;
+CCMRAM_VARIABLE float i_alpha = 0;
+CCMRAM_VARIABLE float i_beta = 0;
+CCMRAM_VARIABLE float v_alpha = 0;
+CCMRAM_VARIABLE float v_beta = 0;
 float tetha_start = 0;
 volatile float linkage = 0;
 
@@ -802,7 +802,7 @@ volatile static float linkage_bemf_a = 0.0;
 volatile static float linkage_bemf_b = 0.0;
 volatile static float linkage_bemf_c = 0.0;
 
-static void bldc_state_foc(void) {
+CCMRAM_FUCNTION static void bldc_state_foc(void) {
 
 	//tetha_start+=0.1f;
 	//if(tetha_start>180.0f){
@@ -1017,8 +1017,8 @@ static void bldc_state_foc(void) {
 
 
 	pll_run(tetha, BLDC_DT, &m_pll_phase, &m_pll_speed);
-	//tetha = tetha * (180.0f / (float) M_PI);
-
+	tetha = tetha * (180.0f / (float) M_PI);
+/*
 	static float theta2=0;
 	static float add_min_speed = 0;
 	uint32_t measurement_start_time_ms = 11000;
@@ -1577,7 +1577,7 @@ static void bldc_send_data(void){
 	}
 }
 
-void bldc_adc_irq_hanlder(void){
+CCMRAM_FUCNTION void bldc_adc_irq_hanlder(void){
 	//FOC Cycles Min, Max, AVR: 30, 37, 30.266
 
 	//V LDO calculate

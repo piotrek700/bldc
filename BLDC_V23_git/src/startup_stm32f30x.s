@@ -70,47 +70,70 @@ Reset_Handler:
 	ldr   sp, =_estack      /* Set stack pointer */
 
 /* Copy the data segment initializers from flash to SRAM */
- movs r1, #0
-b LoopCopyDataInit
+	movs r1, #0
+	b LoopCopyDataInit
+
 CopyDataInit:
-ldr r3, =_sidata
-ldr r3, [r3, r1]
-str r3, [r0, r1]
-adds r1, r1, #4
+	ldr r3, =_sidata
+	ldr r3, [r3, r1]
+	str r3, [r0, r1]
+	adds r1, r1, #4
+
 LoopCopyDataInit:
-ldr r0, =_sdata
-ldr r3, =_edata
-adds r2, r0, r1
-cmp r2, r3
-bcc CopyDataInit
-movs r1, #0
-b LoopCopyDataInit1
+	ldr r0, =_sdata
+	ldr r3, =_edata
+	adds r2, r0, r1
+	cmp r2, r3
+	bcc CopyDataInit
+	movs r1, #0
+	b LoopCopyDataInit1
+
 CopyDataInit1:
-ldr r3, =_siccmram
-ldr r3, [r3, r1]
-str r3, [r0, r1]
-adds r1, r1, #4
+	ldr r3, =_siccmram_f
+	ldr r3, [r3, r1]
+	str r3, [r0, r1]
+	adds r1, r1, #4
+
 LoopCopyDataInit1:
-ldr r0, =_sccmram
-ldr r3, =_eccmram
-adds r2, r0, r1
-cmp r2, r3
-bcc CopyDataInit1
-ldr r2, =_sbss
-b LoopFillZerobss
+	ldr r0, =_sccmram_f
+	ldr r3, =_eccmram_f
+	adds r2, r0, r1
+	cmp r2, r3
+	bcc CopyDataInit1
+	movs r1, #0
+	b LoopCopyDataInit2
+
+CopyDataInit2:
+	ldr r3, =_siccmram_v
+	ldr r3, [r3, r1]
+	str r3, [r0, r1]
+	adds r1, r1, #4
+
+LoopCopyDataInit2:
+	ldr r0, =_sccmram_v
+	ldr r3, =_eccmram_v
+	adds r2, r0, r1
+	cmp r2, r3
+	bcc CopyDataInit2
+	movs r1, #0
+	ldr r2, =_sbss
+	b LoopFillZerobss
+
 /* Zero fill the bss segment. */
 FillZerobss:
-movs r3, #0
-str r3, [r2], #4
+	movs r3, #0
+	str r3, [r2], #4
+
 LoopFillZerobss:
-ldr r3, = _ebss
-cmp r2, r3
-bcc FillZerobss
-/* Call the clock system intitialization function.*/
-bl SystemInit
-/* Call the application's entry point.*/
-bl main
-bx lr
+	ldr r3, = _ebss
+	cmp r2, r3
+	bcc FillZerobss
+
+	/* Call the clock system intitialization function.*/
+	bl SystemInit
+	/* Call the application's entry point.*/
+	bl main
+	bx lr
 
 LoopForever:
     b LoopForever

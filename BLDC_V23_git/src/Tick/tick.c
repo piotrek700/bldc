@@ -2,7 +2,7 @@
 #include "../Debug/debug.h"
 #include "../Rybos/rybos.h"
 
-static volatile uint32_t tick_counter = 0;
+CCMRAM_VARIABLE static volatile uint32_t tick_counter = 0;
 static bool init_status = false;
 
 void tick_test(void) {
@@ -47,7 +47,7 @@ uint32_t tick_get_clock_tick(void) {
 	return *DWT_CYCCNT;
 }*/
 
-void SysTick_Handler(void) {
+CCMRAM_FUCNTION void SysTick_Handler(void) {
 	rybos_task_start_marker(MARKER_IRQ_TICK);
 	tick_counter++;
 	rybos_task_stop_marker(MARKER_IRQ_TICK);

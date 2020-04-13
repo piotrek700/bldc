@@ -1,7 +1,7 @@
 #include "utils.h"
 
-static volatile uint32_t critical_cnt = 0;
-static volatile uint32_t critical_max = 0;
+CCMRAM_VARIABLE static volatile uint32_t critical_cnt = 0;
+CCMRAM_VARIABLE static volatile uint32_t critical_max = 0;
 
 float inv_sqrtf(float x) {
 	//TODO replace by sqrt from arm
@@ -17,7 +17,7 @@ float inv_sqrtf(float x) {
 }
 
 //https://gist.github.com/volkansalma/2972237
-float fast_atan2f(float y, float x) {
+CCMRAM_FUCNTION float fast_atan2f(float y, float x) {
 	if (x == 0.0f) {
 		if (y > 0.0f)
 			return (float) M_PI_2;
@@ -65,7 +65,7 @@ float fast_atan2f_sec(float y, float x) {
 }
 
 
-void enter_critical(void) {
+CCMRAM_FUCNTION void enter_critical(void) {
 	__disable_irq();
 	critical_cnt++;	//TODO safe increment
 
@@ -74,7 +74,7 @@ void enter_critical(void) {
 	}
 }
 
-void exit_critical(void) {
+CCMRAM_FUCNTION void exit_critical(void) {
 	critical_cnt--;	//Todo safe decrement
 	if (critical_cnt == 0) {
 		__enable_irq();
@@ -85,7 +85,7 @@ uint32_t critiacl_get_max_queue_depth(void) {
 	return critical_max;
 }
 
-float fast_log(float val) {
+CCMRAM_FUCNTION float fast_log(float val) {
 	int32_t * const exp_ptr = (int32_t *) (&val);
 	int32_t x = *exp_ptr;
 	const int32_t log_2 = ((x >> 23) & 255) - 128;

@@ -9,8 +9,9 @@
 #define UNUSED(x) 									(void)(x)
 #define IS_NAN(x)									((x) != (x))
 #define UNUSED_WARNING_DISABLE 						__attribute__((unused))
-#define CCM_VARIABLE
-#define CCM_FUCNTION
+
+#define CCMRAM_VARIABLE								__attribute__((section(".ccmram_v")))
+#define CCMRAM_FUCNTION								__attribute__((section(".ccmram_f")))
 
 //Functions
 float inv_sqrtf(float x);
