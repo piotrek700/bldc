@@ -40,4 +40,6 @@ void uart_send(uint8_t frame_type, uint8_t *frame, uint32_t frame_len);
 
 uint32_t uart_get_max_queue_depth(void);
 
+void uart_send_scope_frame(uint8_t frame_type, uint32_t frame_len, uint8_t *frame);
+
 #endif

@@ -4,6 +4,8 @@
 #include "../Cyclic/cyclic.h"
 #include "../Frame/frame.h"
 #include "../Rybos/rybos.h"
+#include <stdio.h>
+#include <string.h>
 
 static bool init_status = false;
 
@@ -93,7 +95,7 @@ static void uart_uart2_init(void) {
 	USART_DeInit(USART2);
 
 	USART_InitTypeDef USART_InitStructure;
-	USART_InitStructure.USART_BaudRate = 3000000;
+	USART_InitStructure.USART_BaudRate = 2000000;
 	USART_InitStructure.USART_WordLength = USART_WordLength_8b;
 	USART_InitStructure.USART_StopBits = USART_StopBits_1;
 	USART_InitStructure.USART_Parity = USART_Parity_No;
@@ -296,4 +298,67 @@ void DMA1_Channel7_IRQHandler(void) {
 		}
 	}
 	rybos_task_stop_marker(MARKER_IRQ_UART_DMA);
+}
+
+void uart_send_scope_frame(uint8_t frame_type, uint32_t frame_len, uint8_t *frame){
+	uint8_t tx_buff[UART_FRAME_TX_BUFF_SIZE];
+
+	UartFrame *frame_buff;
+	uint32_t len = 0;
+	uint8_t crc_tmp;
+
+	//Start symbol
+	tx_buff[len] = FRAME_START_SYMBOL;
+	len++;
+
+	//Type
+	if (frame_type == FRAME_START_SYMBOL) {
+		tx_buff[len] = frame_type;
+		len++;
+	}
+	tx_buff[len] = frame_type;
+	len++;
+	crc_tmp = (uint8_t) frame_type;
+
+	//Payload
+	uint32_t i;
+	for (i = 0; i < frame_len; i++) {
+		if (frame[i] == FRAME_START_SYMBOL) {
+			tx_buff[len] = frame[i];
+			len++;
+		}
+		tx_buff[len] = frame[i];
+		len++;
+		crc_tmp += (uint8_t) frame[i];
+	}
+
+	//CRC
+	if (crc_tmp == FRAME_START_SYMBOL) {
+		tx_buff[len] = crc_tmp;
+		len++;
+	}
+	tx_buff[len] = crc_tmp;
+	len++;
+
+	if (len >= UART_FRAME_TX_BUFF_SIZE) {
+		debug_error(UART_FRAME_MESSAGE_OVERLENGTH);
+		return;
+	}
+
+	enter_critical();
+
+	frame_buff = (UartFrame *) cyclic_get_to_add((CyclicBuffer *) &uart_cyclic);
+
+	//Set length
+	frame_buff->length = len;
+	memcpy(frame_buff->tx_buff, tx_buff, len);
+
+	cyclic_move((CyclicBuffer *) &uart_cyclic);
+
+	//Check if DMA disabled
+	if (!(DMA1_Channel7->CCR & DMA_CCR_EN)) {
+		uart_dma_start_next_transation();
+	}
+
+	exit_critical();
 }

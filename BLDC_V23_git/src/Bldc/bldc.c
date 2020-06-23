@@ -2,6 +2,8 @@
 #include "../Frame/frame_frames.h"
 #include "utils.h"
 
+#define SIGN(x)				((x < 0) ? -1 : 1)
+
 //Calibration
 #define BEMF_V_CALIBRATION_WAIT_TIME_MS			10
 
@@ -44,6 +46,11 @@ CCMRAM_VARIABLE static float i_offset_ldo = 0;
 #define MOTOR_LAMBDA							0.0006f//0.000609f						//TODO sprawdcz czy mnozyc czy nie 0.000609f
 #define MOTOR_PID_TIME_CONSTANT					0.001f
 
+//#define MOTOR_R									(0.086f * (3.0f/3.0f))			//TODO sprawdcz czy mnozyc czy nie 0.088
+//#define MOTOR_L									(15.44e-6f * (3.0f/3.0f))		//TODO sprawdcz czy mnozyc czy nie 9.27e-6f
+//#define MOTOR_LAMBDA							0.000467324746f//0.0006f//0.000609f						//TODO sprawdcz czy mnozyc czy nie 0.000609f
+//#define MOTOR_PID_TIME_CONSTANT					0.001f
+
 #define MOTOR_KA								(MOTOR_L/MOTOR_PID_TIME_CONSTANT)
 #define MOTOR_KB								(MOTOR_R/MOTOR_L)
 #define SQRT3_BY_2								0.86602540378f
@@ -69,11 +76,11 @@ CCMRAM_VARIABLE volatile float BLDC_PID_KI					=			(MOTOR_KB* MOTOR_KA);
 #define BLDC_PID_I_LIMIT						BLDC_VDQ_MAX_LIMIT
 #define BLDC_PID_OUT_LIMIT 						BLDC_VDQ_MAX_LIMIT
 
-
+CCMRAM_VARIABLE float i_q_ref_rc = 0.0;
 CCMRAM_VARIABLE float tetha = 0;
 
 CCMRAM_VARIABLE float i_d_ref = 0;
-CCMRAM_VARIABLE float i_q_ref = 2.0;		//2
+CCMRAM_VARIABLE float i_q_ref = 0.0;		//2
 CCMRAM_VARIABLE float i_q_max = 15.0;
 CCMRAM_VARIABLE float i_d_err_acc = 0;
 CCMRAM_VARIABLE float i_q_err_acc = 0;
@@ -785,8 +792,8 @@ int utils_truncate_number(float *number, float min, float max) {
 	return did_trunc;
 }
 
-volatile float MCCONF_S_PID_KP					=0.1;//0.004f;// Proportional gain
-volatile float MCCONF_S_PID_KI					=0.0002;//0.004f;	// Integral gain
+volatile float MCCONF_S_PID_KP					=0.1f;//0.004f;// Proportional gain
+volatile float MCCONF_S_PID_KI					=0.0002f;//0.004f;	// Integral gain
 volatile float MCCONF_S_PID_KD					=0.0001f;	// Derivative gain
 volatile float MCCONF_S_PID_KD_FILTER			=0.2f;	// Derivative filter
 volatile float m_speed_pid_set=0;
@@ -802,7 +809,45 @@ volatile static float linkage_bemf_a = 0.0;
 volatile static float linkage_bemf_b = 0.0;
 volatile static float linkage_bemf_c = 0.0;
 
+
+volatile FrameDisplayChannelsData4 scope_frame_buff[BLDC_FRAME_SCOPE_BUFF_SIZE];
+volatile bool scope_frame_ready_buff[BLDC_FRAME_SCOPE_BUFF_SIZE];
+uint32_t scope_frame_data_cnt = 0;
+uint32_t scope_frame_packet_cnt = 0;
+
+volatile uint32_t scope_frame_buff_depth = 0;
+volatile uint32_t scope_frame_buff_max_depth = 0;
+
+FrameDisplayChannelsData4 * bldc_get_scope_4ch_frame(uint32_t index){
+	return &(scope_frame_buff[index]);
+}
+
+bool bldc_get_frame_ready(uint32_t index){
+	return scope_frame_ready_buff[index];
+}
+
+void bldc_get_frame_ready_clear(uint32_t index){
+	scope_frame_buff_depth--;
+	scope_frame_ready_buff[index] = false;
+}
+
+#define MAX_DQ_STEP  0.005f
+
 CCMRAM_FUCNTION static void bldc_state_foc(void) {
+
+	if (i_q_ref > i_q_ref_rc) {
+		if (i_q_ref - i_q_ref_rc > MAX_DQ_STEP) {
+			i_q_ref -= MAX_DQ_STEP;
+		} else {
+			i_q_ref = i_q_ref_rc;
+		}
+	} else if (i_q_ref < i_q_ref_rc) {
+		if (i_q_ref_rc - i_q_ref  > MAX_DQ_STEP) {
+			i_q_ref += MAX_DQ_STEP;
+		} else {
+			i_q_ref = i_q_ref_rc;
+		}
+	}
 
 	//tetha_start+=0.1f;
 	//if(tetha_start>180.0f){
@@ -858,6 +903,17 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 	//p3_i *= v_ldo_v / ADC_MAX_VALUE / ADC_I_R_OHM;
 
 	float p3_i = -(((float) ADC_INJ_P3_I) - p3_i_offset) * v_ldo_v / (  ADC_MAX_VALUE * ADC_I_R_OHM * ADC_I_GAIN);
+
+
+	//static float p1_i_lpf = 0;
+	//p1_i_lpf = p1_i_lpf*0.5f + 0.5f * p1_i;
+	//p1_i = p1_i_lpf;
+
+	//static float p3_i_lpf = 0;
+	//p3_i_lpf = p3_i_lpf*0.5f + 0.5f * p3_i;
+	//p3_i = p3_i_lpf;
+
+
 
 	//Clarke Transform
 	i_alpha = p1_i;
@@ -956,26 +1012,45 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 	} else if (i_q_err_acc < -i_lim_mul_vcc) {
 		i_q_err_acc = -i_lim_mul_vcc;
 	}
-	/////////////////////////////////////////////////////////////////checked
+
 
 	i_bus = mod_d * i_d + mod_q * i_q;	//TODO check
 
 	float mod_alpha = cos_tetha * mod_d - sin_tetha * mod_q;
 	float mod_beta = cos_tetha * mod_q + sin_tetha * mod_d;
+	/*
+	volatile const float i_alpha_filter = cos_tetha * i_d_ref - sin_tetha * i_q_ref;
+	volatile const float i_beta_filter = cos_tetha * i_q_ref + sin_tetha * i_d_ref;
+	volatile const float ia_filter = i_alpha_filter;
+	volatile const float ib_filter = -0.5f * i_alpha_filter + SQRT3_BY_2 * i_beta_filter;
+	volatile const float ic_filter = -0.5f * i_alpha_filter - SQRT3_BY_2 * i_beta_filter;
+	volatile const float mod_alpha_filter_sgn = (2.0f / 3.0f) * SIGN(ia_filter) - (1.0f / 3.0f) * SIGN(ib_filter) - (1.0f / 3.0f) * SIGN(ic_filter);
+	volatile const float mod_beta_filter_sgn = ONE_BY_SQRT3 * SIGN(ib_filter) - ONE_BY_SQRT3 * SIGN(ic_filter);
+	//25 -  0.17361111e-6f	-chekced by osciloscope
+	//100 - 0.69444e-6f		-not chekced
+	//150 - 1.1944e-6f   	-chekced by osciloscope add 80nS from DRV
+	volatile const float mod_comp_fact = 0.17361111e-6f*1000.0f;// * (float)DRV8301_PWM_3F_SWITCHING_FREQ_HZ;
+	volatile const float mod_alpha_comp = mod_alpha_filter_sgn * mod_comp_fact;
+	volatile const float mod_beta_comp = mod_beta_filter_sgn * mod_comp_fact;
+*/
+	//v_alpha = (mod_alpha ) * (2.0f / 3.0f) * v_vcc_v;
+	//v_beta = (mod_beta ) * (2.0f / 3.0f) * v_vcc_v;
 
-	v_alpha = mod_alpha * (2.0f / 3.0f) * v_vcc_v;
-	v_beta = mod_beta * (2.0f / 3.0f) * v_vcc_v;
+	v_alpha = (mod_alpha ) * (2.0f / 3.0f) * v_vcc_v;
+	v_beta = (mod_beta ) * (2.0f / 3.0f) * v_vcc_v;
+
+	//mod_alpha += mod_alpha_comp;
+	//mod_beta  += mod_beta_comp;
 
 	//TODO dead time compensation !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	observer_update(v_alpha, v_beta, i_alpha, i_beta, &tetha);
 
+	//v_alpha = (mod_alpha -  mod_alpha_comp ) * (2.0f / 3.0f) * v_vcc_v;
+	//v_beta = (mod_beta -  mod_beta_comp) * (2.0f / 3.0f) * v_vcc_v;
 
 	//SVM
 	uint32_t duty1, duty2, duty3, svm_sector;
 	bldc_svm(mod_alpha, mod_beta, DRV8301_PWM_3F_PWM_MAX, &duty1, &duty3, &duty2, &svm_sector);
-
-
-
 
 	/*
 	if(tick_get_time_ms()<1000*5){
@@ -1018,6 +1093,54 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 
 	pll_run(tetha, BLDC_DT, &m_pll_phase, &m_pll_speed);
 	tetha = tetha * (180.0f / (float) M_PI);
+
+	//Scope
+	static uint32_t frame_index_cnt = 0;
+	if (scope_frame_data_cnt < FRAME_MAX_DISPLAY_CHANNELS_8*2) {
+		uint32_t index = scope_frame_data_cnt;
+		scope_frame_buff[frame_index_cnt].ch1[index]=p1_i * 100;
+		scope_frame_buff[frame_index_cnt].ch2[index]=p3_i * 100;
+		scope_frame_buff[frame_index_cnt].ch3[index]=duty1;
+		scope_frame_buff[frame_index_cnt].ch4[index]=duty2;
+		//scope_frame_buff[frame_index_cnt].ch5[index]=duty3;
+		//scope_frame_buff[frame_index_cnt].ch6[index]=v_vcc_v * 1000; //i_d_lpf*1000;
+		//scope_frame_buff[frame_index_cnt].ch7[index]=(duty1+duty2+duty3)/3;//i_q_lpf*1000;
+		//scope_frame_buff[frame_index_cnt].ch8[index]=tetha*10;
+
+		scope_frame_data_cnt++;
+		if(scope_frame_data_cnt == FRAME_MAX_DISPLAY_CHANNELS_8*2){
+			scope_frame_buff[frame_index_cnt].packet_cnt = scope_frame_packet_cnt;
+			scope_frame_packet_cnt++;
+			scope_frame_ready_buff[frame_index_cnt] = true;
+
+			scope_frame_data_cnt=0;
+
+			scope_frame_buff_depth++;
+			if(scope_frame_buff_depth>scope_frame_buff_max_depth){
+				scope_frame_buff_max_depth = scope_frame_buff_depth;
+			}
+
+			frame_index_cnt++;
+			if(frame_index_cnt == BLDC_FRAME_SCOPE_BUFF_SIZE){
+				frame_index_cnt=0;
+			}
+		}
+	}
+
+	//Simulate low speed
+	/*
+	float add_min_speed = (2000.0f * 2.0f * M_PI) / 60.0f;
+	tetha_start += add_min_speed * RAD_TO_DEG * BLDC_DT;
+	if (tetha_start < 180.0f) {
+		tetha_start += 360.0f;
+	}
+
+	if (tetha_start > 180.0f) {
+		tetha_start -= 360.0f;
+	}
+	tetha = tetha_start;
+
+	//FLux linkage measurement
 /*
 	static float theta2=0;
 	static float add_min_speed = 0;
@@ -1200,7 +1323,7 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 		i_q_ref = output * 10.0f;
 */
 		// Speed PID parameters
-
+/*
 	static uint32_t cnt = 0;
 	cnt++;
 	if (cnt == 10000 / 100) {
@@ -1210,7 +1333,7 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 		xx3 = m_pll_phase;
 		xx4 = tetha;
 	}
-
+*/
 
 //	//HFI
 //	const float BLDC_HFI_V=0.2f;
@@ -1591,6 +1714,9 @@ CCMRAM_FUCNTION void bldc_adc_irq_hanlder(void){
 	//FOC Cycles Min, Max, AVR: 60, 91, 79.026 Next
 	v_ldo_v = adc_vref_mul_vrefint_cal / ((float) ADC_INJ_VREF_INT);
 
+	//TODO remove or upgrade
+	//v_ldo_v = 3.3f;
+
 
 	//TODO calculate 1/100, split calculation for severals loops
 	//Calculate NTC temperature
@@ -1619,6 +1745,13 @@ CCMRAM_FUCNTION void bldc_adc_irq_hanlder(void){
 	//LPF
 	//v_vcc_v = v_vcc_v * 0.9f + v_vcc_v_tmp * 0.1f;
 	v_vcc_v = v_vcc_v_tmp;
+
+
+	//TODO remove or upgrade
+	//static float vcc_lpf_v=0;
+	//vcc_lpf_v = vcc_lpf_v*0.5f + 0.5f * v_vcc_v;
+	//v_vcc_v = vcc_lpf_v;
+
 	//FOC Cycles Min, Max, AVR: 271, 290, 289.049
 	//v_vcc_v = ((float) ADC_INJ_VCC) * 0.0013542013542014f * v_ldo_v;
 
@@ -1635,6 +1768,7 @@ static void bldc_state_calibrate_finish(void){
 static void bldc_state_do_nothing(void){
 	//TODO remove
 	static bool start_foc = false;
+
 
 	if(start_foc == false){
 		start_foc = true;

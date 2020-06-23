@@ -86,6 +86,7 @@ void debug_error_handler(DebugError error, uint8_t *file, int32_t line){
 		case PID_TYPE_FRAME_NOT_SUPPORTED:
 		case FRAME_DECODING_STATE_MASHINE_NO_STATE:
 		case DEBUG_ERROR_NOT_HANDLE:
+		case FRAME_SCOPE_LOST:
 		debug_critical_error(error, file, line);
 		break;
 

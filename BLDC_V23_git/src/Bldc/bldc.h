@@ -11,6 +11,9 @@
 #include "math.h"
 #include "arm_math.h"
 #include "../Frame/frame.h"
+#include "../Frame/frame_frames.h"
+
+#define BLDC_FRAME_SCOPE_BUFF_SIZE	16
 
 typedef enum {
 	BLDC_STATE_CALIBRATE_I,
@@ -45,9 +48,6 @@ bool bldc_measure_l_init(void);
 void bldc_set_active_state(BldcStateMachine state);
 
 
-
-
-
 void bldc_phase_step(uint32_t step);
 
 void bldc_phase_stop(void);
@@ -55,11 +55,17 @@ void bldc_phase_stop(void);
 void bldc_adc_irq_hanlder(void);
 
 
-
 void bldc_init(void);
 
 bool bldc_status(void);
 
 void bldc_set_enable(bool status);
+
+FrameDisplayChannelsData4 * bldc_get_scope_4ch_frame(uint32_t index);
+
+bool bldc_get_frame_ready(uint32_t index);
+
+void bldc_get_frame_ready_clear(uint32_t index);
+
 
 #endif

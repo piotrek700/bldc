@@ -58,6 +58,20 @@ static int16_t rc_roll = 0;
 static int16_t rc_throttle = 0;
 static uint16_t rc_status = 0;
 
+static void uart_send_scope_data(void){
+	static uint32_t i = 0;
+	while (bldc_get_frame_ready(i)) {
+		uart_send_scope_frame(FRAME_TYPE_DISPLAY_CHANNELS_DATA_4, sizeof(FrameDisplayChannelsData4), (uint8_t *) bldc_get_scope_4ch_frame(i));
+		bldc_get_frame_ready_clear(i);
+
+		i++;
+		if (i == BLDC_FRAME_SCOPE_BUFF_SIZE) {
+			i = 0;
+		}
+	}
+}
+
+
 static void task_rf_timeout(void) {
 	radio_timeout();
 }
@@ -80,6 +94,10 @@ static void task_rf(void) {
 }
 
 static void task_frame_decoder(void) {
+	//Send data
+	uart_send_scope_data();
+
+	//Read data
 	uint8_t tmp;
 	while (uart_get_byte_dma(&tmp)) {
 		frame_decoding_state_mashine(tmp);
@@ -229,17 +247,17 @@ static void control_drone(void) {
 	 servo_set_position_angle(SERVO_POSITION_3_RIGHT,-drone_parameters.roll);
 	 */
 
-	float tmp;
-	tmp = (float)rc_pitch * 45.0f/2048.0f;
+	float tmp = 0;
+	//tmp = (float)rc_pitch * 45.0f/2048.0f;
 	servo_set_position_angle(SERVO_POSITION_2_TOP, tmp);
 
-	tmp = (float)rc_pitch * 45.0f/2048.0f;
+	//tmp = (float)rc_pitch * 45.0f/2048.0f;
 	servo_set_position_angle(SERVO_POSITION_4_BOTTOM, tmp);
 
-	tmp = (float)rc_pitch * 45.0f/2048.0f;
+	//tmp = (float)rc_pitch * 45.0f/2048.0f;
 	servo_set_position_angle(SERVO_POSITION_1_LEFT, tmp);
 
-	tmp = (float)rc_pitch * 45.0f/2048.0f;
+	//tmp = (float)rc_pitch * 45.0f/2048.0f;
 	servo_set_position_angle(SERVO_POSITION_3_RIGHT, tmp);
 }
 
@@ -506,7 +524,7 @@ static void task_load_monitor(void) {
 	print_uart_param();
 }
 extern float m_speed_pid_set;
-extern float i_q_ref;
+extern float i_q_ref_rc;
 void frame_cb_frame_rc_control(void *buff, uint8_t params) {
 	UNUSED(params);
 
@@ -520,7 +538,7 @@ void frame_cb_frame_rc_control(void *buff, uint8_t params) {
 		rc_status = frame->status;
 
 		//if(rc_throttle>0){
-			i_q_ref=(float)rc_throttle / 2048.0f * 10.0f;
+		i_q_ref_rc=(float)rc_throttle / 2048.0f * 10.0f;	//10
 		//}else{
 		//	m_speed_pid_set=0;
 		//}
@@ -650,7 +668,6 @@ int main(void) {
 
 	print_init();
 	buzzer_generate_sound(BUZZER_SOUND_START);
-
 	while (1) {
 		rybos_scheduler_run();
 	}

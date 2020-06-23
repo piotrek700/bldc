@@ -194,30 +194,30 @@ typedef struct __attribute__((__packed__)){
 
 //17
 typedef struct __attribute__((__packed__)){
-	uint16_t ch1[FRAME_MAX_DISPLAY_CHANNELS_8 * 4];
-	uint16_t ch2[FRAME_MAX_DISPLAY_CHANNELS_8 * 4];
+	int16_t ch1[FRAME_MAX_DISPLAY_CHANNELS_8 * 4];
+	int16_t ch2[FRAME_MAX_DISPLAY_CHANNELS_8 * 4];
 	uint8_t packet_cnt;
 }FrameDisplayChannelsData2;
 
 //18
 typedef struct __attribute__((__packed__)){
-	uint16_t ch1[FRAME_MAX_DISPLAY_CHANNELS_8 * 2];
-	uint16_t ch2[FRAME_MAX_DISPLAY_CHANNELS_8 * 2];
-	uint16_t ch3[FRAME_MAX_DISPLAY_CHANNELS_8 * 2];
-	uint16_t ch4[FRAME_MAX_DISPLAY_CHANNELS_8 * 2];
+	int16_t ch1[FRAME_MAX_DISPLAY_CHANNELS_8 * 2];
+	int16_t ch2[FRAME_MAX_DISPLAY_CHANNELS_8 * 2];
+	int16_t ch3[FRAME_MAX_DISPLAY_CHANNELS_8 * 2];
+	int16_t ch4[FRAME_MAX_DISPLAY_CHANNELS_8 * 2];
 	uint8_t packet_cnt;
 }FrameDisplayChannelsData4;
 
 //19
 typedef struct __attribute__((__packed__)){
-	uint16_t ch1[FRAME_MAX_DISPLAY_CHANNELS_8];
-	uint16_t ch2[FRAME_MAX_DISPLAY_CHANNELS_8];
-	uint16_t ch3[FRAME_MAX_DISPLAY_CHANNELS_8];
-	uint16_t ch4[FRAME_MAX_DISPLAY_CHANNELS_8];
-	uint16_t ch5[FRAME_MAX_DISPLAY_CHANNELS_8];
-	uint16_t ch6[FRAME_MAX_DISPLAY_CHANNELS_8];
-	uint16_t ch7[FRAME_MAX_DISPLAY_CHANNELS_8];
-	uint16_t ch8[FRAME_MAX_DISPLAY_CHANNELS_8];
+	int16_t ch1[FRAME_MAX_DISPLAY_CHANNELS_8];
+	int16_t ch2[FRAME_MAX_DISPLAY_CHANNELS_8];
+	int16_t ch3[FRAME_MAX_DISPLAY_CHANNELS_8];
+	int16_t ch4[FRAME_MAX_DISPLAY_CHANNELS_8];
+	int16_t ch5[FRAME_MAX_DISPLAY_CHANNELS_8];
+	int16_t ch6[FRAME_MAX_DISPLAY_CHANNELS_8];
+	int16_t ch7[FRAME_MAX_DISPLAY_CHANNELS_8];
+	int16_t ch8[FRAME_MAX_DISPLAY_CHANNELS_8];
 	uint8_t packet_cnt;
 }FrameDisplayChannelsData8;
 
