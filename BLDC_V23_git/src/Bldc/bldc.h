@@ -13,7 +13,7 @@
 #include "../Frame/frame.h"
 #include "../Frame/frame_frames.h"
 
-#define BLDC_FRAME_SCOPE_BUFF_SIZE	16
+#define BLDC_FRAME_SCOPE_BUFF_SIZE		16
 
 typedef enum {
 	BLDC_STATE_CALIBRATE_I,
@@ -26,10 +26,10 @@ typedef enum {
 	BLDC_STATE_DO_NOTHING
 } BldcStateMachine;
 
-typedef struct{
+typedef struct {
 	BldcStateMachine state;
 	void (*state_cb)(void);
-}BldcStateDictionaryRow;
+} BldcStateDictionaryRow;
 
 void bldc_set_i_d(float i_d);
 
@@ -41,19 +41,19 @@ float bldc_get_ntc_temperature_c(void);
 
 float bldc_get_up_temperature_c(void);
 
-bool bldc_measure_r_init(void) ;
+bool bldc_measure_r_init(void);
 
 bool bldc_measure_l_init(void);
 
 void bldc_set_active_state(BldcStateMachine state);
 
+void bldc_set_i_q_ref(float iq);
 
 void bldc_phase_step(uint32_t step);
 
 void bldc_phase_stop(void);
 
 void bldc_adc_irq_hanlder(void);
-
 
 void bldc_init(void);
 
@@ -66,6 +66,5 @@ FrameDisplayChannelsData4 * bldc_get_scope_4ch_frame(uint32_t index);
 bool bldc_get_frame_ready(uint32_t index);
 
 void bldc_get_frame_ready_clear(uint32_t index);
-
 
 #endif

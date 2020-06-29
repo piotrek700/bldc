@@ -87,6 +87,7 @@ void debug_error_handler(DebugError error, uint8_t *file, int32_t line){
 		case FRAME_DECODING_STATE_MASHINE_NO_STATE:
 		case DEBUG_ERROR_NOT_HANDLE:
 		case FRAME_SCOPE_LOST:
+		case BLDC_SECTOR_NOT_SUPPORTED:
 		debug_critical_error(error, file, line);
 		break;
 

@@ -14,9 +14,6 @@ static volatile uint32_t adc_calib_value_ch2 = 0;
 static volatile uint32_t adc_calib_value_ch3 = 0;
 static volatile uint32_t adc_calib_value_ch4 = 0;
 
-static volatile uint16_t adc2_dma[ADC_DMA_LENGTH];
-static volatile uint16_t adc4_dma[ADC_DMA_LENGTH];
-
 static void adc_gpio_init(void) {
 	//NTC		ADC1	CH2		PA1
 	//P1_I		ADC2	CH1		PA4
@@ -52,7 +49,7 @@ static void adc_adc1_init(void) {
 	ADC_VrefintCmd(ADC1, ENABLE);
 	ADC_VbatCmd(ADC1, ENABLE);
 
-	tick_delay_ms(1);
+	tick_delay_ms(2);
 
 	ADC_SelectCalibrationMode(ADC1, ADC_CalibrationMode_Single);
 	ADC_StartCalibration(ADC1);
@@ -133,7 +130,7 @@ static void adc_adc234_init(void) {
 	ADC_VoltageRegulatorCmd(ADC3, ENABLE);
 	ADC_VoltageRegulatorCmd(ADC4, ENABLE);
 
-	tick_delay_ms(1);
+	tick_delay_ms(2);
 
 	ADC_SelectCalibrationMode(ADC2, ADC_CalibrationMode_Single);
 	ADC_SelectCalibrationMode(ADC3, ADC_CalibrationMode_Single);
@@ -171,7 +168,7 @@ static void adc_adc234_init(void) {
 	ADC_CommonInitTypeDef ADC_CommonInitStructure;
 	ADC_CommonInitStructure.ADC_Mode = ADC_Mode_Independent;
 	ADC_CommonInitStructure.ADC_Clock = ADC_Clock_SynClkModeDiv1;
-	ADC_CommonInitStructure.ADC_DMAAccessMode = ADC_DMAAccessMode_1;
+	ADC_CommonInitStructure.ADC_DMAAccessMode = ADC_DMAAccessMode_Disabled;
 	ADC_CommonInitStructure.ADC_DMAMode = ADC_DMAMode_OneShot;
 	ADC_CommonInitStructure.ADC_TwoSamplingDelay = 0;
 
@@ -192,16 +189,6 @@ static void adc_adc234_init(void) {
 	ADC_Init(ADC2, &ADC_InitStructure);
 	ADC_Init(ADC3, &ADC_InitStructure);
 	ADC_Init(ADC4, &ADC_InitStructure);
-
-	//Regular channels
-	//ADC_RegularChannelConfig(ADC2, ADC_Channel_P1_I, 1, ADC_SAMPLING_CYCLES);
-	//ADC_RegularChannelConfig(ADC4, ADC_Channel_P3_I, 1, ADC_SAMPLING_CYCLES);
-
-	//ADC_DMAConfig(ADC2, ADC_DMAMode_OneShot);
-	//ADC_DMAConfig(ADC4, ADC_DMAMode_OneShot);
-
-	//ADC_DMACmd(ADC2, ENABLE);
-	//ADC_DMACmd(ADC4, ENABLE);
 
 	//Injected channels
 	ADC_InjectedInitTypeDef ADC_InjectedInitStruct;
@@ -262,9 +249,6 @@ static void adc_adc234_init(void) {
 		debug_error(ADC_TIMEOUT_ERROR);
 	}
 
-	//ADC_StartInjectedConversion(ADC2);
-	//ADC_StartInjectedConversion(ADC3);
-	//ADC_StartInjectedConversion(ADC4);
 }
 
 static void adc_nvic_init(void) {
@@ -277,48 +261,23 @@ static void adc_nvic_init(void) {
 	NVIC_Init(&NVIC_InitStructure);
 
 	NVIC_SetPriority(ADC1_2_IRQn, 3);
-/*
+	/*
 	NVIC_InitStructure.NVIC_IRQChannel = ADC4_IRQn;
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 2;
 	NVIC_Init(&NVIC_InitStructure);
 
 	NVIC_SetPriority(ADC4_IRQn, 2);
-
-	NVIC_InitStructure.NVIC_IRQChannel = DMA2_Channel2_IRQn;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1;
-	NVIC_Init(&NVIC_InitStructure);
-
-	NVIC_SetPriority(DMA2_Channel2_IRQn, 1);
-	*/
+	 */
 }
 
 CCMRAM_FUCNTION void ADC1_2_IRQHandler(void) {
-//	static uint32_t start_tick=0;
-//	static uint32_t stop_tick=0;
-//	static uint32_t run_cnt=0;
-//	static uint32_t max_tick=0;
-//	static uint32_t min_tick=UINT32_MAX;
-//	static uint32_t avr_tick=0;
-
-	//Check left time
-	//left_time = 100.0f * (float) DRV8301_PWM_3F_SWITCHING_FREQ_HZ * (float) left_cycles / (float) TICK_CPU_FREQUENCY_HZ;
-
 	rybos_task_start_marker(MARKER_IRQ_ADC_NTC);
-
-	//TODO remove time verification
-
-	//Blink LED
-	LED_RED_ON;
-	LED_RED_OFF;
-
-//	//Start time
-//	start_tick = tick_get_clock_tick();
 
 	//ADC1 clear pending IRQ bit
 	ADC1->ISR = (uint32_t) 0x7FF;
-	ADC2->ISR = (uint32_t) 0x7FF;//ADC_IT_JEOS;
-	ADC3->ISR = (uint32_t) 0x7FF;//ADC_IT_JEOS;
-	ADC4->ISR = (uint32_t) 0x7FF;//ADC_IT_JEOS;
+	ADC2->ISR = (uint32_t) 0x7FF;	//ADC_IT_JEOS;
+	ADC3->ISR = (uint32_t) 0x7FF;	//ADC_IT_JEOS;
+	ADC4->ISR = (uint32_t) 0x7FF;	//ADC_IT_JEOS;
 
 	/*
 	//Check if ADC1 IRQ complete
@@ -344,51 +303,12 @@ CCMRAM_FUCNTION void ADC1_2_IRQHandler(void) {
 	if (ADC_GetITStatus(ADC4, ADC_IT_OVR)) {
 		//debug_error_handler(ADC234_OVERRUN_ERROR);
 	}
-	*/
+	 */
 
 	//FOC
 	bldc_adc_irq_hanlder();
 
-//	//Stop time
-//	stop_tick = tick_get_clock_tick();
-//
-//	//Calculate difference
-//	//Overflow protection
-//	uint32_t time_diff;
-//	if (stop_tick >= start_tick) {
-//		time_diff = stop_tick - start_tick;
-//	} else {
-//		time_diff = (uint32_t) 0xFFFFFFFF - (start_tick - stop_tick) + (uint32_t)1;
-//	}
-//
-//	//Average
-//	avr_tick += time_diff;
-//
-//	//Max
-//	if(time_diff>max_tick){
-//		max_tick = time_diff;
-//	}
-//
-//	//Min
-//	if(time_diff<min_tick){
-//		min_tick = time_diff;
-//	}
-//
-//	//Print
-//	run_cnt++;
-//	if(run_cnt==DRV8301_PWM_3F_SWITCHING_FREQ_HZ){
-//		float avr_f= (float)avr_tick / (float)run_cnt;
-//		printf("FOC Cycles Min, Max, AVR: %u, %u, %.3f\n", min_tick, max_tick, avr_f);
-//
-//		run_cnt=0;
-//		max_tick=0;
-//		min_tick=UINT32_MAX;
-//		avr_tick=0;
-//	}
-
 	rybos_task_stop_marker(MARKER_IRQ_ADC_NTC);
-
-	//left_cycles = tick_get_clock_tick();
 }
 
 /*
@@ -409,94 +329,28 @@ void ADC4_IRQHandler(void) {
 
 	rybos_task_stop_marker(MARKER_IRQ_ADC_BLDC);
 }
-*/
-
-uint16_t * adc_get_dma_adc2_buffer(void) {
-	return (uint16_t *) adc2_dma;
-}
-
-uint16_t * adc_get_dma_adc4_buffer(void) {
-	return (uint16_t *) adc4_dma;
-}
-
-static void adc_dma_init(void) {
-	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA2, ENABLE);
-
-	DMA_DeInit(DMA2_Channel1); //ADC2 DMA_CH1
-	DMA_DeInit(DMA2_Channel2); //ADC4 DMA_CH2
-
-	DMA_InitTypeDef DMA_InitStructure;
-	DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
-	DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
-	DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
-	DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
-	DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
-	DMA_InitStructure.DMA_M2M = DMA_M2M_Disable;
-	DMA_InitStructure.DMA_BufferSize = (uint16_t) ADC_DMA_LENGTH;
-	DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralSRC;
-	DMA_InitStructure.DMA_Priority = DMA_Priority_Medium;
-
-	DMA_InitStructure.DMA_MemoryBaseAddr = (uint32_t) adc2_dma;
-	DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t) &ADC2->DR;
-	DMA_Init(DMA2_Channel1, &DMA_InitStructure);
-
-	DMA_InitStructure.DMA_MemoryBaseAddr = (uint32_t) adc4_dma;
-	DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t) &ADC4->DR;
-	DMA_Init(DMA2_Channel2, &DMA_InitStructure);
-
-	DMA_ITConfig(DMA2_Channel2, DMA_IT_TC, ENABLE);
-}
-
-void adc_dma_reinit(void) {
-	//TODO replace function bz operation on register to speed up
-	DMA_ClearFlag(DMA2_FLAG_GL1);
-	DMA_ClearFlag(DMA2_FLAG_GL2);
-
-	DMA_Cmd(DMA2_Channel1, DISABLE);	//ADC2
-	DMA_Cmd(DMA2_Channel2, DISABLE);	//ADC4
-
-	ADC_DMACmd(ADC2, DISABLE);
-	ADC_DMACmd(ADC4, DISABLE);
-
-	DMA2_Channel1->CNDTR = ADC_DMA_LENGTH;
-	DMA2_Channel2->CNDTR = ADC_DMA_LENGTH;
-
-	ADC_DMACmd(ADC2, ENABLE);
-	ADC_DMACmd(ADC4, ENABLE);
-
-	DMA_Cmd(DMA2_Channel1, ENABLE);
-	DMA_Cmd(DMA2_Channel2, ENABLE);
-}
-
-void DMA2_Channel2_IRQHandler(void) {
-	if (DMA_GetITStatus(DMA2_IT_TC2) != RESET) {
-		DMA_ClearITPendingBit(DMA2_IT_TC2);
-
-		//bldc_inject_next();
-	}
-}
+ */
 
 void adc_init(void) {
 	adc_gpio_init();
 	adc_nvic_init();
-	adc_dma_init();
 	adc_adc1_init();
 	adc_adc234_init();
 
 	ADC1->ISR = (uint32_t) 0x7FF;
-	ADC2->ISR = (uint32_t) 0x7FF;//ADC_IT_JEOS;
-	ADC3->ISR = (uint32_t) 0x7FF;//ADC_IT_JEOS;
-	ADC4->ISR = (uint32_t) 0x7FF;//ADC_IT_JEOS;
-
-	ADC1->CR |= ADC_CR_JADSTART;
-	ADC2->CR |= ADC_CR_JADSTART;
-	ADC3->CR |= ADC_CR_JADSTART;
-	ADC4->CR |= ADC_CR_JADSTART;
+	ADC2->ISR = (uint32_t) 0x7FF;	//ADC_IT_JEOS;
+	ADC3->ISR = (uint32_t) 0x7FF;	//ADC_IT_JEOS;
+	ADC4->ISR = (uint32_t) 0x7FF;	//ADC_IT_JEOS;
 
 	//ADC_StartInjectedConversion(ADC1);
 	//ADC_StartInjectedConversion(ADC2);
 	//ADC_StartInjectedConversion(ADC3);
 	//ADC_StartInjectedConversion(ADC4);
+
+	ADC1->CR |= ADC_CR_JADSTART;
+	ADC2->CR |= ADC_CR_JADSTART;
+	ADC3->CR |= ADC_CR_JADSTART;
+	ADC4->CR |= ADC_CR_JADSTART;
 
 	adc_test();
 

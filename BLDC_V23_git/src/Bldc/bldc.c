@@ -1,11 +1,20 @@
 #include "bldc.h"
 #include "../Frame/frame_frames.h"
 #include "utils.h"
+#include <stdio.h>
 
-#define SIGN(x)				((x < 0) ? -1 : 1)
+//Macros
+#define SIGN(x)									((x < 0) ? -1 : 1)
+
+//Constant
+#define ONE_BY_SQRT3							0.57735026919f
+#define TWO_BY_SQRT3							1.15470053838f
+#define RAD_TO_DEG								57.2957795131f
+#define ONE_OVER_3							    0.66666666667f
 
 //Calibration
 #define BEMF_V_CALIBRATION_WAIT_TIME_MS			10
+#define BEMF_I_CALIBRATION_DELAY_TIME_MS		100
 
 #define BLDC_R_MEASUREMENT_START_TIME_MS		1000
 #define BLDC_MEASURE_R_SAMPLES					1024*8
@@ -16,8 +25,48 @@
 #define BLDC_MEASURE_L_WAIT_CYCLES				64
 #define BLDC_MEASURE_L_DUTY						0.4f
 #define BLDC_MEASURE_L_SAMPLES					1024*BLDC_MEASURE_L_WAIT_CYCLES
-#define BLDC_MAX_DUTY							0.95f	//todo can be increased
+#define BLDC_MAX_DUTY							0.95f							//TODO can be increased
+#define BLDC_MAX_DQ_STEP  						0.005f
 
+//Silver-blue
+#define MOTOR_R									(0.093f * 0.85f)				//Single arm value, compensated by 0.85
+#define MOTOR_L									9.86e-6f						//Single arm value
+#define MOTOR_LAMBDA							0.0006f
+#define MOTOR_PID_TIME_CONSTANT					0.001f
+
+//MT2266II MAX
+//#define MOTOR_R									(0.081f *0.9f)				//Single arm value, compensated by 0.85
+//#define MOTOR_L									12.30e-6f 					//Single arm value
+//#define MOTOR_LAMBDA								0.00081f
+//#define MOTOR_PID_TIME_CONSTANT					0.001f
+
+#define MOTOR_KA								(MOTOR_L/MOTOR_PID_TIME_CONSTANT)
+#define MOTOR_KB								(MOTOR_R/MOTOR_L)
+#define SQRT3_BY_2								0.86602540378f
+#define SQRT3_BY_2_MUL_2_OVER_3					0.57735026919f
+
+//FOC
+#define BLDC_DQ_LPF_CUTOFF_FREQ					500.0f
+#define BLDC_DT									(1.0f/(float)DRV8301_PWM_3F_SWITCHING_FREQ_HZ)
+#define BLDC_VDQ_MAX_LIMIT						ONE_BY_SQRT3 					//(SQRT3_BY_2 * 2.0f / 3.0f)
+
+#define BLDC_PID_KP 							MOTOR_KA
+#define BLDC_PID_KI								MOTOR_KB * MOTOR_KA
+
+//Speed PID
+#define BLDC_SPEED_PID_KP						0.005f
+#define BLDC_SPEED_PID_KI						0.0f
+#define BLDC_SPEED_PID_KD						0.0f
+#define BLDC_SPEED_PID_I_LIMIT					1.0f
+
+#define BLDC_PID_I_LIMIT						BLDC_VDQ_MAX_LIMIT
+#define BLDC_PID_OUT_LIMIT 						BLDC_VDQ_MAX_LIMIT
+
+//LPF
+#define BLDC_DQ_LPF_ALPHA						(BLDC_DQ_LPF_CUTOFF_FREQ/(BLDC_DQ_LPF_CUTOFF_FREQ+((float)DRV8301_PWM_3F_SWITCHING_FREQ_HZ)/(2.0f*(float)M_PI)))
+#define BLDC_LDO_VCC_LPF_ALPHA					0.025f		//100Hz
+
+//Variables
 static float v1_bemf_h = 0;
 static float v2_bemf_h = 0;
 static float v3_bemf_h = 0;
@@ -30,84 +79,33 @@ static float v3_bemf_offset = 0;
 static float v_bemf_offset_ldo = 0;
 static float v_bemf_offset_vcc = 0;
 
+//CCM variables
 CCMRAM_VARIABLE static float p1_i_offset = 0;
 CCMRAM_VARIABLE static float p3_i_offset = 0;
 CCMRAM_VARIABLE static float i_offset_ldo = 0;
-
-#define ONE_BY_SQRT3							0.57735026919f
-#define TWO_BY_SQRT3							1.15470053838f
-#define RAD_TO_DEG								57.2957795131f
-#define ONE_OVER_3							    0.66666666667f
-
-
-//MOTO
-//#define MOTOR_R									(0.084f * (3.0f/3.0f))			//TODO sprawdcz czy mnozyc czy nie 0.088
-//#define MOTOR_L									(9.27e-6f * (3.0f/3.0f))		//TODO sprawdcz czy mnozyc czy nie 9.27e-6f
-//#define MOTOR_LAMBDA							0.0006f//0.000609f						//TODO sprawdcz czy mnozyc czy nie 0.000609f
-//#define MOTOR_PID_TIME_CONSTANT					0.001f
-
-//#define MOTOR_R									(0.086f * (3.0f/3.0f))			//TODO sprawdcz czy mnozyc czy nie 0.088
-//#define MOTOR_L									(15.44e-6f * (3.0f/3.0f))		//TODO sprawdcz czy mnozyc czy nie 9.27e-6f
-//#define MOTOR_LAMBDA							0.000467324746f//0.0006f//0.000609f						//TODO sprawdcz czy mnozyc czy nie 0.000609f
-//#define MOTOR_PID_TIME_CONSTANT					0.001f
-
-//Blue the best parameters
-//#define MOTOR_R									(0.088f * (3.0f/3.0f))			//TODO sprawdcz czy mnozyc czy nie 0.088
-//#define MOTOR_L									(9.86e-6f * (3.0f/3.0f))		//TODO sprawdcz czy mnozyc czy nie 9.27e-6f
-//#define MOTOR_LAMBDA							0.0006f//0.0006f//0.000609f						//TODO sprawdcz czy mnozyc czy nie 0.000609f
-//#define MOTOR_PID_TIME_CONSTANT					0.001f
-
-//MT2266II MAX
-#define MOTOR_R									(0.081f *0.9f* (3.0f/3.0f))			//TODO sprawdcz czy mnozyc czy nie 0,120
-#define MOTOR_L									(12.30e-6f * (3.0f/3.0f))		//TODO sprawdcz czy mnozyc czy nie 9.27e-6f
-#define MOTOR_LAMBDA							0.000813333143f
-#define MOTOR_PID_TIME_CONSTANT					0.001f
-
-#define MOTOR_KA								(MOTOR_L/MOTOR_PID_TIME_CONSTANT)
-#define MOTOR_KB								(MOTOR_R/MOTOR_L)
-#define SQRT3_BY_2								0.86602540378f
-#define SQRT3_BY_2_MUL_2_OVER_3					0.57735026919f
-
-//FOC
-#define BLDC_DQ_LPF_CUTOFF_FREQ					500.0f	//2000
-#define BLDC_DT									(1.0f/(float)DRV8301_PWM_3F_SWITCHING_FREQ_HZ)
-#define BLDC_VDQ_MAX_LIMIT						ONE_BY_SQRT3 	//(SQRT3_BY_2 * 2.0f / 3.0f)
-
-//#define BLDC_PID_KP 							MOTOR_KA					//0.2
-//#define BLDC_PID_KI								MOTOR_KB * MOTOR_KA		//100
-
-//Speed PID
-#define BLDC_SPEED_PID_KP						0.005f
-#define BLDC_SPEED_PID_KI						0.0f
-#define BLDC_SPEED_PID_KD						0.0f
-#define BLDC_SPEED_PID_I_LIMIT					1.0f
-
-
-CCMRAM_VARIABLE volatile float BLDC_PID_KP 					=		MOTOR_KA;
-CCMRAM_VARIABLE volatile float BLDC_PID_KI					=			(MOTOR_KB* MOTOR_KA);
-#define BLDC_PID_I_LIMIT						BLDC_VDQ_MAX_LIMIT
-#define BLDC_PID_OUT_LIMIT 						BLDC_VDQ_MAX_LIMIT
 
 CCMRAM_VARIABLE float i_q_ref_rc = 0.0;
 CCMRAM_VARIABLE float tetha = 0;
 
 CCMRAM_VARIABLE float i_d_ref = 0;
-CCMRAM_VARIABLE float i_q_ref = 0.0;		//2
+//Control current by IQ
+CCMRAM_VARIABLE float i_q_ref = 0.0;
 CCMRAM_VARIABLE float i_q_max = 15.0;
 CCMRAM_VARIABLE float i_d_err_acc = 0;
 CCMRAM_VARIABLE float i_q_err_acc = 0;
 CCMRAM_VARIABLE float i_d_lpf = 0;
 CCMRAM_VARIABLE float i_q_lpf = 0;
 
-float speed_err_acc = 0;
+CCMRAM_VARIABLE static float adc_vref_mul_vrefint_cal = 0;
+CCMRAM_VARIABLE static float one_over_adc_temp_call = 0;
 
-#define BLDC_DQ_LPF_ALPHA						(BLDC_DQ_LPF_CUTOFF_FREQ/(BLDC_DQ_LPF_CUTOFF_FREQ+((float)DRV8301_PWM_3F_SWITCHING_FREQ_HZ)/(2.0f*(float)M_PI)))
+CCMRAM_VARIABLE float i_alpha = 0;
+CCMRAM_VARIABLE float i_beta = 0;
+CCMRAM_VARIABLE float v_alpha = 0;
+CCMRAM_VARIABLE float v_beta = 0;
+CCMRAM_VARIABLE volatile float i_bus = 0;
 
-//HFI
-#define BLDC_HFI_LPF_CUTOFF_FREQ				5000.0f
-#define BLDC_HFI_LPF_ALPHA						(BLDC_HFI_LPF_CUTOFF_FREQ/(BLDC_HFI_LPF_CUTOFF_FREQ+((float)DRV8301_PWM_3F_SWITCHING_FREQ_HZ)/(2.0f*(float)M_PI)))
-
-
+//Measurements
 static uint32_t meaure_r_start_time = 0;
 static uint32_t measure_r_cnt = 0;
 static float measure_r_current_avr = 0;
@@ -123,10 +121,19 @@ static float measure_l_i1_avr_2 = 0;
 static float measure_l_i3_avr_2 = 0;
 static float measure_l_vcc_avr_2 = 0;
 
-CCMRAM_VARIABLE static /*volatile*/ float v_vcc_v = 0;
-CCMRAM_VARIABLE static /*volatile*/ float v_ldo_v = 0;
-CCMRAM_VARIABLE static /*volatile*/ float up_temperature_c = 0;
-CCMRAM_VARIABLE static /*volatile*/ float ntc_temperature_c = 0;
+CCMRAM_VARIABLE static float v_vcc_v = 0;
+CCMRAM_VARIABLE static float v_ldo_v = 0;
+CCMRAM_VARIABLE static float up_temperature_c = 0;
+CCMRAM_VARIABLE static float ntc_temperature_c = 0;
+
+//Scope
+volatile FrameDisplayChannelsData4 scope_frame_buff[BLDC_FRAME_SCOPE_BUFF_SIZE];
+volatile bool scope_frame_ready_buff[BLDC_FRAME_SCOPE_BUFF_SIZE];
+uint32_t scope_frame_data_cnt = 0;
+uint32_t scope_frame_packet_cnt = 0;
+
+volatile uint32_t scope_frame_buff_depth = 0;
+volatile uint32_t scope_frame_buff_max_depth = 0;
 
 static void bldc_state_calibrate_i(void);
 static void bldc_state_calibrate_v(void);
@@ -140,40 +147,33 @@ static void bldc_state_do_nothing(void);
 static void bldc_scope_send_data(int16_t ch1, int16_t ch2, int16_t ch3, int16_t ch4);
 
 static BldcStateDictionaryRow state_dictionary[] = {
-		{BLDC_STATE_CALIBRATE_I, 		bldc_state_calibrate_i},
-		{BLDC_STATE_CALIBRATE_V,  		bldc_state_calibrate_v},
-		{BLDC_STATE_CALIBRATE_FINISH, 	bldc_state_calibrate_finish},
-		{BLDC_STATE_MEASURE_R,			bldc_state_measure_r},
-		{BLDC_STATE_MEASURE_L,			bldc_state_measure_l},
-		{BLDC_STATE_STOP,				bldc_state_stop},
-		{BLDC_STATE_FOC,				bldc_state_foc},
-		{BLDC_STATE_DO_NOTHING,			bldc_state_do_nothing}
+		{ BLDC_STATE_CALIBRATE_I, bldc_state_calibrate_i },
+		{ BLDC_STATE_CALIBRATE_V, bldc_state_calibrate_v },
+		{ BLDC_STATE_CALIBRATE_FINISH, bldc_state_calibrate_finish },
+		{ BLDC_STATE_MEASURE_R, bldc_state_measure_r },
+		{ BLDC_STATE_MEASURE_L, bldc_state_measure_l },
+		{ BLDC_STATE_STOP, bldc_state_stop },
+		{ BLDC_STATE_FOC, bldc_state_foc },
+		{ BLDC_STATE_DO_NOTHING, bldc_state_do_nothing }
 };
 
 CCMRAM_VARIABLE static void (*bldc_active_state_cb)(void) = bldc_state_do_nothing;
 static BldcStateMachine bldc_active_state = BLDC_STATE_DO_NOTHING;
 
-CCMRAM_VARIABLE float m_gamma_now = 2696282635.13f; //* 0.3f;//5e8;		//bw/(lambda * lambda) = 10000/
+//Observer
+CCMRAM_VARIABLE float m_gamma_now = 2696282635.13f;		//bw/(lambda * lambda) = 10000/
 
 CCMRAM_VARIABLE static float x1 = 0;
 CCMRAM_VARIABLE static float x2 = 0;
 
-CCMRAM_VARIABLE /*volatile*/ float m_pll_phase = 0;
-CCMRAM_VARIABLE /*volatile*/ float m_pll_speed = 0;
+//PLL
+CCMRAM_VARIABLE float m_pll_phase = 0;
+CCMRAM_VARIABLE float m_pll_speed = 0;
 
-CCMRAM_VARIABLE volatile float foc_pll_kp = 2000.0;
-CCMRAM_VARIABLE volatile float foc_pll_ki = 40000.0;		//1000000
+CCMRAM_VARIABLE float foc_pll_kp = 2000.0;
+CCMRAM_VARIABLE float foc_pll_ki = 40000.0;		//1000000
 
-static volatile float g_i_abs=0;
-static volatile float g_i_d=0;
-static volatile float g_i_q=0;
-static volatile float g_v_d=0;
-static volatile float g_v_q=0;
-
-CCMRAM_VARIABLE static float adc_vref_mul_vrefint_cal = 0;
-CCMRAM_VARIABLE static float one_over_adc_temp_call = 0;
-
-void bldc_set_i_d(float i_d){
+void bldc_set_i_d(float i_d) {
 	i_q_ref = i_d;
 }
 
@@ -238,8 +238,8 @@ CCMRAM_FUCNTION static void bldc_svm(float alpha, float beta, uint32_t PWMHalfPe
 	// sector 1-2
 	case 1: {
 		// Vector on-times
-		uint32_t t1 = (alpha - ONE_BY_SQRT3 * beta) * PWMHalfPeriod;
-		uint32_t t2 = (TWO_BY_SQRT3 * beta) * PWMHalfPeriod;
+		uint32_t t1 = (uint32_t) ((alpha - ONE_BY_SQRT3 * beta) * PWMHalfPeriod);
+		uint32_t t2 = (uint32_t) ((TWO_BY_SQRT3 * beta) * PWMHalfPeriod);
 
 		// PWM timings
 		tA = (PWMHalfPeriod - t1 - t2) / 2;
@@ -252,8 +252,8 @@ CCMRAM_FUCNTION static void bldc_svm(float alpha, float beta, uint32_t PWMHalfPe
 		// sector 2-3
 	case 2: {
 		// Vector on-times
-		uint32_t t2 = (alpha + ONE_BY_SQRT3 * beta) * PWMHalfPeriod;
-		uint32_t t3 = (-alpha + ONE_BY_SQRT3 * beta) * PWMHalfPeriod;
+		uint32_t t2 = (uint32_t) ((alpha + ONE_BY_SQRT3 * beta) * PWMHalfPeriod);
+		uint32_t t3 = (uint32_t) ((-alpha + ONE_BY_SQRT3 * beta) * PWMHalfPeriod);
 
 		// PWM timings
 		tB = (PWMHalfPeriod - t2 - t3) / 2;
@@ -266,8 +266,8 @@ CCMRAM_FUCNTION static void bldc_svm(float alpha, float beta, uint32_t PWMHalfPe
 		// sector 3-4
 	case 3: {
 		// Vector on-times
-		uint32_t t3 = (TWO_BY_SQRT3 * beta) * PWMHalfPeriod;
-		uint32_t t4 = (-alpha - ONE_BY_SQRT3 * beta) * PWMHalfPeriod;
+		uint32_t t3 = (uint32_t) ((TWO_BY_SQRT3 * beta) * PWMHalfPeriod);
+		uint32_t t4 = (uint32_t) ((-alpha - ONE_BY_SQRT3 * beta) * PWMHalfPeriod);
 
 		// PWM timings
 		tB = (PWMHalfPeriod - t3 - t4) / 2;
@@ -280,8 +280,8 @@ CCMRAM_FUCNTION static void bldc_svm(float alpha, float beta, uint32_t PWMHalfPe
 		// sector 4-5
 	case 4: {
 		// Vector on-times
-		uint32_t t4 = (-alpha + ONE_BY_SQRT3 * beta) * PWMHalfPeriod;
-		uint32_t t5 = (-TWO_BY_SQRT3 * beta) * PWMHalfPeriod;
+		uint32_t t4 = (uint32_t) ((-alpha + ONE_BY_SQRT3 * beta) * PWMHalfPeriod);
+		uint32_t t5 = (uint32_t) ((-TWO_BY_SQRT3 * beta) * PWMHalfPeriod);
 
 		// PWM timings
 		tC = (PWMHalfPeriod - t4 - t5) / 2;
@@ -294,8 +294,8 @@ CCMRAM_FUCNTION static void bldc_svm(float alpha, float beta, uint32_t PWMHalfPe
 		// sector 5-6
 	case 5: {
 		// Vector on-times
-		uint32_t t5 = (-alpha - ONE_BY_SQRT3 * beta) * PWMHalfPeriod;
-		uint32_t t6 = (alpha - ONE_BY_SQRT3 * beta) * PWMHalfPeriod;
+		uint32_t t5 = (uint32_t) ((-alpha - ONE_BY_SQRT3 * beta) * PWMHalfPeriod);
+		uint32_t t6 = (uint32_t) ((alpha - ONE_BY_SQRT3 * beta) * PWMHalfPeriod);
 
 		// PWM timings
 		tC = (PWMHalfPeriod - t5 - t6) / 2;
@@ -308,8 +308,8 @@ CCMRAM_FUCNTION static void bldc_svm(float alpha, float beta, uint32_t PWMHalfPe
 		// sector 6-1
 	case 6: {
 		// Vector on-times
-		uint32_t t6 = (-TWO_BY_SQRT3 * beta) * PWMHalfPeriod;
-		uint32_t t1 = (alpha + ONE_BY_SQRT3 * beta) * PWMHalfPeriod;
+		uint32_t t6 = (uint32_t) ((-TWO_BY_SQRT3 * beta) * PWMHalfPeriod);
+		uint32_t t1 = (uint32_t) ((alpha + ONE_BY_SQRT3 * beta) * PWMHalfPeriod);
 
 		// PWM timings
 		tA = (PWMHalfPeriod - t6 - t1) / 2;
@@ -318,6 +318,9 @@ CCMRAM_FUCNTION static void bldc_svm(float alpha, float beta, uint32_t PWMHalfPe
 
 		break;
 	}
+
+	default:
+		debug_error(BLDC_SECTOR_NOT_SUPPORTED);
 	}
 
 	*tAout = tA;
@@ -326,7 +329,7 @@ CCMRAM_FUCNTION static void bldc_svm(float alpha, float beta, uint32_t PWMHalfPe
 	*svm_sector = sector;
 }
 
-static void bldc_enable_all_pwm_output(void){
+static void bldc_enable_all_pwm_output(void) {
 	TIM_SelectOCxM(TIM1, TIM_Channel_1, TIM_OCMode_PWM1);
 	TIM_CCxCmd(TIM1, TIM_Channel_1, TIM_CCx_Enable);
 	TIM_CCxNCmd(TIM1, TIM_Channel_1, TIM_CCxN_Enable);
@@ -340,7 +343,7 @@ static void bldc_enable_all_pwm_output(void){
 	TIM_CCxNCmd(TIM1, TIM_Channel_3, TIM_CCxN_Enable);
 }
 
-static void bldc_stop_pwm(void){
+static void bldc_stop_pwm(void) {
 	TIM_SelectOCxM(TIM1, TIM_Channel_1, TIM_OCMode_PWM1);
 	TIM_CCxCmd(TIM1, TIM_Channel_1, TIM_CCx_Enable);
 	TIM_CCxNCmd(TIM1, TIM_Channel_1, TIM_CCxN_Disable);
@@ -374,7 +377,7 @@ static void bldc_state_calibrate_v(void) {
 
 		bldc_enable_all_pwm_output();
 		DRV8301_PWM_UPDATE_EVENT;
-	} else if (tick_get_time_ms() - time > BEMF_V_CALIBRATION_WAIT_TIME_MS) {	//TODO define
+	} else if (tick_get_time_ms() - time > BEMF_V_CALIBRATION_WAIT_TIME_MS) {
 		if (h_complete) {
 			if (p_offset_cnt < ADC_V_OFFSET_COUNTER_MAX) {
 				v1_bemf_offset += ADC_INJ_P1_BEMF;
@@ -401,11 +404,11 @@ static void bldc_state_calibrate_v(void) {
 				v3 *= v_bemf_offset_ldo / ADC_MAX_VALUE;
 
 				//GND floor measurement
-				printf("Calibration BEMF L V1[V]: %f\n", v1);
-				printf("Calibration BEMF L V2[V]: %f\n", v2);
-				printf("Calibration BEMF L V3[V]: %f\n", v3);
-				printf("Calibration BEMF L VLDO[V]: %f\n", v_bemf_offset_ldo);
-				printf("Calibration BEMF L VCC[V]: %f\n", v_bemf_offset_vcc);
+				printf("Calibration BEMF L V1[V]:   %f\n", (double) v1);
+				printf("Calibration BEMF L V2[V]:   %f\n", (double) v2);
+				printf("Calibration BEMF L V3[V]:   %f\n", (double) v3);
+				printf("Calibration BEMF L VLDO[V]: %f\n", (double) v_bemf_offset_ldo);
+				printf("Calibration BEMF L VCC[V]:  %f\n", (double) v_bemf_offset_vcc);
 
 				bldc_set_active_state(BLDC_STATE_CALIBRATE_FINISH);
 			}
@@ -435,11 +438,11 @@ static void bldc_state_calibrate_v(void) {
 				v3 *= v_bemf_h_ldo / ADC_MAX_VALUE;
 
 				//VCC measurement
-				printf("Calibration BEMF H V1[V]: %f\n", v1);
-				printf("Calibration BEMF H V2[V]: %f\n", v2);
-				printf("Calibration BEMF H V3[V]: %f\n", v3);
-				printf("Calibration BEMF H VLDO[V]: %f\n", v_bemf_h_ldo);
-				printf("Calibration BEMF H VCC[V]: %f\n", v_bemf_h_vcc);
+				printf("Calibration BEMF H V1[V]:   %f\n", (double) v1);
+				printf("Calibration BEMF H V2[V]:   %f\n", (double) v2);
+				printf("Calibration BEMF H V3[V]:   %f\n", (double) v3);
+				printf("Calibration BEMF H VLDO[V]: %f\n", (double) v_bemf_h_ldo);
+				printf("Calibration BEMF H VCC[V]:  %f\n", (double) v_bemf_h_vcc);
 
 				time = 0;
 				h_complete = true;
@@ -451,15 +454,15 @@ static void bldc_state_calibrate_v(void) {
 static void bldc_state_calibrate_i(void) {
 	//Delay
 	static uint32_t timer = 0;
-	if(timer == 0){
+	if (timer == 0) {
 		timer = tick_get_time_ms();
 		return;
 	}
 
-	if(tick_get_time_ms() - timer < 100){
+	//Wait for output stabilization
+	if (tick_get_time_ms() - timer < BEMF_I_CALIBRATION_DELAY_TIME_MS) {
 		return;
 	}
-
 
 	//Calibrate
 	static uint32_t p_offset_cnt = 0;
@@ -480,9 +483,9 @@ static void bldc_state_calibrate_i(void) {
 		float p3 = ((float) p3_i_offset - ADC_MAX_VALUE / 2) / ADC_I_GAIN;
 		p3 *= i_offset_ldo / ADC_MAX_VALUE / ADC_I_R_OHM;
 
-		printf("Calibration I1[A]: %f\n", p1);
-		printf("Calibration I3[A]: %f\n", p3);
-		printf("Calibration I VLDO[V]: %f\n", i_offset_ldo);
+		printf("Calibration I1[A]:     %f\n", (double) p1);
+		printf("Calibration I3[A]:     %f\n", (double) p3);
+		printf("Calibration I VLDO[V]: %f\n", (double) i_offset_ldo);
 
 		drv8301_i_calibration_disable();
 		bldc_set_active_state(BLDC_STATE_CALIBRATE_V);
@@ -500,7 +503,7 @@ static void bldc_state_stop(void) {
 }
 
 bool bldc_measure_r_init(void) {
-	if(bldc_active_state != BLDC_STATE_DO_NOTHING){
+	if (bldc_active_state != BLDC_STATE_DO_NOTHING) {
 		return false;
 	}
 
@@ -609,7 +612,7 @@ static void bldc_state_measure_r(void) {
 	drv8301_set_pwm(duty1, duty2, duty3);
 	DRV8301_PWM_UPDATE_EVENT;
 
-	//TODO add some delay at the beggining to timit the transient infuence
+	//TODO add some delay at the beginning to limit the transient influence
 	if (tick_get_time_ms() - meaure_r_start_time > BLDC_R_MEASUREMENT_START_TIME_MS) {
 		float i_dc_link = sqrtf(i_d * i_d + i_q * i_q);
 		measure_r_current_avr += i_dc_link;
@@ -620,19 +623,17 @@ static void bldc_state_measure_r(void) {
 		measure_r_cnt++;
 
 		if (measure_r_cnt == BLDC_MEASURE_R_SAMPLES) {
-			printf("Measured R AVR Vdq[V]: %f\n", measure_r_voltage_avr / (float) measure_r_cnt);
-			printf("Measured R AVR Idq[A]: %f\n", measure_r_current_avr / (float) measure_r_cnt);
-			printf("Measured R AVR R[Ohm]: %f\n", measure_r_voltage_avr / measure_r_current_avr);
+			printf("Measured R AVR Vdq[V]: %f\n", (double) (measure_r_voltage_avr / (float) measure_r_cnt));
+			printf("Measured R AVR Idq[A]: %f\n", (double) (measure_r_current_avr / (float) measure_r_cnt));
+			printf("Measured R AVR R[Ohm]: %f\n", (double) (measure_r_voltage_avr / measure_r_current_avr));
 
 			bldc_set_active_state(BLDC_STATE_STOP);
 		}
 	}
-
-	bldc_scope_send_data(v_d2*1000.0f, v_q2*1000.0f, i_d*1000.0f, i_q*1000.0f);
 }
 
 bool bldc_measure_l_init(void) {
-	if(bldc_active_state != BLDC_STATE_DO_NOTHING){
+	if (bldc_active_state != BLDC_STATE_DO_NOTHING) {
 		return false;
 	}
 
@@ -655,7 +656,6 @@ bool bldc_measure_l_init(void) {
 }
 
 static void bldc_state_measure_l(void) {
-
 	//I1
 	float p1_i = -(((float) ADC_INJ_P1_I) - p1_i_offset) / ADC_I_GAIN;
 	p1_i *= v_ldo_v / ADC_MAX_VALUE / ADC_I_R_OHM;
@@ -664,13 +664,10 @@ static void bldc_state_measure_l(void) {
 	float p3_i = -(((float) ADC_INJ_P3_I) - p3_i_offset) / ADC_I_GAIN;
 	p3_i *= v_ldo_v / ADC_MAX_VALUE / ADC_I_R_OHM;
 
-	float duty = BLDC_MEASURE_L_DUTY;
-
 	if (tick_get_time_ms() - meaure_l_start_time > BLDC_L_MEASUREMENT_START_TIME_MS) {
 
 		if (measure_l_cnt % BLDC_MEASURE_L_WAIT_CYCLES == 0) {
-			//drv8301_set_pwm(0, duty * DRV8301_PWM_3F_PWM_MAX,0);
-			drv8301_set_pwm(duty * DRV8301_PWM_3F_PWM_MAX, 0, duty * DRV8301_PWM_3F_PWM_MAX);
+			drv8301_set_pwm(BLDC_MEASURE_L_DUTY * DRV8301_PWM_3F_PWM_MAX, 0, BLDC_MEASURE_L_DUTY * DRV8301_PWM_3F_PWM_MAX);
 			DRV8301_PWM_UPDATE_EVENT;
 		} else if (measure_l_cnt % BLDC_MEASURE_L_WAIT_CYCLES == 2) {
 			measure_l_i1_avr_1 += -p1_i;
@@ -688,15 +685,15 @@ static void bldc_state_measure_l(void) {
 		measure_l_cnt++;
 
 		if (measure_l_cnt == BLDC_MEASURE_L_SAMPLES) {
-			float duty_time = duty * BLDC_DT;
+			float duty_time = BLDC_MEASURE_L_DUTY * BLDC_DT;
 			measure_l_cnt /= BLDC_MEASURE_L_WAIT_CYCLES;
-			printf("Measured L AVR1 VCC[V]: %f\n", measure_l_vcc_avr_1 / (float) measure_l_cnt);
-			printf("Measured L AVR1 I1[A]: %f\n", measure_l_i1_avr_1 / (float) measure_l_cnt);
-			printf("Measured L AVR1 I3[A]: %f\n", measure_l_i3_avr_1 / (float) measure_l_cnt);
+			printf("Measured L AVR1 VCC[V]: %f\n", (double) (measure_l_vcc_avr_1 / (float) measure_l_cnt));
+			printf("Measured L AVR1 I1[A]:  %f\n", (double) (measure_l_i1_avr_1 / (float) measure_l_cnt));
+			printf("Measured L AVR1 I3[A]:  %f\n", (double) (measure_l_i3_avr_1 / (float) measure_l_cnt));
 
-			printf("Measured L AVR2 VCC[V]: %f\n", measure_l_vcc_avr_2 / (float) measure_l_cnt);
-			printf("Measured L AVR2 I1[A]: %f\n", measure_l_i1_avr_2 / (float) measure_l_cnt);
-			printf("Measured L AVR2 I3[A]: %f\n", measure_l_i3_avr_2 / (float) measure_l_cnt);
+			printf("Measured L AVR2 VCC[V]: %f\n", (double) (measure_l_vcc_avr_2 / (float) measure_l_cnt));
+			printf("Measured L AVR2 I1[A]:  %f\n", (double) (measure_l_i1_avr_2 / (float) measure_l_cnt));
+			printf("Measured L AVR2 I3[A]:  %f\n", (double) (measure_l_i3_avr_2 / (float) measure_l_cnt));
 
 			float i1 = (measure_l_i1_avr_1 + measure_l_i3_avr_1) / (float) measure_l_cnt;
 			float i2 = (measure_l_i1_avr_2 + measure_l_i3_avr_2) / (float) measure_l_cnt;
@@ -704,7 +701,7 @@ static void bldc_state_measure_l(void) {
 			float v2 = measure_l_vcc_avr_2 / (float) measure_l_cnt;
 			float l = -(i1 * v2 + (-i2 - i1) * v1) * duty_time / (2.0f * i1 * i1) * 2.0f / 3.0f * 1e6f;
 
-			printf("Measured L AVR L[uH]: %f\n", l);
+			printf("Measured L AVR L[uH]:   %f\n", (double) l);
 
 			bldc_set_active_state(BLDC_STATE_DO_NOTHING);
 		}
@@ -723,221 +720,120 @@ CCMRAM_FUCNTION void observer_update(float v_alpha, float v_beta, float i_alpha,
 	const float lambda_2 = lambda * lambda;
 	const float gamma_half = m_gamma_now * 0.5f;
 
-	// Same as above, but without iterations.
-	float err = lambda_2 - ((x1 - L_ia)*(x1 - L_ia) + (x2 - L_ib)*(x2 - L_ib));
+	float err = lambda_2 - ((x1 - L_ia) * (x1 - L_ia) + (x2 - L_ib) * (x2 - L_ib));
 	float gamma_tmp = gamma_half;
-	/*
-	float max = lambda_2 * 0.2f;
 
-	if (err > max) {
-		err = max;
-		gamma_tmp *= 10.0f;
-	} else if (err < -max) {
-		err = -max;
-		gamma_tmp *= 10.0f;
-	}
-	*/
 	float x1_dot = -R_ia + v_alpha + gamma_tmp * (x1 - L_ia) * err;
-	float x2_dot = -R_ib + v_beta  + gamma_tmp * (x2 - L_ib) * err;
+	float x2_dot = -R_ib + v_beta + gamma_tmp * (x2 - L_ib) * err;
 	x1 += x1_dot * BLDC_DT;
 	x2 += x2_dot * BLDC_DT;
 
 	//TODO update
-	if(IS_NAN(x1)){
-		x1=0.0f;
+	if (IS_NAN(x1)) {
+		x1 = 0.0f;
 	}
 
-	if(IS_NAN(x2)){
-		x2=0.0f;
+	if (IS_NAN(x2)) {
+		x2 = 0.0f;
 	}
 
 	*phase = fast_atan2f_sec(x2 - L_ib, x1 - L_ia);
 }
 
 CCMRAM_FUCNTION void utils_norm_angle_rad(float *angle) {
-	while (*angle < -(float)M_PI) {
-		*angle += 2.0f * (float)M_PI;
+	while (*angle < -(float) M_PI) {
+		*angle += 2.0f * (float) M_PI;
 	}
 
-	while (*angle > (float)M_PI) {
-		*angle -= 2.0f * (float)M_PI;
+	while (*angle > (float) M_PI) {
+		*angle -= 2.0f * (float) M_PI;
 	}
 }
 
-CCMRAM_FUCNTION static void pll_run(float phase, float dt,  float *phase_var,  float *speed_var) {
-	if(IS_NAN(*phase_var)){
-		*phase_var=0.0f;
+CCMRAM_FUCNTION static void pll_run(float phase, float dt, float *phase_var, float *speed_var) {
+	if (IS_NAN(*phase_var)) {
+		*phase_var = 0.0f;
 	}
-
-	//TODO is necessery for lock protection olny
-	//utils_norm_angle_rad(&phase);
 
 	float delta_theta = phase - *phase_var;
 	utils_norm_angle_rad(&delta_theta);
-	if(IS_NAN(*speed_var)){
-		*speed_var=0.0f;
+	if (IS_NAN(*speed_var)) {
+		*speed_var = 0.0f;
 	}
 	*phase_var += (*speed_var + foc_pll_kp * delta_theta) * dt;
 	utils_norm_angle_rad((float*) phase_var);
 	*speed_var += foc_pll_ki * delta_theta * dt;
 }
 
-void bldc_init(void){
-	adc_vref_mul_vrefint_cal =  ADC_VREF_V * ((float) (*VREFINT_CAL));
+void bldc_init(void) {
+	//TODO remove compensation in future revisions
+	adc_vref_mul_vrefint_cal = ADC_VREF_V * ((float) (*VREFINT_CAL)) * ADC_VREF_COMPENSATION;
 	one_over_adc_temp_call = 1.0f / (float) (*ADC_TEMP110_CAL_ADDR - *ADC_TEMP30_CAL_ADDR);
 	bldc_set_active_state(BLDC_STATE_CALIBRATE_I);
 }
 
-volatile static float w1 = 0;
-volatile static float theta_est = 0;
-volatile static float LAMBDA = 2.5f;
-
-volatile static float WLIM = 25.0f;
-volatile static float ALPHA0 = 60.0f;//0.1f* WLIM;
-
-//HFI
-volatile float i_sense_hfi_lpf = 0.0f;
-volatile float BLDC_HFI_KP = 1.0f;
-volatile float BLDC_HFI_KI = 0.0f;
-volatile float inj_i = 0.0f;
-volatile float inj_phase = 0.0f;
-volatile float inj_phase_deg = 0.0f;
-volatile float inj_omega = 0.0f;
-
-volatile float xx1 = 0.0f;
-volatile float xx2 = 0.0f;
-volatile float xx3 = 0.0f;
-volatile float xx4 = 0.0f;
-
-CCMRAM_VARIABLE volatile float   i_bus = 0;
-
-int utils_truncate_number(float *number, float min, float max) {
-	int did_trunc = 0;
-
-	if (*number > max) {
-		*number = max;
-		did_trunc = 1;
-	} else if (*number < min) {
-		*number = min;
-		did_trunc = 1;
-	}
-
-	return did_trunc;
+void bldc_set_i_q_ref(float iq) {
+	i_q_ref_rc = iq;
 }
 
-volatile float MCCONF_S_PID_KP					=0.1f;//0.004f;// Proportional gain
-volatile float MCCONF_S_PID_KI					=0.0002f;//0.004f;	// Integral gain
-volatile float MCCONF_S_PID_KD					=0.0001f;	// Derivative gain
-volatile float MCCONF_S_PID_KD_FILTER			=0.2f;	// Derivative filter
-volatile float m_speed_pid_set=0;
-
-CCMRAM_VARIABLE float i_alpha = 0;
-CCMRAM_VARIABLE float i_beta = 0;
-CCMRAM_VARIABLE float v_alpha = 0;
-CCMRAM_VARIABLE float v_beta = 0;
-float tetha_start = 0;
-volatile float linkage = 0;
-
-volatile static float linkage_bemf_a = 0.0;
-volatile static float linkage_bemf_b = 0.0;
-volatile static float linkage_bemf_c = 0.0;
-
-
-volatile FrameDisplayChannelsData4 scope_frame_buff[BLDC_FRAME_SCOPE_BUFF_SIZE];
-volatile bool scope_frame_ready_buff[BLDC_FRAME_SCOPE_BUFF_SIZE];
-uint32_t scope_frame_data_cnt = 0;
-uint32_t scope_frame_packet_cnt = 0;
-
-volatile uint32_t scope_frame_buff_depth = 0;
-volatile uint32_t scope_frame_buff_max_depth = 0;
-
-FrameDisplayChannelsData4 * bldc_get_scope_4ch_frame(uint32_t index){
-	return &(scope_frame_buff[index]);
+FrameDisplayChannelsData4 * bldc_get_scope_4ch_frame(uint32_t index) {
+	return (FrameDisplayChannelsData4 *) &(scope_frame_buff[index]);
 }
 
-bool bldc_get_frame_ready(uint32_t index){
+bool bldc_get_frame_ready(uint32_t index) {
 	return scope_frame_ready_buff[index];
 }
 
-void bldc_get_frame_ready_clear(uint32_t index){
+void bldc_get_frame_ready_clear(uint32_t index) {
 	scope_frame_buff_depth--;
 	scope_frame_ready_buff[index] = false;
 }
 
-
-CCMRAM_FUCNTION static void bldc_scope_send_data(int16_t ch1, int16_t ch2, int16_t ch3, int16_t ch4){
-	//Scope
+CCMRAM_FUCNTION static void bldc_scope_send_data(int16_t ch1, int16_t ch2, int16_t ch3, int16_t ch4) {
 	static uint32_t frame_index_cnt = 0;
-	if (scope_frame_data_cnt < FRAME_MAX_DISPLAY_CHANNELS_8*2) {
+	if (scope_frame_data_cnt < FRAME_MAX_DISPLAY_CHANNELS_8 * 2) {
 		uint32_t index = scope_frame_data_cnt;
-		scope_frame_buff[frame_index_cnt].ch1[index]=ch1;
-		scope_frame_buff[frame_index_cnt].ch2[index]=ch2;
-		scope_frame_buff[frame_index_cnt].ch3[index]=ch3;
-		scope_frame_buff[frame_index_cnt].ch4[index]=ch4;
+		scope_frame_buff[frame_index_cnt].ch1[index] = ch1;
+		scope_frame_buff[frame_index_cnt].ch2[index] = ch2;
+		scope_frame_buff[frame_index_cnt].ch3[index] = ch3;
+		scope_frame_buff[frame_index_cnt].ch4[index] = ch4;
 
 		scope_frame_data_cnt++;
-		if(scope_frame_data_cnt == FRAME_MAX_DISPLAY_CHANNELS_8*2){
+		if (scope_frame_data_cnt == FRAME_MAX_DISPLAY_CHANNELS_8 * 2) {
 			scope_frame_buff[frame_index_cnt].packet_cnt = scope_frame_packet_cnt;
 			scope_frame_packet_cnt++;
 			scope_frame_ready_buff[frame_index_cnt] = true;
 
-			scope_frame_data_cnt=0;
+			scope_frame_data_cnt = 0;
 
 			scope_frame_buff_depth++;
-			if(scope_frame_buff_depth>scope_frame_buff_max_depth){
+			if (scope_frame_buff_depth > scope_frame_buff_max_depth) {
 				scope_frame_buff_max_depth = scope_frame_buff_depth;
 			}
 
 			frame_index_cnt++;
-			if(frame_index_cnt == BLDC_FRAME_SCOPE_BUFF_SIZE){
-				frame_index_cnt=0;
+			if (frame_index_cnt == BLDC_FRAME_SCOPE_BUFF_SIZE) {
+				frame_index_cnt = 0;
 			}
 		}
 	}
 }
 
-#define MAX_DQ_STEP  0.005f
-
-
-
 CCMRAM_FUCNTION static void bldc_state_foc(void) {
-	//Ramp
+	//Ramp iq
 	if (i_q_ref > i_q_ref_rc) {
-		if (i_q_ref - i_q_ref_rc > MAX_DQ_STEP) {
-			i_q_ref -= MAX_DQ_STEP;
+		if (i_q_ref - i_q_ref_rc > BLDC_MAX_DQ_STEP) {
+			i_q_ref -= BLDC_MAX_DQ_STEP;
 		} else {
 			i_q_ref = i_q_ref_rc;
 		}
 	} else if (i_q_ref < i_q_ref_rc) {
-		if (i_q_ref_rc - i_q_ref  > MAX_DQ_STEP) {
-			i_q_ref += MAX_DQ_STEP;
+		if (i_q_ref_rc - i_q_ref > BLDC_MAX_DQ_STEP) {
+			i_q_ref += BLDC_MAX_DQ_STEP;
 		} else {
 			i_q_ref = i_q_ref_rc;
 		}
 	}
-
-
-	//tetha_start+=0.1f;
-	//if(tetha_start>180.0f){
-	//	tetha_start-=360.0f;
-	//}
-
-	//Before optimization
-	//FOC Cycles Min, Max, AVR: 1802, 1924, 1863.931
-	//FOC Cycles Min, Max, AVR: 1753, 1919, 1850.076
-	//20kHz 15:86% free
-	//10kHz 50.50% free
-
-	//Ater optimisation
-	//FOC Cycles Min, Max, AVR: 1697, 1862, 1775.677
-
-
-	//From CB function
-	//FOC Cycles Min, Max, AVR: 275, 305, 293.599 next
-
-	//Empty function
-	//FOC Cycles Min, Max, AVR: 295, 326, 314.599
-
 
 	//Current limit
 	if (i_q_ref > i_q_max) {
@@ -945,6 +841,7 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 	} else if (i_q_ref < -i_q_max) {
 		i_q_ref = -i_q_max;
 	}
+
 	//Check saturation
 	float i_dq_mag = 1e-10f;
 	arm_sqrt_f32(i_d_ref * i_d_ref + i_q_ref * i_q_ref, &i_dq_mag);
@@ -961,42 +858,17 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 	}
 
 	//I1
-	//float p1_i = -(((float) ADC_INJ_P1_I) - p1_i_offset) / ADC_I_GAIN;
-	//p1_i *= v_ldo_v / ADC_MAX_VALUE / ADC_I_R_OHM;
+	float p1_i = -(((float) ADC_INJ_P1_I) - p1_i_offset) * v_ldo_v / ( ADC_MAX_VALUE * ADC_I_R_OHM * ADC_I_GAIN);
+	//float p3_i = -(((float) ADC_INJ_P3_I) - p3_i_offset) * v_ldo_v / (  ADC_MAX_VALUE * ADC_I_R_OHM * ADC_I_GAIN);
+	float p3_i = -(((float) ADC_INJ_P3_I) - p3_i_offset) * v_ldo_v / ( ADC_MAX_VALUE * ADC_I_R_OHM * ADC_I_GAIN);
 
-	float p1_i = -(((float) ADC_INJ_P1_I) - p1_i_offset) * v_ldo_v / (  ADC_MAX_VALUE * ADC_I_R_OHM * ADC_I_GAIN);
+	//static float p1_i_lpf = 0;
+	//p1_i_lpf = p1_i_lpf * 0.4f + 0.6f * p1_i;
+	//p1_i = p1_i_lpf;
 
-	//I3
-	//float p3_i = -(((float) ADC_INJ_P3_I) - p3_i_offset) / ADC_I_GAIN;
-	//p3_i *= v_ldo_v / ADC_MAX_VALUE / ADC_I_R_OHM;
-
-	float p3_i = -(((float) ADC_INJ_P3_I) - p3_i_offset) * v_ldo_v / (  ADC_MAX_VALUE * ADC_I_R_OHM * ADC_I_GAIN);
-
-
-	//BEMF
-	float p1_bemf= ((float) ADC_INJ_P1_BEMF);
-
-
-/*
-	static float p1_i_lpf = 0;
-	p1_i_lpf = p1_i_lpf*0.4f + 0.6f * p1_i;
-	p1_i = p1_i_lpf;
-
-	static float p3_i_lpf = 0;
-	p3_i_lpf = p3_i_lpf*0.4f + 0.6f * p3_i;
-	p3_i = p3_i_lpf;
-	*/
-
-/*
-	if(fabsf(p1_i)<0.2f){
-		p1_i=0;
-	}
-
-
-	if(fabsf(p3_i)<0.2f){
-		p3_i=0;
-	}
-*/
+	//static float p3_i_lpf = 0;
+	//p3_i_lpf = p3_i_lpf * 0.4f + 0.6f * p3_i;
+	//p3_i = p3_i_lpf;
 
 	//Clarke Transform
 	i_alpha = p1_i;
@@ -1011,9 +883,6 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 	float i_q = i_beta * cos_tetha - i_alpha * sin_tetha;
 
 	//Current LPF
-	//i_d_lpf = dq_lpf_alpha * i_d + (1.0f - dq_lpf_alpha) * i_d_lpf;
-	//i_q_lpf = dq_lpf_alpha * i_q + (1.0f - dq_lpf_alpha) * i_q_lpf;
-
 	float lpf_val = 1.0f - BLDC_DQ_LPF_ALPHA;
 	i_d_lpf = BLDC_DQ_LPF_ALPHA * i_d + lpf_val * i_d_lpf;
 	i_q_lpf = BLDC_DQ_LPF_ALPHA * i_q + lpf_val * i_q_lpf;
@@ -1022,37 +891,19 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 	i_d = i_d_lpf;
 	i_q = i_q_lpf;
 
-	/*
-	if (fabsf(w1) > WLIM) {
-		i_d = 0;
-	} else {
-		if (w1 >= 0.0f) {
-			i_d = i_q / LAMBDA * 1.0f;
-		} else {
-			i_d = i_q / LAMBDA * -1.0f;
-		}
-	}*/
 	//PID P error
-	//float i_d_err = i_d_ref - i_d;
-	//float i_q_err = i_q_ref - i_q;
-
 	float i_d_err = i_d_ref - i_d;
 	float i_q_err = i_q_ref - i_q;
 
 	float v_d = i_d_err * BLDC_PID_KP + i_d_err_acc;
 	float v_q = i_q_err * BLDC_PID_KP + i_q_err_acc;
 
-
 	//PID I error
-		//i_d_err_acc += i_d_err * dt * BLDC_PID_KI;
-		//i_q_err_acc += i_q_err * dt * BLDC_PID_KI;
-
 	i_d_err_acc += i_d_err * BLDC_DT * BLDC_PID_KI;
 	i_q_err_acc += i_q_err * BLDC_DT * BLDC_PID_KI;
 
 	//Maximum limitation
-	//float v_dq_mag = sqrtf(v_d * v_d + v_q * v_q);
-	float v_dq_mag=1e-10f;
+	float v_dq_mag = 1e-10f;
 	arm_sqrt_f32(v_d * v_d + v_q * v_q, &v_dq_mag);
 	float v_dq_max = BLDC_VDQ_MAX_LIMIT * v_vcc_v * BLDC_MAX_DUTY;
 
@@ -1072,18 +923,6 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 	float mod_q = v_q * v_mod;
 
 	//PID I limit
-	//if (i_d_err_acc > BLDC_PID_I_LIMIT * v_vcc_v) {
-	//	i_d_err_acc = BLDC_PID_I_LIMIT * v_vcc_v;
-	//} else if (i_d_err_acc < -BLDC_PID_I_LIMIT * v_vcc_v) {
-	//	i_d_err_acc = -BLDC_PID_I_LIMIT * v_vcc_v;
-	//}
-
-	//if (i_q_err_acc > BLDC_PID_I_LIMIT * v_vcc_v) {
-	//	i_q_err_acc = BLDC_PID_I_LIMIT * v_vcc_v;
-	//} else if (i_q_err_acc < -BLDC_PID_I_LIMIT * v_vcc_v) {
-	//	i_q_err_acc = -BLDC_PID_I_LIMIT * v_vcc_v;
-	//}
-
 	float i_lim_mul_vcc = BLDC_PID_I_LIMIT * v_vcc_v * BLDC_MAX_DUTY;
 	if (i_d_err_acc > i_lim_mul_vcc) {
 		i_d_err_acc = i_lim_mul_vcc;
@@ -1097,818 +936,294 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 		i_q_err_acc = -i_lim_mul_vcc;
 	}
 
+	//TODO check I_bus current calculation
+	i_bus = mod_d * i_d + mod_q * i_q;
 
-	i_bus = mod_d * i_d + mod_q * i_q;	//TODO check
-
+	//Dead time compensation
 	float mod_alpha = cos_tetha * mod_d - sin_tetha * mod_q;
 	float mod_beta = cos_tetha * mod_q + sin_tetha * mod_d;
 
-	volatile const float i_alpha_filter = cos_tetha * i_d_ref - sin_tetha * i_q_ref;
-	volatile const float i_beta_filter = cos_tetha * i_q_ref + sin_tetha * i_d_ref;
-	volatile const float ia_filter = i_alpha_filter;
-	volatile const float ib_filter = -0.5f * i_alpha_filter + SQRT3_BY_2 * i_beta_filter;
-	volatile const float ic_filter = -0.5f * i_alpha_filter - SQRT3_BY_2 * i_beta_filter;
-	volatile const float mod_alpha_filter_sgn = (2.0f / 3.0f) * SIGN(ia_filter) - (1.0f / 3.0f) * SIGN(ib_filter) - (1.0f / 3.0f) * SIGN(ic_filter);
-	volatile const float mod_beta_filter_sgn = ONE_BY_SQRT3 * SIGN(ib_filter) - ONE_BY_SQRT3 * SIGN(ic_filter);
-	//25 -  0.17361111e-6f	-chekced by osciloscope
-	//100 - 0.69444e-6f		-not chekced
-	//150 - 1.1944e-6f   	-chekced by osciloscope add 80nS from DRV
-	volatile const float mod_comp_fact =   0.17361111e-6f* (float)DRV8301_PWM_3F_SWITCHING_FREQ_HZ;
-	volatile const float mod_alpha_comp = mod_alpha_filter_sgn * mod_comp_fact;
-	volatile const float mod_beta_comp = mod_beta_filter_sgn * mod_comp_fact;
+	float i_alpha_filter = cos_tetha * i_d_ref - sin_tetha * i_q_ref;
+	float i_beta_filter = cos_tetha * i_q_ref + sin_tetha * i_d_ref;
 
-	//v_alpha = (mod_alpha ) * (2.0f / 3.0f) * v_vcc_v;
-	//v_beta = (mod_beta ) * (2.0f / 3.0f) * v_vcc_v;
+	float ia_filter = i_alpha_filter;
+	float ib_filter = -0.5f * i_alpha_filter + SQRT3_BY_2 * i_beta_filter;
+	float ic_filter = -0.5f * i_alpha_filter - SQRT3_BY_2 * i_beta_filter;
 
-	v_alpha = (mod_alpha  ) * (2.0f / 3.0f) * v_vcc_v;
-	v_beta = (mod_beta ) * (2.0f / 3.0f) * v_vcc_v;
+	float mod_alpha_filter_sgn = (2.0f / 3.0f) * SIGN(ia_filter) - (1.0f / 3.0f) * SIGN(ib_filter) - (1.0f / 3.0f) * SIGN(ic_filter);
+	float mod_beta_filter_sgn = ONE_BY_SQRT3 * SIGN(ib_filter) - ONE_BY_SQRT3 * SIGN(ic_filter);
 
+	//25 -  0.17361111e-6f	-checked by oscilloscope
+	//150 - 1.1944e-6f   	-checked by oscilloscope add 80nS from DRV
+	//TODO add macro to calculate this value
+	float mod_comp_fact = 0.17361111e-6f * (float) DRV8301_PWM_3F_SWITCHING_FREQ_HZ;
+	float mod_alpha_comp = mod_alpha_filter_sgn * mod_comp_fact;
+	float mod_beta_comp = mod_beta_filter_sgn * mod_comp_fact;
+
+	v_alpha = mod_alpha * (2.0f / 3.0f) * v_vcc_v;
+	v_beta = mod_beta * (2.0f / 3.0f) * v_vcc_v;
+
+	//Correct dead time
 	mod_alpha += mod_alpha_comp;
-	mod_beta  += mod_beta_comp;
+	mod_beta += mod_beta_comp;
 
-	//TODO dead time compensation !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	//Run observer
 	observer_update(v_alpha, v_beta, i_alpha, i_beta, &tetha);
-
-
-
-	int16_t override=0;
-/*
-	if (i_q_ref * m_pll_speed >= 0) {	//Both positive or both negative
-		observer_update(v_alpha, v_beta, i_alpha, i_beta, &tetha);
-		override=100;
-	} else {
-		override=-100;
-		observer_update(v_alpha, v_beta, i_alpha, i_beta, &tetha);
-
-
-		if(m_pll_speed>=0){
-			tetha += M_PI/2.0f;
-
-		}else{
-			tetha -= M_PI/2.0f;
-
-		}
-
-		while (tetha > (float)M_PI) {
-			tetha -= (float)M_PI * 2.0f;
-		}
-
-		while (tetha < (float)M_PI) {
-			tetha += (float)M_PI * 2.0f;
-		}
-
-	}
-*/
-
-
-
-
-
-	//v_alpha = (mod_alpha -  mod_alpha_comp ) * (2.0f / 3.0f) * v_vcc_v;
-	//v_beta = (mod_beta -  mod_beta_comp) * (2.0f / 3.0f) * v_vcc_v;
 
 	//SVM
 	uint32_t duty1, duty2, duty3, svm_sector;
 	bldc_svm(mod_alpha, mod_beta, DRV8301_PWM_3F_PWM_MAX, &duty1, &duty3, &duty2, &svm_sector);
 
-	/*
-	if(tick_get_time_ms()<1000*5){
-		//Park Transform
-		float teta0;
-		float teta120;
-		float teta240;
-		float sin_tetha0;
-		float cos_tetha0;
-		float sin_tetha120;
-		float cos_tetha120;
-		float sin_tetha240;
-		float cos_tetha240;
-
-		teta0 = tetha_start;
-		teta120 = tetha_start+120.0f;
-		teta240 = tetha_start-120.0f;
-		if(teta120>180.0f){
-			teta120 -=360.0f;
-		}
-
-		if(teta240<-180.0f){
-			teta120 +=360.0f;
-		}
-
-		arm_sin_cos_f32(teta0,  &sin_tetha0, &cos_tetha0);
-		arm_sin_cos_f32(teta120, &sin_tetha120, &cos_tetha120);
-		arm_sin_cos_f32(teta240, &sin_tetha240, &cos_tetha240);
-
-
-		duty1=DRV8301_PWM_3F_PWM_MAX/2*(1.0f+sin_tetha0 *0.05f);
-		duty2=DRV8301_PWM_3F_PWM_MAX/2*(1.0f+sin_tetha120*0.05f);
-		duty3=DRV8301_PWM_3F_PWM_MAX/2*(1.0f+sin_tetha240*0.05f);
-	}
-	*/
-	/*
-	drv8301_set_pwm(0, 0, 0);
-
-	bldc_stop_pwm();
-	DRV8301_PWM_UPDATE_EVENT;
-*/
-
+	//Set PWM
 	TIM1->CR1 |= TIM_CR1_UDIS;
 	drv8301_set_pwm(duty1, duty2, duty3);
 	TIM1->CR1 &= ~TIM_CR1_UDIS;
 
-	/*
-	//Lock protection
-	static bool zero_speed_lock = true;
-	static uint32_t zero_speed_lock_time = 0;
-	static float ovr=0;
-	if (i_q_ref == 0 && fabsf(m_pll_speed) < 100) {
-		zero_speed_lock = true;
-		zero_speed_lock_time = tick_get_time_ms();
-	}
-
-	if (zero_speed_lock == true && fabsf(i_q_ref) > 0.1f) {
-		if (tick_get_time_ms() - zero_speed_lock_time > 500) {
-			//zero_speed_lock_time += 5;
-			if (fabsf(m_pll_speed) > 50) {
-				zero_speed_lock = false;
-				ovr=0;
-			} else {
-				if (m_pll_speed > 0) {
-					ovr= -(float) M_PI / 2.0f;
-				} else {
-					ovr= +(float) M_PI / 2.0f;
-				}
-			}
-		}
-	}
-*/
-
-	//pll
+	//PLL
 	pll_run(tetha, BLDC_DT, &m_pll_phase, &m_pll_speed);
 	tetha = tetha * (180.0f / (float) M_PI);
 
-	bldc_scope_send_data(p1_i * 100, p3_i * 100, m_pll_speed, tetha*10);
-
-
-	//Simulate low speed
-/*
-	float add_min_speed = (2000.0f * 2.0f * M_PI) / 60.0f;
-	tetha_start += add_min_speed * RAD_TO_DEG * BLDC_DT;
-	if (tetha_start < 180.0f) {
-		tetha_start += 360.0f;
-	}
-
-	if (tetha_start > 180.0f) {
-		tetha_start -= 360.0f;
-	}
-	tetha = tetha_start;
-*/
-	/*
-	//FLux linkage measurement
-	i_q_ref = 2.0;
-	static float theta2=0;
-	static float add_min_speed = 0;
-	uint32_t measurement_start_time_ms = 11000;
-	uint32_t measurement_time_ms = 2000;
-
-	if (tick_get_time_ms() < measurement_start_time_ms + measurement_time_ms * 2) {		//0.1, 0.3, 0.5
-		if(tick_get_time_ms() < measurement_start_time_ms-measurement_time_ms){
-			float t = tick_get_time_ms() *tick_get_time_ms() / 7000.0f;
-			add_min_speed = (t * 2.0f * M_PI) / 60.0f;		//400, 500, 600
-		}
-		tetha_start += add_min_speed * RAD_TO_DEG * BLDC_DT;
-		//tetha_start+=0.02f;
-		//tetha_start += 90.0f;
-		if (tetha_start < 180.0f) {
-			tetha_start += 360.0f;
-		}
-
-		if (tetha_start > 180.0f) {
-			tetha_start -= 360.0f;
-		}
-		tetha = tetha_start;
-
-	} else {
-		tetha = tetha * (180.0f / (float) M_PI);
-	}
-
-	static float vq_avg = 0.0;
-	static float vd_avg = 0.0;
-	static float iq_avg = 0.0;
-	static float id_avg = 0.0;
-	static float samples2 = 0.0;
-	static bool finsihed= false;
-	static bool bldc_off= false;
-
-	static float va_bemf_max = 0.0;
-	static float vb_bemf_max = 0.0;
-	static float vc_bemf_max = 0.0;
-
-
-
-	if(bldc_off){
-		float v1 = ADC_INJ_P1_BEMF * ADC_V_GAIN;
-		v1 *= v_ldo_v / ADC_MAX_VALUE;
-
-		float v2 = ADC_INJ_P2_BEMF * ADC_V_GAIN;
-		v2 *= v_ldo_v / ADC_MAX_VALUE;
-
-		float v3 = ADC_INJ_P3_BEMF * ADC_V_GAIN;
-		v3 *= v_ldo_v / ADC_MAX_VALUE;
-
-		float vdc = (v1+v2+v3)/3.0f;
-
-		v1-=vdc;
-		v2-=vdc;
-		v3-=vdc;
-
-		v1=fabsf(v1);
-		v2=fabsf(v2);
-		v3=fabsf(v3);
-
-		if(v1 > va_bemf_max){
-			va_bemf_max = v1;
-		}
-
-		if(v2 > va_bemf_max){
-			vb_bemf_max = v2;
-		}
-
-		if(v3 > va_bemf_max){
-			vc_bemf_max = v3;
-		}
-
-		linkage_bemf_a = va_bemf_max / add_min_speed;
-		linkage_bemf_b = vb_bemf_max / add_min_speed;
-		linkage_bemf_c = vc_bemf_max / add_min_speed;
-
-	}
-
-
-	if(tick_get_time_ms() == (measurement_start_time_ms + measurement_time_ms) && finsihed == false){
-		finsihed = true;
-		vq_avg /= samples2;
-		vd_avg /= samples2;
-		iq_avg /= samples2;
-		id_avg /= samples2;
-
-		linkage = (sqrtf(vq_avg*vq_avg + vd_avg*vd_avg) - MOTOR_R *sqrtf(iq_avg*iq_avg + id_avg*id_avg)) / add_min_speed;// * ((2.0f * (float)M_PI) / 60.0f));
-
-		i_q_ref = 0;
-
-		drv8301_set_pwm(0, 0, 0);
-
-		TIM_SelectOCxM(TIM1, TIM_Channel_1, TIM_OCMode_PWM1);
-		TIM_CCxCmd(TIM1, TIM_Channel_1, TIM_CCx_Disable);
-		TIM_CCxNCmd(TIM1, TIM_Channel_1, TIM_CCxN_Disable);
-
-		TIM_SelectOCxM(TIM1, TIM_Channel_2, TIM_OCMode_PWM1);
-		TIM_CCxCmd(TIM1, TIM_Channel_2, TIM_CCx_Disable);
-		TIM_CCxNCmd(TIM1, TIM_Channel_2, TIM_CCxN_Disable);
-
-		TIM_SelectOCxM(TIM1, TIM_Channel_3, TIM_OCMode_PWM1);
-		TIM_CCxCmd(TIM1, TIM_Channel_3, TIM_CCx_Disable);
-		TIM_CCxNCmd(TIM1, TIM_Channel_3, TIM_CCxN_Disable);
-		DRV8301_PWM_UPDATE_EVENT;	//TODO veryfi if required
-		bldc_off = true;
-
-	}else if(tick_get_time_ms() > measurement_start_time_ms && finsihed == false){
-		vq_avg+=v_q;
-		vd_avg+=v_d;
-		iq_avg+=i_q;
-		id_avg+=i_d;
-		samples2 +=1.0f;
-	}
-
-		/*
-		if(fabsf(i_q_ref)<0.01f){
-			drv8301_set_pwm(0, 0, 0);
-
-		}else{
-			drv8301_set_pwm(duty1, duty2, duty3);
-
-		}*/
-		//DRV8301_PWM_UPDATE_EVENT;	//TODO veryfi if required
-
-
-
-/*
-
-		/////////////////////////////////////////////////////////////////checked
-		static float i_term = 0.0;
-		static float prev_error = 0.0;
-		float p_term;
-		float d_term;
-
-		//reverse direction after 10s
-
-
-//		if (tick_get_time_ms() < 10 * 1000) {
-//			m_speed_pid_set_rpm = 1000.0f;
-//		} else {
-//			m_speed_pid_set_rpm = -1000.0f;
-//		}
-
-		float m_speed_pid_set_rpm =m_speed_pid_set/ ((2.0f * (float)M_PI) / 60.0f);
-
-		float rpm = m_pll_speed / ((2.0f * (float)M_PI) / 60.0f);
-		float error = m_speed_pid_set_rpm - rpm;
-
-	//		// Too low RPM set. Reset state and return.
-	//		if (fabsf(m_speed_pid_set_rpm) < m_conf->s_pid_min_erpm) {
-	//			i_term = 0.0;
-	//			prev_error = error;
-	//			return;
-	//		}
-
-
-	#define UTILS_LP_FAST(value, sample, filter_constant)	(value -= (filter_constant) * (value - (sample)))
-
-		// Compute parameters
-		p_term = error * MCCONF_S_PID_KP * (1.0f / 20.0f);
-		i_term += error * MCCONF_S_PID_KI * BLDC_DT * (1.0f / 20.0f);
-		d_term = (error - prev_error) * (MCCONF_S_PID_KD/BLDC_DT) * (1.0f / 20.0f);
-
-		// Filter D
-		static float d_filter = 0.0;
-		UTILS_LP_FAST(d_filter, d_term, MCCONF_S_PID_KD_FILTER);
-		d_term = d_filter;
-
-		// I-term wind-up protection
-		utils_truncate_number(&i_term, -1.0, 1.0);
-
-		// Store previous error
-		prev_error = error;
-
-		// Calculate output
-		float output = p_term + i_term + d_term;
-		utils_truncate_number(&output, -1.0, 1.0);
-
-		i_q_ref = output * 10.0f;
-*/
-		// Speed PID parameters
-/*
-	static uint32_t cnt = 0;
-	cnt++;
-	if (cnt == 10000 / 100) {
-		cnt = 0;
-		xx1 = m_pll_speed;
-		xx2 = i_q_ref;
-		xx3 = m_pll_phase;
-		xx4 = tetha;
-	}
-*/
-
-//	//HFI
-//	const float BLDC_HFI_V=0.2f;
-//	const float BLDC_HFI_F=5000.0f;
-//	static float hfi_t=0;
-//	hfi_t +=BLDC_DT;
-//	//if(hfi_t >(float)M_PI/(2.0f * (float)M_PI * BLDC_HFI_F)){
-//	//	hfi_t-= 2.0f*(float)M_PI/(2.0f * (float)M_PI * BLDC_HFI_F);
-//	//}
-//
-//	if(hfi_t >1.0f/(2.0f * BLDC_HFI_F)){
-//		hfi_t-= 1.0f/(BLDC_HFI_F);
-//	}
-//	static float sin_inj;
-//	static float cos_inj;
-
-
-//	//Inject
-//	v_d += BLDC_HFI_V * cos_inj;
-//
-//	//First calculate sin then inject
-//	arm_sin_cos_f32(2.0f * (float)M_PI * BLDC_HFI_F * hfi_t *RAD_TO_DEG, &sin_inj, &cos_inj);
-//
-//	//Sense from prevoius loop
-//	i_sense_hfi_lpf = BLDC_HFI_LPF_ALPHA * i_q * sin_inj + (1.0f - BLDC_HFI_LPF_ALPHA) * i_sense_hfi_lpf;
-//	i_sense_hfi_lpf = i_q;
-//
-//	inj_i += i_sense_hfi_lpf * BLDC_DT;
-//	float tmp = i_sense_hfi_lpf * BLDC_HFI_KP + inj_i * BLDC_HFI_KI;
-//	inj_phase += tmp;
-//
-//	while (inj_phase > (float) M_PI) {
-//		inj_phase -= 2.0f * (float) M_PI;
-//	}
-//	while (inj_phase < -(float) M_PI) {
-//		inj_phase += 2.0f * (float) M_PI;
-//	}
-//
-//	tetha = inj_phase;
-//		pll_run(tetha, BLDC_DT, &m_pll_phase, &m_pll_speed);
-//
-//	static uint32_t cnt =0;
-//	cnt ++;
-//	if(cnt == 25000/100){
-//		cnt =0;
-//		xx1=tetha;
-//		xx2=m_pll_phase* RAD_TO_DEG;
-//		xx3=m_pll_speed;
-//		xx4+=m_pll_speed * BLDC_DT* RAD_TO_DEG;
-//	}
-
-
-
-
-	//Inject pulse
-
-	//static uint32_t pulse_cnt = 0;
-	//pulse_cnt++;
-
-	//if(pulse_cnt< 5){
-	//	v_d += BLDC_VDQ_MAX_LIMIT / 8.0f;
-	//}
-
-	//if(pulse_cnt>DRV8301_PWM_3F_SWITCHING_FREQ_HZ / 250){ //TODO enum 250hz
-	//	pulse_cnt=0;
-	//}
-
-	//TODO dynamic I limit
-
-
-
-	//float inv_vcc_mul_2_over_3 = 1.0f / (v_vcc_v * 2.0f / 3.0f);
-//	float inv_vcc_mul_2_over_3 = 1.0f / (v_vcc_v * ONE_OVER_3);
-//	float v_d2 = v_d * inv_vcc_mul_2_over_3;
-//	float v_q2 = v_q * inv_vcc_mul_2_over_3;
-//
-//	//Inverse Park
-//	float v_alpha = v_d2 * cos_tetha - v_q2 * sin_tetha;
-//	float v_beta = v_q2 * cos_tetha + v_d2 * sin_tetha;
-//
-//	float v_alpha2 = v_d * cos_tetha - v_q * sin_tetha;
-//	float v_beta2 = v_q * cos_tetha + v_d * sin_tetha;
-
-	//TODO dead time compensation
-
-	//SVM
-//	uint32_t duty1, duty2, duty3, svm_sector;
-//	bldc_svm(v_alpha, v_beta, DRV8301_PWM_3F_PWM_MAX, &duty1, &duty3, &duty2, &svm_sector);
-//
-//	drv8301_set_pwm(duty1, duty2, duty3);
-	//DRV8301_PWM_UPDATE_EVENT;	//TODO veryfi if required
-
-	//Update angle
-	//observer_update(v_alpha2, v_beta2, i_alpha, i_beta, &tetha);
-	//pll_run(tetha, BLDC_DT, &m_pll_phase, &m_pll_speed);
-
-	//tetha = tetha * (180.0f / (float) M_PI);
-	/*
-	tetha = tetha * RAD_TO_DEG;
-	if(m_pll_speed<-10){
-		tetha +=180;
-		if(tetha>360){
-			tetha-=360;
-		}
-	}*/
-
-	///////////////////////////////////////////////////////////////////////////////
-
-//
-//const float PSIMH = MOTOR_LAMBDA;
-//
-//
-//
-//volatile float L = MOTOR_L * 3.0f / 2.0f;
-//volatile float R = MOTOR_R * 3.0f / 2.0f;
-//
-//volatile float ed = v_d - R * i_d + w1 * L * i_q;
-//volatile float eq = v_q - R * i_q - w1 * L * i_d;
-//volatile float alpha = ALPHA0 + 2 * LAMBDA * fabsf(w1);
-//
-//if (w1 >= 0.0f) {
-//	w1 += BLDC_DT * alpha * ((eq - LAMBDA * 1.0f * ed) / PSIMH - w1);
-//} else {
-//	w1 += BLDC_DT * alpha * ((eq - LAMBDA * -1.0f * ed) / PSIMH - w1);
-//}
-//theta_est += BLDC_DT * w1;
-//while (theta_est > (float)M_PI){
-//	theta_est -= 2.0f * (float)M_PI;
-//}
-//while (theta_est < -(float)M_PI){
-//	theta_est += 2.0f * (float)M_PI;
-//}
-//
-//pll_run(theta_est, BLDC_DT, &m_pll_phase, &m_pll_speed);
-//tetha = theta_est * RAD_TO_DEG;
-
-///////////////////////////////////////////////////////////////////////////////
-
-
-///////////////////////////////////////////////////////////////////////////////
-//	static float i_term = 0.0;
-//	static float prev_error = 0.0;
-//	float p_term;
-//	float d_term;
-//	float m_speed_pid_set_rpm;
-//	if (tick_get_time_ms() < 10 * 1000) {
-//		m_speed_pid_set_rpm = 1000.0f;
-//	} else {
-//		m_speed_pid_set_rpm = -1000.0f;
-//	}
-//
-//	const float rpm = m_pll_speed;
-//	float error = m_speed_pid_set_rpm - rpm;
-//
-////		// Too low RPM set. Reset state and return.
-////		if (fabsf(m_speed_pid_set_rpm) < m_conf->s_pid_min_erpm) {
-////			i_term = 0.0;
-////			prev_error = error;
-////			return;
-////		}
-//
-//	// Speed PID parameters
-//
-//	static uint32_t cnt = 0;
-//	cnt++;
-//	if (cnt == 25000 / 100) {
-//		cnt = 0;
-//		xx1 = tetha;
-//		xx2 = i_q_ref;
-//		xx3 = w1;
-//		//xx4+=m_pll_speed * BLDC_DT* RAD_TO_DEG;
-//	}
-//
-//#define UTILS_LP_FAST(value, sample, filter_constant)	(value -= (filter_constant) * (value - (sample)))
-//
-//	// Compute parameters
-//	p_term = error * MCCONF_S_PID_KP * (1.0 / 20.0);
-//	i_term += error * MCCONF_S_PID_KI * (1.0 / 20.0);
-//	d_term = (error - prev_error) * MCCONF_S_PID_KD * (1.0 / 20.0);
-//
-//	// Filter D
-//	static float d_filter = 0.0;
-//	UTILS_LP_FAST(d_filter, d_term, MCCONF_S_PID_KD_FILTER);
-//	d_term = d_filter;
-//
-//	// I-term wind-up protection
-//	utils_truncate_number(&i_term, -1.0, 1.0);
-//
-//	// Store previous error
-//	prev_error = error;
-//
-//	// Calculate output
-//	float output = p_term + i_term + d_term;
-//	utils_truncate_number(&output, -1.0, 1.0);
-//
-//	i_q_ref = output * 4.0f;
-
-	//Startup
-
-//	static uint32_t start_cnt=0;
-//	static uint32_t stepup_steps = 0;
-//	start_cnt++;
-//	if(start_cnt==DRV8301_PWM_3F_SWITCHING_FREQ_HZ/2){
-//		start_cnt=0;
-//		if(stepup_steps<25){		//5A
-//			stepup_steps++;
-//
-//			i_q_ref+=0.2;
-//		}
-//	}
-
-
-//	//PID speed
-//	float speed_ref = 500.0f;		//TODO run with period 1000hz
-//
-//	//PID P error
-//	float speed_err = speed_ref - m_pll_speed;
-//
-//
-//	//PID I error
-//	speed_err_acc += speed_err_acc * dt * BLDC_SPEED_PID_KI;
-//
-//	//PID I limit
-//	if (speed_err_acc > BLDC_SPEED_PID_I_LIMIT) {
-//		speed_err_acc = BLDC_SPEED_PID_I_LIMIT;
-//	} else if (speed_err_acc < -BLDC_PID_I_LIMIT) {
-//		speed_err_acc = -BLDC_PID_I_LIMIT;
-//	}
-
-	//PID out limit
-	//float pid_speed_out = speed_err * BLDC_SPEED_PID_KP;// + speed_err_acc;
-
-	//i_q_ref = pid_speed_out;
-	//if(i_q_ref<0){
-	//	i_q_ref=0;
-	//}
-
-	//Additional
-//	g_i_d=i_d;
-//	g_i_q=i_q;
-//	g_v_d=v_d;
-//	g_v_q=v_q;
-
-
-//	if(tick_get_time_ms()>1000*70){
-//		i_d_ref = 8;
-//	}else if(tick_get_time_ms()>1000*60){
-//		i_d_ref = 7;
-//	}else if(tick_get_time_ms()>1000*50){
-//		i_d_ref = 6;
-//	}else if(tick_get_time_ms()>1000*40){
-//		i_d_ref = 5;
-//	}else if(tick_get_time_ms()>1000*30){
-//		i_d_ref = 4;
-//	}else if(tick_get_time_ms()>1000*20){
-//		i_d_ref = 3;
-//	}else if(tick_get_time_ms()>1000*10){
-//		i_d_ref = 2;
-//	}else{
-//		i_d_ref = 1;
-//	}
-
-	///////////////////////////////////////////////////////////////////////////////////////////////////
-
+	//Send to scope
+	bldc_scope_send_data((int16_t) (p1_i * 100.0f), (int16_t) (p3_i * 100.0f), (int16_t) (m_pll_speed), (int16_t) (tetha * 10.0f));
 
 	/*
+	 //Gimbal mode - start
+	 //Net to comment:set PWM
+	 float teta0;
+	 float teta120;
+	 float teta240;
+	 float sin_tetha0;
+	 float cos_tetha0;
+	 float sin_tetha120;
+	 float cos_tetha120;
+	 float sin_tetha240;
+	 float cos_tetha240;
+	 static float tetha_start = 0;
+	 tetha_start += 0.1f;
 
-	 float encoder_angle = TIM3->CNT % (4095 / 7);
-	 encoder_angle = encoder_angle / (4095.0f / 7.0f) * 360.0f;
+	 i_q_ref = 2.0f;
+	 teta0 = tetha_start;
+	 teta120 = tetha_start + 120.0f;
+	 teta240 = tetha_start - 120.0f;
+	 if (teta120 > 180.0f) {
+	 teta120 -= 360.0f;
+	 }
 
+	 if (teta240 < -180.0f) {
+	 teta120 += 360.0f;
+	 }
+
+	 arm_sin_cos_f32(teta0, &sin_tetha0, &cos_tetha0);
+	 arm_sin_cos_f32(teta120, &sin_tetha120, &cos_tetha120);
+	 arm_sin_cos_f32(teta240, &sin_tetha240, &cos_tetha240);
+
+	 duty1 = DRV8301_PWM_3F_PWM_MAX / 2 * (1.0f + sin_tetha0 * 0.05f);
+	 duty2 = DRV8301_PWM_3F_PWM_MAX / 2 * (1.0f + sin_tetha120 * 0.05f);
+	 duty3 = DRV8301_PWM_3F_PWM_MAX / 2 * (1.0f + sin_tetha240 * 0.05f);
+
+	 TIM1->CR1 |= TIM_CR1_UDIS;
+	 drv8301_set_pwm(duty1, duty2, duty3);
+	 TIM1->CR1 &= ~TIM_CR1_UDIS;
+	 //Gimbal mode - end
+	 */
+
+	/*
+	 //Simulate low speed - start
+	 i_q_ref = 2.0f;
+	 float add_min_speed = (200.0f * 2.0f * (float)M_PI) / 60.0f;
+	 static float tetha_start = 0;
+	 tetha_start += add_min_speed * RAD_TO_DEG * BLDC_DT;
+	 if (tetha_start < 180.0f) {
+	 tetha_start += 360.0f;
+	 }
+
+	 if (tetha_start > 180.0f) {
+	 tetha_start -= 360.0f;
+	 }
+	 tetha = tetha_start;
+	 //Simulate low speed - end
+	 */
+
+	/*
+	 //FLux linkage measurement - start
+	 //Two different methods of measurements
+	 i_q_ref = 2.0;
+	 static float add_min_speed = 0;
+	 static float tetha_start = 0;
+	 uint32_t measurement_start_time_ms = 11000;
+	 uint32_t measurement_time_ms = 2000;
+
+	 if (tick_get_time_ms() < measurement_start_time_ms + measurement_time_ms * 2) {
+	 if (tick_get_time_ms() < measurement_start_time_ms - measurement_time_ms) {
+	 float t = tick_get_time_ms() * tick_get_time_ms() / 7000.0f;
+	 add_min_speed = (t * 2.0f * (float) M_PI) / 60.0f;
+	 }
+	 tetha_start += add_min_speed * RAD_TO_DEG * BLDC_DT;
+
+	 if (tetha_start < 180.0f) {
+	 tetha_start += 360.0f;
+	 }
+
+	 if (tetha_start > 180.0f) {
+	 tetha_start -= 360.0f;
+	 }
+	 tetha = tetha_start;
+
+	 } else {
 	 tetha = tetha * (180.0f / (float) M_PI);
-	 */
-	/*
-	 static uint32_t cnt2 = 0;
-	 static uint32_t cnt3 = 0;
-	 //1
-	 frame_bemf_voltage.a[cnt2] = tetha;
-
-	 //2
-
-	 frame_bemf_voltage.b[cnt2] = m_pll_phase* (180.0f / (float) M_PI);
-
-	 //3
-	 frame_bemf_voltage.c[cnt2] = m_pll_speed;
-
-	 if (cnt3 == 4) {
-	 cnt3 = 0;
-	 cnt2++;
-	 if (cnt2 == 5) {
-	 cnt2 = 0;
-	 frame_send(FRAME_TYPE_BEMF_VOLTAGE, (uint8_t *) &frame_bemf_voltage);
-	 }
-	 }
-	 cnt3++;
-	 */
-	//tetha = encoder_angle;
-	/*
-	 tetha += offset;
-	 if (tetha > 360) {
-	 tetha -= 360;
-	 }
-	 */
-
-	/* dynamicpid
-	 //PID P error
-	 float i_d_err = i_d_ref - i_d;
-	 float i_q_err = i_q_ref - i_q;
-
-	 float pid_p_d = i_d_err * BLDC_PID_KP;
-	 float pid_p_q = i_q_err * BLDC_PID_KP;
-
-	 float i_max;
-	 //PID I limit
-	 if(pid_p_d>0){
-	 i_max = BLDC_PID_OUT_LIMIT - pid_p_d;
-	 }else{
-	 i_max = BLDC_PID_OUT_LIMIT + pid_p_d;
 	 }
 
-	 //PID I error
-	 i_d_err_acc += i_d_err * dt * ki_idq;
-	 i_q_err_acc += i_q_err * dt * ki_idq;
+	 static float vq_avg = 0.0;
+	 static float vd_avg = 0.0;
+	 static float iq_avg = 0.0;
+	 static float id_avg = 0.0;
+	 static float samples2 = 0.0;
 
-	 //PID I limit
-	 if (pid_i_d > i_max) {
-	 pid_i_d = i_max;
-	 } else if (pid_i_d < -i_max) {
-	 pid_i_d = -i_max;
+	 static bool finished = false;
+	 static bool bldc_off = false;
+
+	 static float va_bemf_max = 0.0;
+	 static float vb_bemf_max = 0.0;
+	 static float vc_bemf_max = 0.0;
+
+	 static float linkage_bemf_a = 0.0;
+	 static float linkage_bemf_b = 0.0;
+	 static float linkage_bemf_c = 0.0;
+
+	 volatile float linkage = 0;
+
+	 if (bldc_off) {
+	 float v1 = ADC_INJ_P1_BEMF * ADC_V_GAIN;
+	 v1 *= v_ldo_v / ADC_MAX_VALUE;
+
+	 float v2 = ADC_INJ_P2_BEMF * ADC_V_GAIN;
+	 v2 *= v_ldo_v / ADC_MAX_VALUE;
+
+	 float v3 = ADC_INJ_P3_BEMF * ADC_V_GAIN;
+	 v3 *= v_ldo_v / ADC_MAX_VALUE;
+
+	 float vdc = (v1 + v2 + v3) / 3.0f;
+
+	 v1 -= vdc;
+	 v2 -= vdc;
+	 v3 -= vdc;
+
+	 v1 = fabsf(v1);
+	 v2 = fabsf(v2);
+	 v3 = fabsf(v3);
+
+	 if (v1 > va_bemf_max) {
+	 va_bemf_max = v1;
 	 }
 
-	 if (pid_i_q > i_max) {
-	 pid_i_q = i_max;
-	 } else if (pid_i_q < -i_max) {
-	 pid_i_q = -i_max;
+	 if (v2 > va_bemf_max) {
+	 vb_bemf_max = v2;
 	 }
 
-	 //PID out
-	 float v_d = pid_p_d + pid_i_d;
-	 float v_q = pid_p_q + pid_i_q;
+	 if (v3 > va_bemf_max) {
+	 vc_bemf_max = v3;
+	 }
+
+	 linkage_bemf_a = va_bemf_max / add_min_speed;
+	 linkage_bemf_b = vb_bemf_max / add_min_speed;
+	 linkage_bemf_c = vc_bemf_max / add_min_speed;
+
+	 printf("Flux linkage VBMF/Speed A: %f\n", (double) linkage_bemf_a);
+	 printf("Flux linkage VBMF/Speed B: %f\n", (double) linkage_bemf_b);
+	 printf("Flux linkage VBMF/Speed C: %f\n", (double) linkage_bemf_c);
+	 }
+
+	 if (tick_get_time_ms() == (measurement_start_time_ms + measurement_time_ms) && finished == false) {
+	 finished = true;
+
+	 vq_avg /= samples2;
+	 vd_avg /= samples2;
+	 iq_avg /= samples2;
+	 id_avg /= samples2;
+
+	 linkage = (sqrtf(vq_avg * vq_avg + vd_avg * vd_avg) - MOTOR_R * sqrtf(iq_avg * iq_avg + id_avg * id_avg)) / add_min_speed;// * ((2.0f * (float)M_PI) / 60.0f));
+
+	 i_q_ref = 0;
+
+	 drv8301_set_pwm(0, 0, 0);
+
+	 TIM_SelectOCxM(TIM1, TIM_Channel_1, TIM_OCMode_PWM1);
+	 TIM_CCxCmd(TIM1, TIM_Channel_1, TIM_CCx_Disable);
+	 TIM_CCxNCmd(TIM1, TIM_Channel_1, TIM_CCxN_Disable);
+
+	 TIM_SelectOCxM(TIM1, TIM_Channel_2, TIM_OCMode_PWM1);
+	 TIM_CCxCmd(TIM1, TIM_Channel_2, TIM_CCx_Disable);
+	 TIM_CCxNCmd(TIM1, TIM_Channel_2, TIM_CCxN_Disable);
+
+	 TIM_SelectOCxM(TIM1, TIM_Channel_3, TIM_OCMode_PWM1);
+	 TIM_CCxCmd(TIM1, TIM_Channel_3, TIM_CCx_Disable);
+	 TIM_CCxNCmd(TIM1, TIM_Channel_3, TIM_CCxN_Disable);
+	 DRV8301_PWM_UPDATE_EVENT;	//TODO verify if required
+	 bldc_off = true;
+
+	 printf("Flux linkage V/I: %f\n", (double) linkage);
+
+	 } else if (tick_get_time_ms() > measurement_start_time_ms && finished == false) {
+	 vq_avg += v_q;
+	 vd_avg += v_d;
+	 iq_avg += i_q;
+	 id_avg += i_d;
+	 samples2 += 1.0f;
+	 }
+	 //FLux linkage measurement - end
 	 */
 }
 
-static void bldc_send_data(void){
-	static uint32_t i=0;
-	static uint8_t k=0;
-	static FrameDisplayChannelsData8 frame;
-
-	frame.ch1[i]=k++;
-	frame.ch2[i]=k++;
-	frame.ch3[i]=k++;
-	frame.ch4[i]=k++;
-	frame.ch5[i]=k++;
-	frame.ch6[i]=k++;
-	frame.ch7[i]=k++;
-	frame.ch8[i]=k++;
-
-	i++;
-	if(i==FRAME_MAX_DISPLAY_CHANNELS_8){
-		i=0;
-		frame.packet_cnt++;
-
-		//Slave->PC
-		frame_uart_send(FRAME_TYPE_DISPLAY_CHANNELS_DATA_8, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
-	}
-}
-
-CCMRAM_FUCNTION void bldc_adc_irq_hanlder(void){
-	//FOC Cycles Min, Max, AVR: 30, 37, 30.266
-
+CCMRAM_FUCNTION void bldc_adc_irq_hanlder(void) {
 	//V LDO calculate
-	//FOC Cycles Min, Max, AVR: 80, 102, 93.430
-	//v_ldo_v = ADC_VREF_V * ((float) (*VREFINT_CAL)) / ((float) ADC_INJ_VREF_INT);
+	//float tmp = adc_vref_mul_vrefint_cal / ((float) ADC_INJ_VREF_INT);
+	//v_ldo_v = v_ldo_v * (1.0f - BLDC_LDO_VCC_LPF_ALPHA) + tmp * BLDC_LDO_VCC_LPF_ALPHA;
+	v_ldo_v = 3.31f;
 
-	//FOC Cycles Min, Max, AVR: 79, 95, 89.135
-	//const float adc_vref_mul_vrefint_cal2 =  ADC_VREF_V * ((float) (*VREFINT_CAL));
-	//v_ldo_v = adc_vref_mul_vrefint_cal2 / ((float) ADC_INJ_VREF_INT);
-
-	//FOC Cycles Min, Max, AVR: 60, 91, 79.026 Next
-	v_ldo_v = adc_vref_mul_vrefint_cal / ((float) ADC_INJ_VREF_INT);
-
-	//TODO remove or upgrade
-	v_ldo_v = 3.3f;
-
-
-	//TODO calculate 1/100, split calculation for severals loops
 	//Calculate NTC temperature
-	//FOC Cycles Min, Max, AVR: 203, 238, 221.814 Next
-	float tmp;
-	tmp = (ADC_NTC_R2_OHM * ((float) ADC_INJ_NTC)) / (ADC_MAX_VALUE - ((float) ADC_INJ_NTC));
+	float tmp = (ADC_NTC_R2_OHM * ((float) ADC_INJ_NTC)) / (ADC_MAX_VALUE - ((float) ADC_INJ_NTC));
 	ntc_temperature_c = ADC_NTC_B_25_100_K / fast_log(tmp / ADC_NTC_R_INF) - ADC_KELVIN_OFFSET;
 
-	//TODO calculate 1/100, split calculation for severals loops
 	//Calculate uP temperature
-	//FOC CFOC Cycles Min, Max, AVR: 274, 306, 292.696
-	//tmp = (((float) ADC_INJ_TEMP_SENS) - (float) *ADC_TEMP30_CAL_ADDR) * (110.0f - 30.0f);
-	//up_temperature_c = tmp / (float) (*ADC_TEMP110_CAL_ADDR - *ADC_TEMP30_CAL_ADDR) + 30.0f;
-
-	//FOC Cycles Min, Max, AVR: 246, 280, 265.649 next
 	tmp = (((float) ADC_INJ_TEMP_SENS) - (float) *ADC_TEMP30_CAL_ADDR) * (110.0f - 30.0f);
-	up_temperature_c = tmp * one_over_adc_temp_call  + 30.0f;
+	up_temperature_c = tmp * one_over_adc_temp_call + 30.0f;
 
 	//Voltage calculation
-	//FOC Cycles Min, Max, AVR: 285, 309, 303.299
-	//v_vcc_v = ((float) ADC_INJ_VCC) * ADC_V_GAIN;
-	//v_vcc_v *= v_ldo_v / ADC_MAX_VALUE;
-
-	//FOC Cycles Min, Max, AVR: 275, 305, 293.599 next - not optimal
-	float v_vcc_v_tmp = ((float) ADC_INJ_VCC) * v_ldo_v * (ADC_V_GAIN / ADC_MAX_VALUE);
-	//LPF
-	v_vcc_v = v_vcc_v * 0.9f + v_vcc_v_tmp * 0.1f;
-	//v_vcc_v = v_vcc_v_tmp;
-
-
-	//TODO remove or upgrade
-	//static float vcc_lpf_v=0;
-	//vcc_lpf_v = vcc_lpf_v*0.5f + 0.5f * v_vcc_v;
-	//v_vcc_v = vcc_lpf_v;
-
-	//FOC Cycles Min, Max, AVR: 271, 290, 289.049
-	//v_vcc_v = ((float) ADC_INJ_VCC) * 0.0013542013542014f * v_ldo_v;
+	tmp = ((float) ADC_INJ_VCC) * v_ldo_v * (ADC_V_GAIN / ADC_MAX_VALUE);
+	v_vcc_v = v_vcc_v * (1.0f - BLDC_LDO_VCC_LPF_ALPHA) + tmp * BLDC_LDO_VCC_LPF_ALPHA;
 
 	bldc_active_state_cb();
 }
 
-static void bldc_state_calibrate_finish(void){
+static void bldc_state_calibrate_finish(void) {
 	if (!drv8301_get_i_calibration_status()) {
 		bldc_state_stop();
 		bldc_set_active_state(BLDC_STATE_STOP);
 	}
 }
 
-static void bldc_state_do_nothing(void){
+static void bldc_state_do_nothing(void) {
 	//TODO remove
 	static bool start_foc = false;
 
-
-	if(start_foc == false){
+	if (start_foc == false) {
 		start_foc = true;
+
+		//Set this to run FOC
 		bldc_enable_all_pwm_output();
 		DRV8301_PWM_UPDATE_EVENT;
 		bldc_set_active_state(BLDC_STATE_FOC);
 
+		//Set this to run R measurement
 		//Hold the motor to not rotate, remember to run this measurement 2,3x to increase the motor temperature
 		//bldc_measure_r_init();
+
+		//Set this to run L measurement
 		//bldc_measure_l_init();
 	}
-
-
 }
 
-void bldc_set_active_state(BldcStateMachine state){
+void bldc_set_active_state(BldcStateMachine state) {
 	bldc_active_state = state;
 	bldc_active_state_cb = state_dictionary[state].state_cb;
 }

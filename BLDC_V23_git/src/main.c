@@ -58,7 +58,7 @@ static int16_t rc_roll = 0;
 static int16_t rc_throttle = 0;
 static uint16_t rc_status = 0;
 
-static void uart_send_scope_data(void){
+static void uart_send_scope_data(void) {
 	static uint32_t i = 0;
 	while (bldc_get_frame_ready(i)) {
 		uart_send_scope_frame(FRAME_TYPE_DISPLAY_CHANNELS_DATA_4, sizeof(FrameDisplayChannelsData4), (uint8_t *) bldc_get_scope_4ch_frame(i));
@@ -70,7 +70,6 @@ static void uart_send_scope_data(void){
 		}
 	}
 }
-
 
 static void task_rf_timeout(void) {
 	radio_timeout();
@@ -163,7 +162,7 @@ static void task_bldc_status(void) {
 	drv8301_read_status();
 }
 
-static void rc_disconnected(void){
+static void rc_disconnected(void) {
 	rc_yaw = 0;
 	rc_pitch = 0;
 	rc_roll = 0;
@@ -326,15 +325,15 @@ static void print_fast_param(void) {
 	float *q = ahrs_get_q2();
 	float *angle = servo_get_angle();
 
-	frame.ahrs.q[0] = (int16_t)(q[0] * 32767.0f);																		//	  -1 	-     1
-	frame.ahrs.q[1] = (int16_t)(q[1] * 32767.0f);																		//	  -1 	-     1
-	frame.ahrs.q[2] = (int16_t)(q[2] * 32767.0f);																		//	  -1 	-     1
-	frame.ahrs.q[3] = (int16_t)(q[3] * 32767.0f);																		//	  -1 	-     1
+	frame.ahrs.q[0] = (int16_t) (q[0] * 32767.0f);																		//	  -1 	-     1
+	frame.ahrs.q[1] = (int16_t) (q[1] * 32767.0f);																		//	  -1 	-     1
+	frame.ahrs.q[2] = (int16_t) (q[2] * 32767.0f);																		//	  -1 	-     1
+	frame.ahrs.q[3] = (int16_t) (q[3] * 32767.0f);																		//	  -1 	-     1
 
-	frame.servo.angle[0] = (int16_t)((angle[0] * 32767.0f) / 180.0f);													//	-180 	-  	180		deg
-	frame.servo.angle[1] = (int16_t)((angle[1] * 32767.0f) / 180.0f);													//	-180 	-  	180		deg
-	frame.servo.angle[2] = (int16_t)((angle[2] * 32767.0f) / 180.0f);													//	-180 	-  	180		deg
-	frame.servo.angle[3] = (int16_t)((angle[3] * 32767.0f) / 180.0f);													//	-180 	-  	180		deg
+	frame.servo.angle[0] = (int16_t) ((angle[0] * 32767.0f) / 180.0f);													//	-180 	-  	180		deg
+	frame.servo.angle[1] = (int16_t) ((angle[1] * 32767.0f) / 180.0f);													//	-180 	-  	180		deg
+	frame.servo.angle[2] = (int16_t) ((angle[2] * 32767.0f) / 180.0f);													//	-180 	-  	180		deg
+	frame.servo.angle[3] = (int16_t) ((angle[3] * 32767.0f) / 180.0f);													//	-180 	-  	180		deg
 
 	//Slave->Master->PC
 	frame_radio_send(FRAME_TYPE_FAST_PARAMS_SLAVE, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
@@ -344,28 +343,28 @@ static void print_slow_param(void) {
 	FrameSlowParamSlave frame;
 
 	//ADC
-	frame.adc.ntc_temp = (uint16_t)(((bldc_get_ntc_temperature_c() + 128.0f) * 65535.0f) / (128.0f + 256.0f));			//	-128 	- 	256		C
-	frame.adc.up_temp = (uint16_t)(((bldc_get_up_temperature_c() + 128.0f) * 65535.0f) / (128.0f + 256.0f));				//	-128 	- 	256		C
-	frame.adc.bat_v = (uint16_t)((bldc_get_v_vcc_v() * 65535.0f) / 32.0f);												//	   0 	-  	 32 	V
-	frame.adc.ldo_v = (uint16_t)((bldc_get_v_ldo_v() * 65535.0f) / 4.0f);												//	   0 	-     4		V
+	frame.adc.ntc_temp = (uint16_t) (((bldc_get_ntc_temperature_c() + 128.0f) * 65535.0f) / (128.0f + 256.0f));			//	-128 	- 	256		C
+	frame.adc.up_temp = (uint16_t) (((bldc_get_up_temperature_c() + 128.0f) * 65535.0f) / (128.0f + 256.0f));			//	-128 	- 	256		C
+	frame.adc.bat_v = (uint16_t) ((bldc_get_v_vcc_v() * 65535.0f) / 32.0f);												//	   0 	-  	 32 	V
+	frame.adc.ldo_v = (uint16_t) ((bldc_get_v_ldo_v() * 65535.0f) / 4.0f);												//	   0 	-     4		V
 
 	//IMU
 	float *acc = imu_get_imu_acceleration();
 
-	frame.imu.acc[0] = (int16_t)((acc[0] * 32767.0f) / 80.0f);															//	 -80 	-    80		m/s2
-	frame.imu.acc[1] = (int16_t)((acc[1] * 32767.0f) / 80.0f);															//	 -80 	-    80		m/s2
-	frame.imu.acc[2] = (int16_t)((acc[2] * 32767.0f) / 80.0f);															//	 -80 	-    80		m/s2
+	frame.imu.acc[0] = (int16_t) ((acc[0] * 32767.0f) / 80.0f);															//	 -80 	-    80		m/s2
+	frame.imu.acc[1] = (int16_t) ((acc[1] * 32767.0f) / 80.0f);															//	 -80 	-    80		m/s2
+	frame.imu.acc[2] = (int16_t) ((acc[2] * 32767.0f) / 80.0f);															//	 -80 	-    80		m/s2
 
-	frame.imu.vel[0] = (int16_t)((vel_compensated[0] * 32767.0f) / 2000.0f);											//   -2k 	-  	 2k		deg/s
-	frame.imu.vel[1] = (int16_t)((vel_compensated[1] * 32767.0f) / 2000.0f);											//   -2k 	-  	 2k		deg/s
-	frame.imu.vel[2] = (int16_t)((vel_compensated[2] * 32767.0f) / 2000.0f);											//   -2k 	-  	 2k		deg/s
+	frame.imu.vel[0] = (int16_t) ((vel_compensated[0] * 32767.0f) / 2000.0f);											//   -2k 	-  	 2k		deg/s
+	frame.imu.vel[1] = (int16_t) ((vel_compensated[1] * 32767.0f) / 2000.0f);											//   -2k 	-  	 2k		deg/s
+	frame.imu.vel[2] = (int16_t) ((vel_compensated[2] * 32767.0f) / 2000.0f);											//   -2k 	-  	 2k		deg/s
 
-	frame.imu.temp = (uint16_t)(((imu_get_temperature_c() + 128.0f) * 65535.0f) / (128.0f + 256.0f));					//	-128 	- 	256		C
+	frame.imu.temp = (uint16_t) (((imu_get_temperature_c() + 128.0f) * 65535.0f) / (128.0f + 256.0f));					//	-128 	- 	256		C
 
 	//Pressure
-	frame.pressure.height = (int16_t)((height_compensated * 32767.0f) / 1000.0f);										//	 -1000 	-  1000		m
-	frame.pressure.press = (uint16_t)(((pressure_get_pressure_pa() - 90000.0f) * 65535.0f) / (110000.0f - 90000.0f));	//	 90k	-  110k 	Pa
-	frame.pressure.temp = (uint16_t)(((pressure_get_temperature_c() + 128.0f) * 65535.0f) / (128.0f + 256.0f));			//	-128 	- 	256		C
+	frame.pressure.height = (int16_t) ((height_compensated * 32767.0f) / 1000.0f);										//	 -1000 	-  1000		m
+	frame.pressure.press = (uint16_t) (((pressure_get_pressure_pa() - 90000.0f) * 65535.0f) / (110000.0f - 90000.0f));	//	 90k	-  110k 	Pa
+	frame.pressure.temp = (uint16_t) (((pressure_get_temperature_c() + 128.0f) * 65535.0f) / (128.0f + 256.0f));			//	-128 	- 	256		C
 
 	//Slave->Master->PC
 	frame_radio_send(FRAME_TYPE_SLOW_PARAMS_SLAVE, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
@@ -420,10 +419,11 @@ static void print_init(void) {
 	printf("UUID0: %08X %08X %08X\n", (unsigned int) STM32_UUID[0], (unsigned int) STM32_UUID[1], (unsigned int) STM32_UUID[2]);
 
 	FrameReqDisplayChannels frame;
+
 	//Slave->Master->PC
 	frame_uart_send(FRAME_TYPE_REQ_DISPLAY_CHANNELS, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
 
-	//TODO send KP KI KD to master and pc
+	//TODO send KP KI KD to master and PC
 }
 
 static void print_cpu_load(void) {
@@ -434,10 +434,10 @@ static void print_cpu_load(void) {
 	float task_load;
 	float cnt;
 
-	//printf("------------------------------------\n");
-	//printf("------------Load Monitor------------\n");
-	//printf("ID\tLoad[%%]\tExecute Cnt\tTask name\n");
-	//printf("------------------------------------\n");
+	printf("------------------------------------\n");
+	printf("------------Load Monitor------------\n");
+	printf("ID\tLoad[%%]\tExecute Cnt\tTask name\n");
+	printf("------------------------------------\n");
 
 	for (i = 0; i < MARKER_SYSTEM; i++) {
 		task_load = rybos_get_task_execution_time(i) / (TICK_CPU_FREQUENCY_HZ / 1000000);
@@ -451,7 +451,7 @@ static void print_cpu_load(void) {
 		cnt = (float) rybos_get_task_execution_cnt(i) / (float) TASK_LOAD_MONITOR_PERIOD_S;
 		rybos_clear_task_execution_cnt(i);
 
-		//printf("%u\t%6.3f\t%9.2f\t%s\n", (unsigned int) i + 1, task_load, cnt, TASK_NAMES[i]);
+		printf("%u\t%6.3f\t%9.2f\t%s\n", (unsigned int) i + 1, task_load, cnt, TASK_NAMES[i]);
 
 	}
 	task_load = 100.0f - accumulate;
@@ -460,10 +460,7 @@ static void print_cpu_load(void) {
 	cnt = (float) rybos_get_task_execution_cnt(i) / (float) TASK_LOAD_MONITOR_PERIOD_S;
 	rybos_clear_task_execution_cnt(i);
 
-	//printf("%u\t%6.3f\t%9.2f\t%s\n", (unsigned int) i + 1, task_load, cnt, TASK_NAMES[i]);
-
-	//TODO not elegant - print the BLDC left time
-	//frame.load[11] = adc_bldc_left_time() * 65535.0f / 100.0f;	//TODO remove
+	printf("%u\t%6.3f\t%9.2f\t%s\n", (unsigned int) i + 1, task_load, cnt, TASK_NAMES[i]);
 
 	//Slave->Master->PC
 	frame_radio_send(FRAME_TYPE_SYSTEM_LOAD_SLAVE, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
@@ -472,9 +469,9 @@ static void print_cpu_load(void) {
 static void print_radio_parameters(void) {
 	FrameRadioStat frame;
 
-	frame.avarage_rssi = (uint16_t)(((radio_get_avarage_rssi() + 256.0f) * 65535.0f) / (256.0f + 32.0f));	//Scale -256 - 32
-	frame.max_rssi = (uint16_t)((((float) radio_get_max_rssi() + 256.0f) * 65535.0f) / (256.0f + 32.0f));	//Scale -256 - 32
-	frame.min_rssi = (uint16_t)((((float) radio_get_min_rssi() + 256.0f) * 65535.0f) / (256.0f + 32.0f));	//Scale -256 - 32
+	frame.avarage_rssi = (uint16_t) (((radio_get_avarage_rssi() + 256.0f) * 65535.0f) / (256.0f + 32.0f));	//Scale -256 - 32
+	frame.max_rssi = (uint16_t) ((((float) radio_get_max_rssi() + 256.0f) * 65535.0f) / (256.0f + 32.0f));	//Scale -256 - 32
+	frame.min_rssi = (uint16_t) ((((float) radio_get_min_rssi() + 256.0f) * 65535.0f) / (256.0f + 32.0f));	//Scale -256 - 32
 
 	frame.max_tran_deph = radio_get_max_queue_depth();
 	frame.rettransmition = radio_get_retransmition_cnt();
@@ -523,26 +520,22 @@ static void task_load_monitor(void) {
 	print_system_param();
 	print_uart_param();
 }
-extern float m_speed_pid_set;
-extern float i_q_ref_rc;
+
 void frame_cb_frame_rc_control(void *buff, uint8_t params) {
 	UNUSED(params);
 
 	FrameRcControl *frame = (FrameRcControl *) buff;
 
-	if(rc_connected){
+	if (rc_connected) {
 		rc_yaw = frame->yaw;
 		rc_pitch = frame->pitch;
 		rc_roll = frame->roll;
 		rc_throttle = frame->throttle;
 		rc_status = frame->status;
 
-		//if(rc_throttle>0){
-		i_q_ref_rc=(float)rc_throttle / 2048.0f * 10.0f;	//10
-		//}else{
-		//	m_speed_pid_set=0;
-		//}
-	}else{
+		bldc_set_i_q_ref((float) rc_throttle / 2048.0f * 5.0f);
+
+	} else {
 		rc_disconnected();
 	}
 }
@@ -637,6 +630,7 @@ void frame_cb_frame_rc_control(void *buff, uint8_t params) {
  * TODO chenge critical functions to inline
  * TODO add two separate section of CMM, 1 for variables, 1 for functions. Go to AN4296
  * TOOD add dead time compensation to RL measurement
+ * TODO add dynamic PID with I active limitation
  */
 
 int main(void) {
@@ -654,18 +648,18 @@ int main(void) {
 	drv8301_init();
 	radio_init();
 
-	rybos_add_task(TASK_IMU_READ_PERIOD_MS, 			8, 		(uint8_t *) "Task IMU read", 			task_imu_read, 			MARKER_TASK_IMU_READ, 		true);
-	rybos_add_task(TASK_BLDC_STATUS_PERIOD_MS, 			63, 	(uint8_t *) "Task BLDC status", 		task_bldc_status, 		MARKER_TASK_BLDC_STATUS, 	true);
-	rybos_add_task(TASK_PRESSURE_READ_PERIOD_MS, 		64, 	(uint8_t *) "Task pressure read", 		task_read_pressure, 	MARKER_TASK_PRESSURE_READ, 	true);
-	rybos_add_task(TASK_RF_TIMEOUT_MS, 					124, 	(uint8_t *) "Task RF timeout", 			task_rf_timeout, 		MARKER_TASK_RF_TIMEOUT, 	false);
-	rybos_add_task(TASK_FRAME_DECODER_PERIOD_MS, 		126, 	(uint8_t *) "Task frame decoder", 		task_frame_decoder, 	MARKER_TASK_FRAME_DECODER, 	true);
-	rybos_add_task(TASK_BUZZER_PERIOD_MS, 				127, 	(uint8_t *) "Task buzzer", 				task_buzzer, 			MARKER_TASK_BUZZER, 		false);
-	rybos_add_task(TASK_LED_PERIOD_MS, 					245, 	(uint8_t *) "Task LED status", 			task_led, 				MARKER_TASK_LED, 			true);
-	rybos_add_task(TASK_LOAD_MONITOR_PERIOD_MS, 		230, 	(uint8_t *) "Task load monitor", 		task_load_monitor, 		MARKER_TASK_LOAD_MONITOR, 	true);
-	rybos_add_task(TASK_SLEEP_PERIOD_MS, 				250, 	(uint8_t *) "Task sleep", 				task_sleep, 			MARKER_TASK_SLEEP, 			true);
-	rybos_add_task(TASK_RF_PERIOD_MS, 					125, 	(uint8_t *) "Task RF", 					task_rf, 				MARKER_TASK_RF, 			true);
-	rybos_add_task(TASK_PARAM_FAST_UPDATE_PERIOD_MS, 	220, 	(uint8_t *) "Task parameter update", 	task_param_update, 		MARKER_TASK_PARAM_UPDATE, 	true);
-	rybos_add_task(TASK_LOGGER_PERIOD_MS, 				240, 	(uint8_t *) "Task Logger", 				task_logger, 			MARKER_TASK_LOGGER, 		false);
+	rybos_add_task(TASK_IMU_READ_PERIOD_MS, 8, (uint8_t *) "Task IMU read", task_imu_read, MARKER_TASK_IMU_READ, true);
+	rybos_add_task(TASK_BLDC_STATUS_PERIOD_MS, 63, (uint8_t *) "Task BLDC status", task_bldc_status, MARKER_TASK_BLDC_STATUS, true);
+	rybos_add_task(TASK_PRESSURE_READ_PERIOD_MS, 64, (uint8_t *) "Task pressure read", task_read_pressure, MARKER_TASK_PRESSURE_READ, true);
+	rybos_add_task(TASK_RF_TIMEOUT_MS, 124, (uint8_t *) "Task RF timeout", task_rf_timeout, MARKER_TASK_RF_TIMEOUT, false);
+	rybos_add_task(TASK_FRAME_DECODER_PERIOD_MS, 126, (uint8_t *) "Task frame decoder", task_frame_decoder, MARKER_TASK_FRAME_DECODER, true);
+	rybos_add_task(TASK_BUZZER_PERIOD_MS, 127, (uint8_t *) "Task buzzer", task_buzzer, MARKER_TASK_BUZZER, false);
+	rybos_add_task(TASK_LED_PERIOD_MS, 245, (uint8_t *) "Task LED status", task_led, MARKER_TASK_LED, true);
+	rybos_add_task(TASK_LOAD_MONITOR_PERIOD_MS, 230, (uint8_t *) "Task load monitor", task_load_monitor, MARKER_TASK_LOAD_MONITOR, true);
+	rybos_add_task(TASK_SLEEP_PERIOD_MS, 250, (uint8_t *) "Task sleep", task_sleep, MARKER_TASK_SLEEP, true);
+	rybos_add_task(TASK_RF_PERIOD_MS, 125, (uint8_t *) "Task RF", task_rf, MARKER_TASK_RF, true);
+	rybos_add_task(TASK_PARAM_FAST_UPDATE_PERIOD_MS, 220, (uint8_t *) "Task parameter update", task_param_update, MARKER_TASK_PARAM_UPDATE, true);
+	rybos_add_task(TASK_LOGGER_PERIOD_MS, 240, (uint8_t *) "Task Logger", task_logger, MARKER_TASK_LOGGER, false);
 
 	print_init();
 	buzzer_generate_sound(BUZZER_SOUND_START);

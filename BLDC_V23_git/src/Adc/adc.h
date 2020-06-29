@@ -16,7 +16,7 @@
 #define ADC_Channel_P1_I 			ADC_InjectedChannel_1
 #define ADC_Channel_Vcc 			ADC_InjectedChannel_1
 #define ADC_Channel_P3_I 			ADC_InjectedChannel_3
-#define ADC_Channel_P1_Bemf 		ADC_InjectedChannel_12						//Todo one channel has slow convertion, change during next design
+#define ADC_Channel_P1_Bemf 		ADC_InjectedChannel_12						//TODO one channel has slow conversion, change during next design
 #define ADC_Channel_P2_Bemf 		ADC_InjectedChannel_5
 #define ADC_Channel_P3_Bemf 		ADC_InjectedChannel_4
 
@@ -27,7 +27,8 @@
 #define ADC_INJ_P2_BEMF				ADC3->JDR2
 #define ADC_INJ_P3_BEMF				ADC4->JDR2
 
-#define ADC_VREF_V					3.3f 										//3.3f TODO Verify - errata
+#define ADC_VREF_V					3.3f 										//3.3f TODO Verify - ERRATA
+#define ADC_VREF_COMPENSATION		(3.3f/3.39f)								//Set to 1 if new chip revision will be used
 #define ADC_MAX_VALUE				4095.0f
 
 #define ADC_NTC_B_25_100_K			3455.0f
@@ -45,10 +46,7 @@
 
 #define ADC_V_GAIN					((15.0f+3.3f)/3.3f)
 #define ADC_I_GAIN					20.0f 										//DRV OP amp gain
-//TODO change to 20x
 #define ADC_I_R_OHM					0.004f
-
-#define ADC_DMA_LENGTH				48
 
 #define ADC_TIEMOUT_CYCLES			500000
 
