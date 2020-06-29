@@ -434,10 +434,10 @@ static void print_cpu_load(void) {
 	float task_load;
 	float cnt;
 
-	printf("------------------------------------\n");
-	printf("------------Load Monitor------------\n");
-	printf("ID\tLoad[%%]\tExecute Cnt\tTask name\n");
-	printf("------------------------------------\n");
+	//printf("------------------------------------\n");
+	//printf("------------Load Monitor------------\n");
+	//printf("ID\tLoad[%%]\tExecute Cnt\tTask name\n");
+	//printf("------------------------------------\n");
 
 	for (i = 0; i < MARKER_SYSTEM; i++) {
 		task_load = rybos_get_task_execution_time(i) / (TICK_CPU_FREQUENCY_HZ / 1000000);
@@ -451,7 +451,7 @@ static void print_cpu_load(void) {
 		cnt = (float) rybos_get_task_execution_cnt(i) / (float) TASK_LOAD_MONITOR_PERIOD_S;
 		rybos_clear_task_execution_cnt(i);
 
-		printf("%u\t%6.3f\t%9.2f\t%s\n", (unsigned int) i + 1, task_load, cnt, TASK_NAMES[i]);
+		//printf("%u\t%6.3f\t%9.2f\t%s\n", (unsigned int) i + 1, task_load, cnt, TASK_NAMES[i]);
 
 	}
 	task_load = 100.0f - accumulate;
@@ -460,7 +460,7 @@ static void print_cpu_load(void) {
 	cnt = (float) rybos_get_task_execution_cnt(i) / (float) TASK_LOAD_MONITOR_PERIOD_S;
 	rybos_clear_task_execution_cnt(i);
 
-	printf("%u\t%6.3f\t%9.2f\t%s\n", (unsigned int) i + 1, task_load, cnt, TASK_NAMES[i]);
+	//printf("%u\t%6.3f\t%9.2f\t%s\n", (unsigned int) i + 1, task_load, cnt, TASK_NAMES[i]);
 
 	//TODO not elegant - print the BLDC left time
 	//frame.load[11] = adc_bldc_left_time() * 65535.0f / 100.0f;	//TODO remove
@@ -636,6 +636,7 @@ void frame_cb_frame_rc_control(void *buff, uint8_t params) {
  * TODO chenge the priority of systick to have the highest one
  * TODO chenge critical functions to inline
  * TODO add two separate section of CMM, 1 for variables, 1 for functions. Go to AN4296
+ * TOOD add dead time compensation to RL measurement
  */
 
 int main(void) {

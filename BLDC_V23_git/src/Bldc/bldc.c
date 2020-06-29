@@ -7,7 +7,7 @@
 //Calibration
 #define BEMF_V_CALIBRATION_WAIT_TIME_MS			10
 
-#define BLDC_R_MEASUREMENT_START_TIME_MS		500
+#define BLDC_R_MEASUREMENT_START_TIME_MS		1000
 #define BLDC_MEASURE_R_SAMPLES					1024*8
 #define BLDC_MEASURE_R_THETA_DEG				150.0f
 #define BLDC_MEASURE_R_CURRENT_A				5.0f
@@ -16,7 +16,7 @@
 #define BLDC_MEASURE_L_WAIT_CYCLES				64
 #define BLDC_MEASURE_L_DUTY						0.4f
 #define BLDC_MEASURE_L_SAMPLES					1024*BLDC_MEASURE_L_WAIT_CYCLES
-#define BLDC_MAX_DUTY							0.8f	//todo can be increased
+#define BLDC_MAX_DUTY							0.95f	//todo can be increased
 
 static float v1_bemf_h = 0;
 static float v2_bemf_h = 0;
@@ -41,15 +41,27 @@ CCMRAM_VARIABLE static float i_offset_ldo = 0;
 
 
 //MOTO
-#define MOTOR_R									(0.084f * (3.0f/3.0f))			//TODO sprawdcz czy mnozyc czy nie 0.088
-#define MOTOR_L									(9.27e-6f * (3.0f/3.0f))		//TODO sprawdcz czy mnozyc czy nie 9.27e-6f
-#define MOTOR_LAMBDA							0.0006f//0.000609f						//TODO sprawdcz czy mnozyc czy nie 0.000609f
-#define MOTOR_PID_TIME_CONSTANT					0.001f
+//#define MOTOR_R									(0.084f * (3.0f/3.0f))			//TODO sprawdcz czy mnozyc czy nie 0.088
+//#define MOTOR_L									(9.27e-6f * (3.0f/3.0f))		//TODO sprawdcz czy mnozyc czy nie 9.27e-6f
+//#define MOTOR_LAMBDA							0.0006f//0.000609f						//TODO sprawdcz czy mnozyc czy nie 0.000609f
+//#define MOTOR_PID_TIME_CONSTANT					0.001f
 
 //#define MOTOR_R									(0.086f * (3.0f/3.0f))			//TODO sprawdcz czy mnozyc czy nie 0.088
 //#define MOTOR_L									(15.44e-6f * (3.0f/3.0f))		//TODO sprawdcz czy mnozyc czy nie 9.27e-6f
 //#define MOTOR_LAMBDA							0.000467324746f//0.0006f//0.000609f						//TODO sprawdcz czy mnozyc czy nie 0.000609f
 //#define MOTOR_PID_TIME_CONSTANT					0.001f
+
+//Blue the best parameters
+//#define MOTOR_R									(0.088f * (3.0f/3.0f))			//TODO sprawdcz czy mnozyc czy nie 0.088
+//#define MOTOR_L									(9.86e-6f * (3.0f/3.0f))		//TODO sprawdcz czy mnozyc czy nie 9.27e-6f
+//#define MOTOR_LAMBDA							0.0006f//0.0006f//0.000609f						//TODO sprawdcz czy mnozyc czy nie 0.000609f
+//#define MOTOR_PID_TIME_CONSTANT					0.001f
+
+//MT2266II MAX
+#define MOTOR_R									(0.081f *0.9f* (3.0f/3.0f))			//TODO sprawdcz czy mnozyc czy nie 0,120
+#define MOTOR_L									(12.30e-6f * (3.0f/3.0f))		//TODO sprawdcz czy mnozyc czy nie 9.27e-6f
+#define MOTOR_LAMBDA							0.000813333143f
+#define MOTOR_PID_TIME_CONSTANT					0.001f
 
 #define MOTOR_KA								(MOTOR_L/MOTOR_PID_TIME_CONSTANT)
 #define MOTOR_KB								(MOTOR_R/MOTOR_L)
@@ -57,7 +69,7 @@ CCMRAM_VARIABLE static float i_offset_ldo = 0;
 #define SQRT3_BY_2_MUL_2_OVER_3					0.57735026919f
 
 //FOC
-#define BLDC_DQ_LPF_CUTOFF_FREQ					450.0f	//2000
+#define BLDC_DQ_LPF_CUTOFF_FREQ					500.0f	//2000
 #define BLDC_DT									(1.0f/(float)DRV8301_PWM_3F_SWITCHING_FREQ_HZ)
 #define BLDC_VDQ_MAX_LIMIT						ONE_BY_SQRT3 	//(SQRT3_BY_2 * 2.0f / 3.0f)
 
@@ -124,6 +136,8 @@ static void bldc_state_measure_l(void);
 static void bldc_state_stop(void);
 static void bldc_state_foc(void);
 static void bldc_state_do_nothing(void);
+
+static void bldc_scope_send_data(int16_t ch1, int16_t ch2, int16_t ch3, int16_t ch4);
 
 static BldcStateDictionaryRow state_dictionary[] = {
 		{BLDC_STATE_CALIBRATE_I, 		bldc_state_calibrate_i},
@@ -435,6 +449,18 @@ static void bldc_state_calibrate_v(void) {
 }
 
 static void bldc_state_calibrate_i(void) {
+	//Delay
+	static uint32_t timer = 0;
+	if(timer == 0){
+		timer = tick_get_time_ms();
+		return;
+	}
+
+	if(tick_get_time_ms() - timer < 100){
+		return;
+	}
+
+
 	//Calibrate
 	static uint32_t p_offset_cnt = 0;
 
@@ -583,6 +609,7 @@ static void bldc_state_measure_r(void) {
 	drv8301_set_pwm(duty1, duty2, duty3);
 	DRV8301_PWM_UPDATE_EVENT;
 
+	//TODO add some delay at the beggining to timit the transient infuence
 	if (tick_get_time_ms() - meaure_r_start_time > BLDC_R_MEASUREMENT_START_TIME_MS) {
 		float i_dc_link = sqrtf(i_d * i_d + i_q * i_q);
 		measure_r_current_avr += i_dc_link;
@@ -600,6 +627,8 @@ static void bldc_state_measure_r(void) {
 			bldc_set_active_state(BLDC_STATE_STOP);
 		}
 	}
+
+	bldc_scope_send_data(v_d2*1000.0f, v_q2*1000.0f, i_d*1000.0f, i_q*1000.0f);
 }
 
 bool bldc_measure_l_init(void) {
@@ -697,6 +726,7 @@ CCMRAM_FUCNTION void observer_update(float v_alpha, float v_beta, float i_alpha,
 	// Same as above, but without iterations.
 	float err = lambda_2 - ((x1 - L_ia)*(x1 - L_ia) + (x2 - L_ib)*(x2 - L_ib));
 	float gamma_tmp = gamma_half;
+	/*
 	float max = lambda_2 * 0.2f;
 
 	if (err > max) {
@@ -706,7 +736,7 @@ CCMRAM_FUCNTION void observer_update(float v_alpha, float v_beta, float i_alpha,
 		err = -max;
 		gamma_tmp *= 10.0f;
 	}
-
+	*/
 	float x1_dot = -R_ia + v_alpha + gamma_tmp * (x1 - L_ia) * err;
 	float x2_dot = -R_ib + v_beta  + gamma_tmp * (x2 - L_ib) * err;
 	x1 += x1_dot * BLDC_DT;
@@ -738,6 +768,9 @@ CCMRAM_FUCNTION static void pll_run(float phase, float dt,  float *phase_var,  f
 	if(IS_NAN(*phase_var)){
 		*phase_var=0.0f;
 	}
+
+	//TODO is necessery for lock protection olny
+	//utils_norm_angle_rad(&phase);
 
 	float delta_theta = phase - *phase_var;
 	utils_norm_angle_rad(&delta_theta);
@@ -831,10 +864,44 @@ void bldc_get_frame_ready_clear(uint32_t index){
 	scope_frame_ready_buff[index] = false;
 }
 
+
+CCMRAM_FUCNTION static void bldc_scope_send_data(int16_t ch1, int16_t ch2, int16_t ch3, int16_t ch4){
+	//Scope
+	static uint32_t frame_index_cnt = 0;
+	if (scope_frame_data_cnt < FRAME_MAX_DISPLAY_CHANNELS_8*2) {
+		uint32_t index = scope_frame_data_cnt;
+		scope_frame_buff[frame_index_cnt].ch1[index]=ch1;
+		scope_frame_buff[frame_index_cnt].ch2[index]=ch2;
+		scope_frame_buff[frame_index_cnt].ch3[index]=ch3;
+		scope_frame_buff[frame_index_cnt].ch4[index]=ch4;
+
+		scope_frame_data_cnt++;
+		if(scope_frame_data_cnt == FRAME_MAX_DISPLAY_CHANNELS_8*2){
+			scope_frame_buff[frame_index_cnt].packet_cnt = scope_frame_packet_cnt;
+			scope_frame_packet_cnt++;
+			scope_frame_ready_buff[frame_index_cnt] = true;
+
+			scope_frame_data_cnt=0;
+
+			scope_frame_buff_depth++;
+			if(scope_frame_buff_depth>scope_frame_buff_max_depth){
+				scope_frame_buff_max_depth = scope_frame_buff_depth;
+			}
+
+			frame_index_cnt++;
+			if(frame_index_cnt == BLDC_FRAME_SCOPE_BUFF_SIZE){
+				frame_index_cnt=0;
+			}
+		}
+	}
+}
+
 #define MAX_DQ_STEP  0.005f
 
-CCMRAM_FUCNTION static void bldc_state_foc(void) {
 
+
+CCMRAM_FUCNTION static void bldc_state_foc(void) {
+	//Ramp
 	if (i_q_ref > i_q_ref_rc) {
 		if (i_q_ref - i_q_ref_rc > MAX_DQ_STEP) {
 			i_q_ref -= MAX_DQ_STEP;
@@ -848,6 +915,7 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 			i_q_ref = i_q_ref_rc;
 		}
 	}
+
 
 	//tetha_start+=0.1f;
 	//if(tetha_start>180.0f){
@@ -905,15 +973,30 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 	float p3_i = -(((float) ADC_INJ_P3_I) - p3_i_offset) * v_ldo_v / (  ADC_MAX_VALUE * ADC_I_R_OHM * ADC_I_GAIN);
 
 
-	//static float p1_i_lpf = 0;
-	//p1_i_lpf = p1_i_lpf*0.5f + 0.5f * p1_i;
-	//p1_i = p1_i_lpf;
-
-	//static float p3_i_lpf = 0;
-	//p3_i_lpf = p3_i_lpf*0.5f + 0.5f * p3_i;
-	//p3_i = p3_i_lpf;
+	//BEMF
+	float p1_bemf= ((float) ADC_INJ_P1_BEMF);
 
 
+/*
+	static float p1_i_lpf = 0;
+	p1_i_lpf = p1_i_lpf*0.4f + 0.6f * p1_i;
+	p1_i = p1_i_lpf;
+
+	static float p3_i_lpf = 0;
+	p3_i_lpf = p3_i_lpf*0.4f + 0.6f * p3_i;
+	p3_i = p3_i_lpf;
+	*/
+
+/*
+	if(fabsf(p1_i)<0.2f){
+		p1_i=0;
+	}
+
+
+	if(fabsf(p3_i)<0.2f){
+		p3_i=0;
+	}
+*/
 
 	//Clarke Transform
 	i_alpha = p1_i;
@@ -935,8 +1018,9 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 	i_d_lpf = BLDC_DQ_LPF_ALPHA * i_d + lpf_val * i_d_lpf;
 	i_q_lpf = BLDC_DQ_LPF_ALPHA * i_q + lpf_val * i_q_lpf;
 
-	//i_d = i_d_lpf;
-	//i_q = i_q_lpf;
+	//This reduce noise during standstill
+	i_d = i_d_lpf;
+	i_q = i_q_lpf;
 
 	/*
 	if (fabsf(w1) > WLIM) {
@@ -1018,7 +1102,7 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 
 	float mod_alpha = cos_tetha * mod_d - sin_tetha * mod_q;
 	float mod_beta = cos_tetha * mod_q + sin_tetha * mod_d;
-	/*
+
 	volatile const float i_alpha_filter = cos_tetha * i_d_ref - sin_tetha * i_q_ref;
 	volatile const float i_beta_filter = cos_tetha * i_q_ref + sin_tetha * i_d_ref;
 	volatile const float ia_filter = i_alpha_filter;
@@ -1029,21 +1113,56 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 	//25 -  0.17361111e-6f	-chekced by osciloscope
 	//100 - 0.69444e-6f		-not chekced
 	//150 - 1.1944e-6f   	-chekced by osciloscope add 80nS from DRV
-	volatile const float mod_comp_fact = 0.17361111e-6f*1000.0f;// * (float)DRV8301_PWM_3F_SWITCHING_FREQ_HZ;
+	volatile const float mod_comp_fact =   0.17361111e-6f* (float)DRV8301_PWM_3F_SWITCHING_FREQ_HZ;
 	volatile const float mod_alpha_comp = mod_alpha_filter_sgn * mod_comp_fact;
 	volatile const float mod_beta_comp = mod_beta_filter_sgn * mod_comp_fact;
-*/
+
 	//v_alpha = (mod_alpha ) * (2.0f / 3.0f) * v_vcc_v;
 	//v_beta = (mod_beta ) * (2.0f / 3.0f) * v_vcc_v;
 
-	v_alpha = (mod_alpha ) * (2.0f / 3.0f) * v_vcc_v;
+	v_alpha = (mod_alpha  ) * (2.0f / 3.0f) * v_vcc_v;
 	v_beta = (mod_beta ) * (2.0f / 3.0f) * v_vcc_v;
 
-	//mod_alpha += mod_alpha_comp;
-	//mod_beta  += mod_beta_comp;
+	mod_alpha += mod_alpha_comp;
+	mod_beta  += mod_beta_comp;
 
 	//TODO dead time compensation !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	observer_update(v_alpha, v_beta, i_alpha, i_beta, &tetha);
+
+
+
+	int16_t override=0;
+/*
+	if (i_q_ref * m_pll_speed >= 0) {	//Both positive or both negative
+		observer_update(v_alpha, v_beta, i_alpha, i_beta, &tetha);
+		override=100;
+	} else {
+		override=-100;
+		observer_update(v_alpha, v_beta, i_alpha, i_beta, &tetha);
+
+
+		if(m_pll_speed>=0){
+			tetha += M_PI/2.0f;
+
+		}else{
+			tetha -= M_PI/2.0f;
+
+		}
+
+		while (tetha > (float)M_PI) {
+			tetha -= (float)M_PI * 2.0f;
+		}
+
+		while (tetha < (float)M_PI) {
+			tetha += (float)M_PI * 2.0f;
+		}
+
+	}
+*/
+
+
+
+
 
 	//v_alpha = (mod_alpha -  mod_alpha_comp ) * (2.0f / 3.0f) * v_vcc_v;
 	//v_beta = (mod_beta -  mod_beta_comp) * (2.0f / 3.0f) * v_vcc_v;
@@ -1086,49 +1205,53 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 		duty3=DRV8301_PWM_3F_PWM_MAX/2*(1.0f+sin_tetha240*0.05f);
 	}
 	*/
+	/*
+	drv8301_set_pwm(0, 0, 0);
+
+	bldc_stop_pwm();
+	DRV8301_PWM_UPDATE_EVENT;
+*/
+
 	TIM1->CR1 |= TIM_CR1_UDIS;
 	drv8301_set_pwm(duty1, duty2, duty3);
 	TIM1->CR1 &= ~TIM_CR1_UDIS;
 
+	/*
+	//Lock protection
+	static bool zero_speed_lock = true;
+	static uint32_t zero_speed_lock_time = 0;
+	static float ovr=0;
+	if (i_q_ref == 0 && fabsf(m_pll_speed) < 100) {
+		zero_speed_lock = true;
+		zero_speed_lock_time = tick_get_time_ms();
+	}
 
-	pll_run(tetha, BLDC_DT, &m_pll_phase, &m_pll_speed);
-	tetha = tetha * (180.0f / (float) M_PI);
-
-	//Scope
-	static uint32_t frame_index_cnt = 0;
-	if (scope_frame_data_cnt < FRAME_MAX_DISPLAY_CHANNELS_8*2) {
-		uint32_t index = scope_frame_data_cnt;
-		scope_frame_buff[frame_index_cnt].ch1[index]=p1_i * 100;
-		scope_frame_buff[frame_index_cnt].ch2[index]=p3_i * 100;
-		scope_frame_buff[frame_index_cnt].ch3[index]=duty1;
-		scope_frame_buff[frame_index_cnt].ch4[index]=duty2;
-		//scope_frame_buff[frame_index_cnt].ch5[index]=duty3;
-		//scope_frame_buff[frame_index_cnt].ch6[index]=v_vcc_v * 1000; //i_d_lpf*1000;
-		//scope_frame_buff[frame_index_cnt].ch7[index]=(duty1+duty2+duty3)/3;//i_q_lpf*1000;
-		//scope_frame_buff[frame_index_cnt].ch8[index]=tetha*10;
-
-		scope_frame_data_cnt++;
-		if(scope_frame_data_cnt == FRAME_MAX_DISPLAY_CHANNELS_8*2){
-			scope_frame_buff[frame_index_cnt].packet_cnt = scope_frame_packet_cnt;
-			scope_frame_packet_cnt++;
-			scope_frame_ready_buff[frame_index_cnt] = true;
-
-			scope_frame_data_cnt=0;
-
-			scope_frame_buff_depth++;
-			if(scope_frame_buff_depth>scope_frame_buff_max_depth){
-				scope_frame_buff_max_depth = scope_frame_buff_depth;
-			}
-
-			frame_index_cnt++;
-			if(frame_index_cnt == BLDC_FRAME_SCOPE_BUFF_SIZE){
-				frame_index_cnt=0;
+	if (zero_speed_lock == true && fabsf(i_q_ref) > 0.1f) {
+		if (tick_get_time_ms() - zero_speed_lock_time > 500) {
+			//zero_speed_lock_time += 5;
+			if (fabsf(m_pll_speed) > 50) {
+				zero_speed_lock = false;
+				ovr=0;
+			} else {
+				if (m_pll_speed > 0) {
+					ovr= -(float) M_PI / 2.0f;
+				} else {
+					ovr= +(float) M_PI / 2.0f;
+				}
 			}
 		}
 	}
+*/
+
+	//pll
+	pll_run(tetha, BLDC_DT, &m_pll_phase, &m_pll_speed);
+	tetha = tetha * (180.0f / (float) M_PI);
+
+	bldc_scope_send_data(p1_i * 100, p3_i * 100, m_pll_speed, tetha*10);
+
 
 	//Simulate low speed
-	/*
+/*
 	float add_min_speed = (2000.0f * 2.0f * M_PI) / 60.0f;
 	tetha_start += add_min_speed * RAD_TO_DEG * BLDC_DT;
 	if (tetha_start < 180.0f) {
@@ -1139,9 +1262,10 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 		tetha_start -= 360.0f;
 	}
 	tetha = tetha_start;
-
+*/
+	/*
 	//FLux linkage measurement
-/*
+	i_q_ref = 2.0;
 	static float theta2=0;
 	static float add_min_speed = 0;
 	uint32_t measurement_start_time_ms = 11000;
@@ -1715,7 +1839,7 @@ CCMRAM_FUCNTION void bldc_adc_irq_hanlder(void){
 	v_ldo_v = adc_vref_mul_vrefint_cal / ((float) ADC_INJ_VREF_INT);
 
 	//TODO remove or upgrade
-	//v_ldo_v = 3.3f;
+	v_ldo_v = 3.3f;
 
 
 	//TODO calculate 1/100, split calculation for severals loops
@@ -1743,8 +1867,8 @@ CCMRAM_FUCNTION void bldc_adc_irq_hanlder(void){
 	//FOC Cycles Min, Max, AVR: 275, 305, 293.599 next - not optimal
 	float v_vcc_v_tmp = ((float) ADC_INJ_VCC) * v_ldo_v * (ADC_V_GAIN / ADC_MAX_VALUE);
 	//LPF
-	//v_vcc_v = v_vcc_v * 0.9f + v_vcc_v_tmp * 0.1f;
-	v_vcc_v = v_vcc_v_tmp;
+	v_vcc_v = v_vcc_v * 0.9f + v_vcc_v_tmp * 0.1f;
+	//v_vcc_v = v_vcc_v_tmp;
 
 
 	//TODO remove or upgrade
@@ -1775,6 +1899,8 @@ static void bldc_state_do_nothing(void){
 		bldc_enable_all_pwm_output();
 		DRV8301_PWM_UPDATE_EVENT;
 		bldc_set_active_state(BLDC_STATE_FOC);
+
+		//Hold the motor to not rotate, remember to run this measurement 2,3x to increase the motor temperature
 		//bldc_measure_r_init();
 		//bldc_measure_l_init();
 	}

@@ -95,7 +95,7 @@ static void uart_uart2_init(void) {
 	USART_DeInit(USART2);
 
 	USART_InitTypeDef USART_InitStructure;
-	USART_InitStructure.USART_BaudRate = 2000000;
+	USART_InitStructure.USART_BaudRate = 3000000;
 	USART_InitStructure.USART_WordLength = USART_WordLength_8b;
 	USART_InitStructure.USART_StopBits = USART_StopBits_1;
 	USART_InitStructure.USART_Parity = USART_Parity_No;
@@ -341,6 +341,7 @@ void uart_send_scope_frame(uint8_t frame_type, uint32_t frame_len, uint8_t *fram
 	len++;
 
 	if (len >= UART_FRAME_TX_BUFF_SIZE) {
+		return;//TODO it is not critical error
 		debug_error(UART_FRAME_MESSAGE_OVERLENGTH);
 		return;
 	}

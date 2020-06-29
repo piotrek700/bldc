@@ -40,7 +40,7 @@
 #define ADC_MIN_BAT_V				9.5f										//3.1f*3+margin
 #define ADC_NTC_MAX_TEMP_C			75.0f
 
-#define ADC_I_OFFSET_COUNTER_MAX	4096
+#define ADC_I_OFFSET_COUNTER_MAX	4096*2
 #define ADC_V_OFFSET_COUNTER_MAX	4096
 
 #define ADC_V_GAIN					((15.0f+3.3f)/3.3f)
