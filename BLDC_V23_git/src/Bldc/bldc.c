@@ -16,10 +16,10 @@
 #define BEMF_V_CALIBRATION_WAIT_TIME_MS			10
 #define BEMF_I_CALIBRATION_DELAY_TIME_MS		100
 
-#define BLDC_R_MEASUREMENT_START_TIME_MS		1000
-#define BLDC_MEASURE_R_SAMPLES					1024*8
-#define BLDC_MEASURE_R_THETA_DEG				150.0f
-#define BLDC_MEASURE_R_CURRENT_A				5.0f
+#define BLDC_R_MEASUREMENT_START_TIME_MS		500
+#define BLDC_MEASURE_R_SAMPLES					1024*4
+#define BLDC_MEASURE_R_THETA_DEG				330.0f
+volatile float  BLDC_MEASURE_R_CURRENT_A			=	20.0f;
 
 #define BLDC_L_MEASUREMENT_START_TIME_MS		500
 #define BLDC_MEASURE_L_WAIT_CYCLES				64
@@ -29,15 +29,15 @@
 #define BLDC_MAX_DQ_STEP  						0.005f
 
 //Silver-blue
-#define MOTOR_R									(0.093f * 0.85f)				//Single arm value, compensated by 0.85
+#define MOTOR_R									(0.093f*0.85f)				//Single arm value, compensation 0.85 - why? - i dont know
 #define MOTOR_L									9.86e-6f						//Single arm value
 #define MOTOR_LAMBDA							0.0006f
 #define MOTOR_PID_TIME_CONSTANT					0.001f
 
 //MT2266II MAX
-//#define MOTOR_R									(0.081f *0.9f)				//Single arm value, compensated by 0.85
+//#define MOTOR_R									0.0622f
 //#define MOTOR_L									12.30e-6f 					//Single arm value
-//#define MOTOR_LAMBDA								0.00081f
+//#define MOTOR_LAMBDA							0.0009f
 //#define MOTOR_PID_TIME_CONSTANT					0.001f
 
 #define MOTOR_KA								(MOTOR_L/MOTOR_PID_TIME_CONSTANT)
@@ -532,17 +532,44 @@ bool bldc_measure_r_init(void) {
 }
 
 static void bldc_state_measure_r(void) {
-	//I1
-	float p1_i = -(((float) ADC_INJ_P1_I) - p1_i_offset) / ADC_I_GAIN;
-	p1_i *= v_ldo_v / ADC_MAX_VALUE / ADC_I_R_OHM;
+	//Current limit
+	if (i_q_ref > i_q_max) {
+		i_q_ref = i_q_max;
+	} else if (i_q_ref < -i_q_max) {
+		i_q_ref = -i_q_max;
+	}
 
-	//I3
-	float p3_i = -(((float) ADC_INJ_P3_I) - p3_i_offset) / ADC_I_GAIN;
-	p3_i *= v_ldo_v / ADC_MAX_VALUE / ADC_I_R_OHM;
+	//Check saturation
+	float i_dq_mag = 1e-10f;
+	arm_sqrt_f32(i_d_ref * i_d_ref + i_q_ref * i_q_ref, &i_dq_mag);
+
+	if (i_dq_mag < 1e-10f) {
+		i_dq_mag = 1e-10f;
+	}
+
+	if (i_dq_mag > i_q_max) {
+		//Risk of division by zero v_dq_mag
+		float dq_scale = i_q_max / i_dq_mag;
+		i_d_ref *= dq_scale;
+		i_q_ref *= dq_scale;
+	}
+
+	//I1
+	float p1_i = -(((float) ADC_INJ_P1_I) - p1_i_offset) * v_ldo_v / ( ADC_MAX_VALUE * ADC_I_R_OHM * ADC_I_GAIN);
+	//float p3_i = -(((float) ADC_INJ_P3_I) - p3_i_offset) * v_ldo_v / (  ADC_MAX_VALUE * ADC_I_R_OHM * ADC_I_GAIN);
+	float p3_i = -(((float) ADC_INJ_P3_I) - p3_i_offset) * v_ldo_v / ( ADC_MAX_VALUE * ADC_I_R_OHM * ADC_I_GAIN);
+
+	//static float p1_i_lpf = 0;
+	//p1_i_lpf = p1_i_lpf * 0.4f + 0.6f * p1_i;
+	//p1_i = p1_i_lpf;
+
+	//static float p3_i_lpf = 0;
+	//p3_i_lpf = p3_i_lpf * 0.4f + 0.6f * p3_i;
+	//p3_i = p3_i_lpf;
 
 	//Clarke Transform
-	float i_alpha = p1_i;
-	float i_beta = ONE_BY_SQRT3 * p1_i + TWO_BY_SQRT3 * p3_i;
+	i_alpha = p1_i;
+	i_beta = ONE_BY_SQRT3 * p1_i + TWO_BY_SQRT3 * p3_i;
 
 	//Park Transform
 	float sin_tetha;
@@ -553,9 +580,11 @@ static void bldc_state_measure_r(void) {
 	float i_q = i_beta * cos_tetha - i_alpha * sin_tetha;
 
 	//Current LPF
-	i_d_lpf = BLDC_DQ_LPF_ALPHA * i_d + (1.0f - BLDC_DQ_LPF_ALPHA) * i_d_lpf;
-	i_q_lpf = BLDC_DQ_LPF_ALPHA * i_q + (1.0f - BLDC_DQ_LPF_ALPHA) * i_q_lpf;
+	float lpf_val = 1.0f - BLDC_DQ_LPF_ALPHA;
+	i_d_lpf = BLDC_DQ_LPF_ALPHA * i_d + lpf_val * i_d_lpf;
+	i_q_lpf = BLDC_DQ_LPF_ALPHA * i_q + lpf_val * i_q_lpf;
 
+	//This reduce noise during standstill
 	i_d = i_d_lpf;
 	i_q = i_q_lpf;
 
@@ -563,73 +592,121 @@ static void bldc_state_measure_r(void) {
 	float i_d_err = i_d_ref - i_d;
 	float i_q_err = i_q_ref - i_q;
 
-	//PID I error
-	i_d_err_acc += i_d_err * (BLDC_DT * BLDC_PID_KI);
-	i_q_err_acc += i_q_err * (BLDC_DT * BLDC_PID_KI);
-
-	//PID I limit
-	if (i_d_err_acc > BLDC_PID_I_LIMIT * v_vcc_v) {
-		i_d_err_acc = BLDC_PID_I_LIMIT * v_vcc_v;
-	} else if (i_d_err_acc < -BLDC_PID_I_LIMIT * v_vcc_v) {
-		i_d_err_acc = -BLDC_PID_I_LIMIT * v_vcc_v;
-	}
-
-	if (i_q_err_acc > BLDC_PID_I_LIMIT * v_vcc_v) {
-		i_q_err_acc = BLDC_PID_I_LIMIT * v_vcc_v;
-	} else if (i_q_err_acc < -BLDC_PID_I_LIMIT * v_vcc_v) {
-		i_q_err_acc = -BLDC_PID_I_LIMIT * v_vcc_v;
-	}
-
-	//PID out limit
 	float v_d = i_d_err * BLDC_PID_KP + i_d_err_acc;
 	float v_q = i_q_err * BLDC_PID_KP + i_q_err_acc;
 
-	//TODO dynamic I limit
+	//PID I error
+	i_d_err_acc += i_d_err * BLDC_DT * BLDC_PID_KI;
+	i_q_err_acc += i_q_err * BLDC_DT * BLDC_PID_KI;
 
 	//Maximum limitation
-	float v_dq_mag = sqrtf(v_d * v_d + v_q * v_q);
-	float v_dq_max = BLDC_VDQ_MAX_LIMIT * v_vcc_v;
+	float v_dq_mag = 1e-10f;
+	arm_sqrt_f32(v_d * v_d + v_q * v_q, &v_dq_mag);
+	float v_dq_max = BLDC_VDQ_MAX_LIMIT * v_vcc_v * BLDC_MAX_DUTY;
+
+	if (v_dq_mag < 1e-10f) {
+		v_dq_mag = 1e-10f;
+	}
 
 	if (v_dq_mag > v_dq_max) {
+		//Risk of division by zero v_dq_mag
 		float dq_scale = v_dq_max / v_dq_mag;
 		v_d *= dq_scale;
 		v_q *= dq_scale;
 	}
 
-	float v_d2 = v_d / (v_vcc_v * 2.0f / 3.0f);
-	float v_q2 = v_q / (v_vcc_v * 2.0f / 3.0f);
+	float v_mod = 1.0f / ((2.0f / 3.0f) * v_vcc_v);
+	float mod_d = v_d * v_mod;
+	float mod_q = v_q * v_mod;
 
-	//Inverse Park
-	float v_alpha = v_d2 * cos_tetha - v_q2 * sin_tetha;
-	float v_beta = v_q2 * cos_tetha + v_d2 * sin_tetha;
+	//PID I limit
+	float i_lim_mul_vcc = BLDC_PID_I_LIMIT * v_vcc_v * BLDC_MAX_DUTY;
+	if (i_d_err_acc > i_lim_mul_vcc) {
+		i_d_err_acc = i_lim_mul_vcc;
+	} else if (i_d_err_acc < -i_lim_mul_vcc) {
+		i_d_err_acc = -i_lim_mul_vcc;
+	}
 
-	//TODO dead time compensation
+	if (i_q_err_acc > i_lim_mul_vcc) {
+		i_q_err_acc = i_lim_mul_vcc;
+	} else if (i_q_err_acc < -i_lim_mul_vcc) {
+		i_q_err_acc = -i_lim_mul_vcc;
+	}
+
+	//TODO check I_bus current calculation
+	i_bus = mod_d * i_d + mod_q * i_q;
+
+	//Dead time compensation
+	float mod_alpha = cos_tetha * mod_d - sin_tetha * mod_q;
+	float mod_beta = cos_tetha * mod_q + sin_tetha * mod_d;
+
+	float i_alpha_filter = cos_tetha * i_d_ref - sin_tetha * i_q_ref;
+	float i_beta_filter = cos_tetha * i_q_ref + sin_tetha * i_d_ref;
+
+	float ia_filter = i_alpha_filter;
+	float ib_filter = -0.5f * i_alpha_filter + SQRT3_BY_2 * i_beta_filter;
+	float ic_filter = -0.5f * i_alpha_filter - SQRT3_BY_2 * i_beta_filter;
+
+	float mod_alpha_filter_sgn = (2.0f / 3.0f) * SIGN(ia_filter) - (1.0f / 3.0f) * SIGN(ib_filter) - (1.0f / 3.0f) * SIGN(ic_filter);
+	float mod_beta_filter_sgn = ONE_BY_SQRT3 * SIGN(ib_filter) - ONE_BY_SQRT3 * SIGN(ic_filter);
+	//25 -  0.17361111e-6f	-checked by oscilloscope
+	//150 - 1.1944e-6f   	-checked by oscilloscope add 80nS from DRV
+	//TODO add macro to calculate this value
+	float mod_comp_fact =  0.17361111e-6f * (float) DRV8301_PWM_3F_SWITCHING_FREQ_HZ;
+	float mod_alpha_comp = mod_alpha_filter_sgn * mod_comp_fact;
+	float mod_beta_comp = mod_beta_filter_sgn * mod_comp_fact;
+
+	//Correct dead time
+	mod_alpha += mod_alpha_comp;
+	mod_beta += mod_beta_comp;
+
+	//float vd_10 = mod_alpha * cos_tetha + mod_beta*sin_tetha;
+	//float vq_10 = mod_beta * cos_tetha - mod_alpha*sin_tetha;
 
 	//SVM
 	uint32_t duty1, duty2, duty3, svm_sector;
-	bldc_svm(v_alpha, v_beta, DRV8301_PWM_3F_PWM_MAX, &duty1, &duty3, &duty2, &svm_sector);
+	bldc_svm(mod_alpha, mod_beta, DRV8301_PWM_3F_PWM_MAX, &duty1, &duty3, &duty2, &svm_sector);
 
+	//Set PWM
+	TIM1->CR1 |= TIM_CR1_UDIS;
 	drv8301_set_pwm(duty1, duty2, duty3);
-	DRV8301_PWM_UPDATE_EVENT;
+	TIM1->CR1 &= ~TIM_CR1_UDIS;
 
-	//TODO add some delay at the beginning to limit the transient influence
 	if (tick_get_time_ms() - meaure_r_start_time > BLDC_R_MEASUREMENT_START_TIME_MS) {
-		float i_dc_link = sqrtf(i_d * i_d + i_q * i_q);
-		measure_r_current_avr += i_dc_link;
+		float i_dc_link = 1e-10f;
+		arm_sqrt_f32(i_d * i_d + i_q * i_q, &i_dc_link);
 
-		float v_dc_link = sqrtf(v_d * v_d + v_q * v_q);
+		float v_dc_link = 1e-10f;
+		arm_sqrt_f32(v_d * v_d + v_q * v_q, &v_dc_link);
+
+		//v_dc_link -= mod_comp_fact * v_vcc_v * 2.0f / 3.0f;
+
+		static float p1_i_avr = 0;
+		static float p3_i_avr = 0;
+		static float p2_v_avr = 0;
+
+		measure_r_current_avr += i_dc_link;
 		measure_r_voltage_avr += v_dc_link;
 
+		p1_i_avr += p1_i;
+		p3_i_avr += p3_i;
+
+		//Negative deadtime compensation becouse when dt is present, controller driver higher duty to reach the current so we need to compenaste dudty cycle
+		float duty_avr = duty1 + duty2 + duty3;
+		p2_v_avr += (((float)duty2 - duty_avr/3.0f)/(float)DRV8301_PWM_3F_PWM_MAX * v_vcc_v) - mod_comp_fact * v_vcc_v;
 		measure_r_cnt++;
 
 		if (measure_r_cnt == BLDC_MEASURE_R_SAMPLES) {
-			printf("Measured R AVR Vdq[V]: %f\n", (double) (measure_r_voltage_avr / (float) measure_r_cnt));
-			printf("Measured R AVR Idq[A]: %f\n", (double) (measure_r_current_avr / (float) measure_r_cnt));
-			printf("Measured R AVR R[Ohm]: %f\n", (double) (measure_r_voltage_avr / measure_r_current_avr));
+			printf("Measured R AVR Vdq[V]:  %f\n", (double) (measure_r_voltage_avr / (float) measure_r_cnt));
+			printf("Measured R AVR Idq[A]:  %f\n", (double) (measure_r_current_avr / (float) measure_r_cnt));
+			printf("Measured R AVR R1[Ohm]: %f\n", (double) (measure_r_voltage_avr / measure_r_current_avr));
+			printf("Measured R AVR R2[Ohm]: %f\n", (double) (p2_v_avr / (p1_i_avr + p3_i_avr)));
 
 			bldc_set_active_state(BLDC_STATE_STOP);
 		}
 	}
+
+	bldc_scope_send_data(p1_i*1000.0f, p3_i*1000.0f, v_vcc_v * 1000.0f, (measure_r_voltage_avr / measure_r_current_avr) * 10000.0f);
 }
 
 bool bldc_measure_l_init(void) {
@@ -968,6 +1045,7 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 	mod_beta += mod_beta_comp;
 
 	//Run observer
+	//TODO observer w zlym miejscu, powinien dostac jako wejscie pard i napiecie z porzedniego kroku?
 	observer_update(v_alpha, v_beta, i_alpha, i_beta, &tetha);
 
 	//SVM
@@ -1044,7 +1122,7 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 	 //Simulate low speed - end
 	 */
 
-	/*
+	 /*
 	 //FLux linkage measurement - start
 	 //Two different methods of measurements
 	 i_q_ref = 2.0;
@@ -1171,7 +1249,7 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 	 samples2 += 1.0f;
 	 }
 	 //FLux linkage measurement - end
-	 */
+	*/
 }
 
 CCMRAM_FUCNTION void bldc_adc_irq_hanlder(void) {
