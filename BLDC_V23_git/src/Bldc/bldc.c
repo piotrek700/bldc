@@ -19,7 +19,7 @@
 #define BLDC_R_MEASUREMENT_START_TIME_MS		500
 #define BLDC_MEASURE_R_SAMPLES					1024*4
 #define BLDC_MEASURE_R_THETA_DEG				330.0f
-volatile float  BLDC_MEASURE_R_CURRENT_A			=	20.0f;
+#define BLDC_MEASURE_R_CURRENT_A				20.0f
 
 #define BLDC_L_MEASUREMENT_START_TIME_MS		500
 #define BLDC_MEASURE_L_WAIT_CYCLES				64
@@ -531,6 +531,8 @@ bool bldc_measure_r_init(void) {
 	return true;
 }
 
+//TODO here is a problem with  accuracy. The result is higher and need compensation *0.86
+//The results stabilize with higher current because the coverage of the duty is higher i think so
 static void bldc_state_measure_r(void) {
 	//Current limit
 	if (i_q_ref > i_q_max) {
@@ -691,7 +693,7 @@ static void bldc_state_measure_r(void) {
 		p1_i_avr += p1_i;
 		p3_i_avr += p3_i;
 
-		//Negative deadtime compensation becouse when dt is present, controller driver higher duty to reach the current so we need to compenaste dudty cycle
+		//Negative dead-time compensation because when dt is present, controller driver higher duty to reach the current so we need to compensate duty cycle
 		float duty_avr = duty1 + duty2 + duty3;
 		p2_v_avr += (((float)duty2 - duty_avr/3.0f)/(float)DRV8301_PWM_3F_PWM_MAX * v_vcc_v) - mod_comp_fact * v_vcc_v;
 		measure_r_cnt++;
