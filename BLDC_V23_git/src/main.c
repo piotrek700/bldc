@@ -57,16 +57,17 @@ static int16_t rc_pitch = 0;
 static int16_t rc_roll = 0;
 static int16_t rc_throttle = 0;
 static uint16_t rc_status = 0;
+static uint32_t ii_uart_send = 0;
 
 static void uart_send_scope_data(void) {
-	static uint32_t i = 0;
-	while (bldc_get_frame_ready(i)) {
-		uart_send_scope_frame(FRAME_TYPE_DISPLAY_CHANNELS_DATA_4, sizeof(FrameDisplayChannelsData4), (uint8_t *) bldc_get_scope_4ch_frame(i));
-		bldc_get_frame_ready_clear(i);
 
-		i++;
-		if (i == BLDC_FRAME_SCOPE_BUFF_SIZE) {
-			i = 0;
+	while (bldc_get_frame_ready(ii_uart_send)) {
+		uart_send_scope_frame(FRAME_TYPE_DISPLAY_CHANNELS_DATA_4, sizeof(FrameDisplayChannelsData4), (uint8_t *) bldc_get_scope_4ch_frame(ii_uart_send));
+		bldc_get_frame_ready_clear(ii_uart_send);
+
+		ii_uart_send++;
+		if (ii_uart_send == BLDC_FRAME_SCOPE_BUFF_SIZE) {
+			ii_uart_send = 0;
 		}
 	}
 }
@@ -533,7 +534,7 @@ void frame_cb_frame_rc_control(void *buff, uint8_t params) {
 		rc_throttle = frame->throttle;
 		rc_status = frame->status;
 
-		bldc_set_i_q_ref((float) rc_throttle / 2048.0f * 5.0f);
+		bldc_set_i_q_ref((float) rc_throttle / 2048.0f * 20.0f);
 
 	} else {
 		rc_disconnected();
@@ -631,6 +632,7 @@ void frame_cb_frame_rc_control(void *buff, uint8_t params) {
  * TODO add two separate section of CMM, 1 for variables, 1 for functions. Go to AN4296
  * TOOD add dead time compensation to RL measurement
  * TODO add dynamic PID with I active limitation
+ * TODO 10x mniejsze wmocnienie dla nizszysch predkosci
  */
 
 int main(void) {

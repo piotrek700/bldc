@@ -25,7 +25,7 @@
 #define BLDC_MEASURE_L_WAIT_CYCLES				64
 #define BLDC_MEASURE_L_DUTY						0.4f
 #define BLDC_MEASURE_L_SAMPLES					1024*BLDC_MEASURE_L_WAIT_CYCLES
-#define BLDC_MAX_DUTY							0.95f							//TODO can be increased
+#define BLDC_MAX_DUTY							0.8f							//TODO can be increased
 #define BLDC_MAX_DQ_STEP  						0.005f
 
 //Silver-blue
@@ -90,7 +90,7 @@ CCMRAM_VARIABLE float tetha = 0;
 CCMRAM_VARIABLE float i_d_ref = 0;
 //Control current by IQ
 CCMRAM_VARIABLE float i_q_ref = 0.0;
-CCMRAM_VARIABLE float i_q_max = 15.0;
+CCMRAM_VARIABLE float i_q_max = 10.0;
 CCMRAM_VARIABLE float i_d_err_acc = 0;
 CCMRAM_VARIABLE float i_q_err_acc = 0;
 CCMRAM_VARIABLE float i_d_lpf = 0;
@@ -171,7 +171,7 @@ CCMRAM_VARIABLE float m_pll_phase = 0;
 CCMRAM_VARIABLE float m_pll_speed = 0;
 
 CCMRAM_VARIABLE float foc_pll_kp = 2000.0;
-CCMRAM_VARIABLE float foc_pll_ki = 40000.0;		//1000000
+CCMRAM_VARIABLE float foc_pll_ki = 30000.0;		//1000000
 
 void bldc_set_i_d(float i_d) {
 	i_q_ref = i_d;
@@ -341,6 +341,20 @@ static void bldc_enable_all_pwm_output(void) {
 	TIM_SelectOCxM(TIM1, TIM_Channel_3, TIM_OCMode_PWM1);
 	TIM_CCxCmd(TIM1, TIM_Channel_3, TIM_CCx_Enable);
 	TIM_CCxNCmd(TIM1, TIM_Channel_3, TIM_CCxN_Enable);
+}
+
+static void bldc_disable_all_pwm_output(void) {
+	TIM_SelectOCxM(TIM1, TIM_Channel_1, TIM_OCMode_PWM1);
+	TIM_CCxCmd(TIM1, TIM_Channel_1, TIM_CCx_Disable);
+	TIM_CCxNCmd(TIM1, TIM_Channel_1, TIM_CCxN_Disable);
+
+	TIM_SelectOCxM(TIM1, TIM_Channel_2, TIM_OCMode_PWM1);
+	TIM_CCxCmd(TIM1, TIM_Channel_2, TIM_CCx_Disable);
+	TIM_CCxNCmd(TIM1, TIM_Channel_2, TIM_CCxN_Disable);
+
+	TIM_SelectOCxM(TIM1, TIM_Channel_3, TIM_OCMode_PWM1);
+	TIM_CCxCmd(TIM1, TIM_Channel_3, TIM_CCx_Disable);
+	TIM_CCxNCmd(TIM1, TIM_Channel_3, TIM_CCxN_Disable);
 }
 
 static void bldc_stop_pwm(void) {
@@ -898,173 +912,361 @@ CCMRAM_FUCNTION static void bldc_scope_send_data(int16_t ch1, int16_t ch2, int16
 	}
 }
 
+volatile float kp_speed = 0;		//2.5
+volatile float ki_speed = 0;		//10
+volatile float kd_speed = 0;		//0.15, 0.3-lower rump up
+volatile float iq_speed_max = 10;	//iq max
+volatile float speed_ref_rps = 20.0f;
+volatile float i_max_div = 1.0f;	//5
+
+
+static void bldc_state_speed_controller(float speed_rps) {
+	static float err_last = 0;
+	static float i = 0;
+
+	float p;
+	float d;
+	float err;
+	float dt = 0.001f; //BLDC_DT
+
+	static float speed_rps_lpf = 0;
+	speed_rps_lpf = speed_rps_lpf * 0.9f + 0.1f * speed_rps;
+
+	err = speed_ref_rps - speed_rps_lpf;
+
+	p = kp_speed * err;
+	i = ki_speed * err * dt + i;
+	d = kd_speed * (err - err_last) / dt;
+
+	//static float d_lpf = 0;
+	//d_lpf = d_lpf * 0.8f + 0.2f * d;
+
+//	float i_max = iq_speed_max - fabsf(p+d_lpf);
+//
+//	if (i_max > 0) {
+//		if (i > i_max) {
+//			i = i_max;
+//		}
+//
+//		if (i < -i_max) {
+//			i = -i_max;
+//		}
+//
+//	}
+
+	if (i > iq_speed_max * i_max_div) {
+		i = iq_speed_max * i_max_div;
+	}
+
+	if (i < -iq_speed_max * i_max_div) {
+		i = -iq_speed_max * i_max_div;
+	}
+
+	float pid = p+i+d;
+
+	if (pid > iq_speed_max) {
+		pid = iq_speed_max;
+	}
+
+	if (pid < -iq_speed_max) {
+		pid = -iq_speed_max;
+	}
+
+	i_q_ref_rc = pid;
+	err_last = err;
+
+	bldc_scope_send_data((int16_t) (p * 1000.0f), (int16_t) (i * 1000.0f), (int16_t) (pid * 1000.0f), (int16_t) (speed_rps * 1000.0f));
+}
+
 CCMRAM_FUCNTION static void bldc_state_foc(void) {
-	//Ramp iq
-	if (i_q_ref > i_q_ref_rc) {
-		if (i_q_ref - i_q_ref_rc > BLDC_MAX_DQ_STEP) {
-			i_q_ref -= BLDC_MAX_DQ_STEP;
-		} else {
-			i_q_ref = i_q_ref_rc;
+	static bool pwm_disabled = false;
+	static bool pwm_enabled = true;
+	float p1_i=0;
+	float p3_i=0;
+	float v1=0;
+	float v2=0;
+	float v3=0;
+
+
+	/*
+	 //Ramp iq
+	 if (i_q_ref > i_q_ref_rc) {
+	 if (i_q_ref - i_q_ref_rc > BLDC_MAX_DQ_STEP) {
+	 i_q_ref -= BLDC_MAX_DQ_STEP;
+	 } else {
+	 i_q_ref = i_q_ref_rc;
+	 }
+	 } else if (i_q_ref < i_q_ref_rc) {
+	 if (i_q_ref_rc - i_q_ref > BLDC_MAX_DQ_STEP) {
+	 i_q_ref += BLDC_MAX_DQ_STEP;
+	 } else {
+	 i_q_ref = i_q_ref_rc;
+	 }
+	 }*/
+	i_q_ref = i_q_ref_rc;
+
+	if (i_q_ref == 0 && pwm_disabled == false) {
+		bldc_disable_all_pwm_output();
+		DRV8301_PWM_UPDATE_EVENT;
+
+		pwm_disabled = true;
+		pwm_enabled = false;
+	}
+
+	if (i_q_ref != 0 && pwm_enabled == false) {
+		bldc_enable_all_pwm_output();
+		DRV8301_PWM_UPDATE_EVENT;
+
+		pwm_enabled = true;
+		pwm_disabled = false;
+	}
+
+	if (pwm_disabled) {
+		static float x1_prev = 0;
+		static float x2_prev = 0;
+
+		i_alpha = 0.0;
+		i_beta = 0.0;
+		//id = 0.0;
+		//iq = 0.0;
+		i_d_lpf = 0.0;
+		i_q_lpf = 0.0;
+
+		v1 = ADC_INJ_P1_BEMF * ADC_V_GAIN;
+		v1 *= v_ldo_v / ADC_MAX_VALUE;
+
+		v2 = ADC_INJ_P3_BEMF * ADC_V_GAIN;
+		v2 *= v_ldo_v / ADC_MAX_VALUE;
+
+		v3 = ADC_INJ_P2_BEMF * ADC_V_GAIN;
+		v3 *= v_ldo_v / ADC_MAX_VALUE;
+
+		float vdc = (v1 + v2 + v3) / 3.0f;
+
+		v1 -= vdc;
+		v2 -= vdc;
+		v3 -= vdc;
+
+		v_alpha = (2.0 / 3.0) * v1 - (1.0 / 3.0) * v2 - (1.0 / 3.0) * v3;
+		v_beta = ONE_BY_SQRT3 * v2 - ONE_BY_SQRT3 * v3;
+
+#ifdef HW_USE_LINE_TO_LINE
+		// rotate alpha-beta 30 degrees to compensate for line-to-line phase voltage sensing
+		float x_tmp = motor_now->m_motor_state.v_alpha;
+		float y_tmp = motor_now->m_motor_state.v_beta;
+
+		motor_now->m_motor_state.v_alpha = x_tmp * COS_MINUS_30_DEG - y_tmp * SIN_MINUS_30_DEG;
+		motor_now->m_motor_state.v_beta = x_tmp * SIN_MINUS_30_DEG + y_tmp * COS_MINUS_30_DEG;
+
+		// compensate voltage amplitude
+		motor_now->m_motor_state.v_alpha *= ONE_BY_SQRT3;
+		motor_now->m_motor_state.v_beta *= ONE_BY_SQRT3;
+#endif
+
+		// Run observer
+		observer_update(-v_alpha, -v_beta, i_alpha, i_beta, &tetha);
+		tetha = fast_atan2f_sec(x2_prev + x2, x1_prev + x1);
+
+		x1_prev = x1;
+		x2_prev = x2;
+
+		//PLL
+		pll_run(tetha, BLDC_DT, &m_pll_phase, &m_pll_speed);
+		tetha = tetha * (180.0f / (float) M_PI);
+
+	} else {
+
+		//Current limit
+		if (i_q_ref > i_q_max) {
+			i_q_ref = i_q_max;
+		} else if (i_q_ref < -i_q_max) {
+			i_q_ref = -i_q_max;
 		}
-	} else if (i_q_ref < i_q_ref_rc) {
-		if (i_q_ref_rc - i_q_ref > BLDC_MAX_DQ_STEP) {
-			i_q_ref += BLDC_MAX_DQ_STEP;
-		} else {
-			i_q_ref = i_q_ref_rc;
+
+		//Check saturation
+		float i_dq_mag = 1e-10f;
+		arm_sqrt_f32(i_d_ref * i_d_ref + i_q_ref * i_q_ref, &i_dq_mag);
+
+		if (i_dq_mag < 1e-10f) {
+			i_dq_mag = 1e-10f;
 		}
+
+		if (i_dq_mag > i_q_max) {
+			//Risk of division by zero v_dq_mag
+			float dq_scale = i_q_max / i_dq_mag;
+			i_d_ref *= dq_scale;
+			i_q_ref *= dq_scale;
+		}
+
+		//I1
+		p1_i = -(((float) ADC_INJ_P1_I) - p1_i_offset) * v_ldo_v / ( ADC_MAX_VALUE * ADC_I_R_OHM * ADC_I_GAIN);
+		//float p3_i = -(((float) ADC_INJ_P3_I) - p3_i_offset) * v_ldo_v / (  ADC_MAX_VALUE * ADC_I_R_OHM * ADC_I_GAIN);
+		p3_i = -(((float) ADC_INJ_P3_I) - p3_i_offset) * v_ldo_v / ( ADC_MAX_VALUE * ADC_I_R_OHM * ADC_I_GAIN);
+
+		//static float p1_i_lpf = 0;
+		//p1_i_lpf = p1_i_lpf * 0.4f + 0.6f * p1_i;
+		//p1_i = p1_i_lpf;
+
+		//static float p3_i_lpf = 0;
+		//p3_i_lpf = p3_i_lpf * 0.4f + 0.6f * p3_i;
+		//p3_i = p3_i_lpf;
+
+		//Clarke Transform
+		i_alpha = p1_i;
+		i_beta = ONE_BY_SQRT3 * p1_i + TWO_BY_SQRT3 * p3_i;
+
+		/*
+		 * if(phase override == false){
+		 * 		run observer
+		 * }
+		 *
+		 * if(phase override == false){
+		 * 	tetha from observer += m_pll_speed * BLDC_DT;
+		 *
+		 * }else{
+		 * 	tetha = theta override
+		 * }
+		 *
+		 */
+		//Run observer
+		//TODO observer w zlym miejscu, powinien dostac jako wejscie pard i napiecie z porzedniego kroku?
+		observer_update(v_alpha, v_beta, i_alpha, i_beta, &tetha);
+
+		//Predict position in next step
+		tetha += m_pll_speed * BLDC_DT;
+
+		utils_norm_angle_rad(&tetha);
+
+		//PLL
+		pll_run(tetha, BLDC_DT, &m_pll_phase, &m_pll_speed);
+		tetha = tetha * (180.0f / (float) M_PI);
+
+		//Park Transform
+		float sin_tetha;
+		float cos_tetha;
+		arm_sin_cos_f32(tetha, &sin_tetha, &cos_tetha);
+
+		float i_d = i_alpha * cos_tetha + i_beta * sin_tetha;
+		float i_q = i_beta * cos_tetha - i_alpha * sin_tetha;
+
+		//Current LPF
+		float lpf_val = 1.0f - BLDC_DQ_LPF_ALPHA;
+		i_d_lpf = BLDC_DQ_LPF_ALPHA * i_d + lpf_val * i_d_lpf;
+		i_q_lpf = BLDC_DQ_LPF_ALPHA * i_q + lpf_val * i_q_lpf;
+
+		//This reduce noise during standstill
+		i_d = i_d_lpf;
+		i_q = i_q_lpf;
+
+		//PID P error
+		float i_d_err = i_d_ref - i_d;
+		float i_q_err = i_q_ref - i_q;
+
+		float v_d = i_d_err * BLDC_PID_KP + i_d_err_acc;
+		float v_q = i_q_err * BLDC_PID_KP + i_q_err_acc;
+
+		//PID I error
+		i_d_err_acc += i_d_err * BLDC_DT * BLDC_PID_KI;
+		i_q_err_acc += i_q_err * BLDC_DT * BLDC_PID_KI;
+
+		//Maximum limitation
+		float v_dq_mag = 1e-10f;
+		arm_sqrt_f32(v_d * v_d + v_q * v_q, &v_dq_mag);
+		float v_dq_max = BLDC_VDQ_MAX_LIMIT * v_vcc_v * BLDC_MAX_DUTY;
+
+		if (v_dq_mag < 1e-10f) {
+			v_dq_mag = 1e-10f;
+		}
+
+		if (v_dq_mag > v_dq_max) {
+			//Risk of division by zero v_dq_mag
+			float dq_scale = v_dq_max / v_dq_mag;
+			v_d *= dq_scale;
+			v_q *= dq_scale;
+		}
+
+		float v_mod = 1.0f / ((2.0f / 3.0f) * v_vcc_v);
+		float mod_d = v_d * v_mod;
+		float mod_q = v_q * v_mod;
+
+		//PID I limit
+		float i_lim_mul_vcc = BLDC_PID_I_LIMIT * v_vcc_v * BLDC_MAX_DUTY;
+		if (i_d_err_acc > i_lim_mul_vcc) {
+			i_d_err_acc = i_lim_mul_vcc;
+		} else if (i_d_err_acc < -i_lim_mul_vcc) {
+			i_d_err_acc = -i_lim_mul_vcc;
+		}
+
+		if (i_q_err_acc > i_lim_mul_vcc) {
+			i_q_err_acc = i_lim_mul_vcc;
+		} else if (i_q_err_acc < -i_lim_mul_vcc) {
+			i_q_err_acc = -i_lim_mul_vcc;
+		}
+
+		//TODO check I_bus current calculation
+		i_bus = mod_d * i_d + mod_q * i_q;
+
+		//Dead time compensation
+		float mod_alpha = cos_tetha * mod_d - sin_tetha * mod_q;
+		float mod_beta = cos_tetha * mod_q + sin_tetha * mod_d;
+
+		float i_alpha_filter = cos_tetha * i_d_ref - sin_tetha * i_q_ref;
+		float i_beta_filter = cos_tetha * i_q_ref + sin_tetha * i_d_ref;
+
+		float ia_filter = i_alpha_filter;
+		float ib_filter = -0.5f * i_alpha_filter + SQRT3_BY_2 * i_beta_filter;
+		float ic_filter = -0.5f * i_alpha_filter - SQRT3_BY_2 * i_beta_filter;
+
+		float mod_alpha_filter_sgn = (2.0f / 3.0f) * SIGN(ia_filter) - (1.0f / 3.0f) * SIGN(ib_filter) - (1.0f / 3.0f) * SIGN(ic_filter);
+		float mod_beta_filter_sgn = ONE_BY_SQRT3 * SIGN(ib_filter) - ONE_BY_SQRT3 * SIGN(ic_filter);
+
+		//25 -  0.17361111e-6f	-checked by oscilloscope
+		//150 - 1.1944e-6f   	-checked by oscilloscope add 80nS from DRV
+		//TODO add macro to calculate this value
+		float mod_comp_fact = 0.17361111e-6f * (float) DRV8301_PWM_3F_SWITCHING_FREQ_HZ;
+		float mod_alpha_comp = mod_alpha_filter_sgn * mod_comp_fact;
+		float mod_beta_comp = mod_beta_filter_sgn * mod_comp_fact;
+
+		v_alpha = mod_alpha * (2.0f / 3.0f) * v_vcc_v;
+		v_beta = mod_beta * (2.0f / 3.0f) * v_vcc_v;
+
+		//Correct dead time
+		mod_alpha += mod_alpha_comp;
+		mod_beta += mod_beta_comp;
+		//Run observer
+		//TODO observer w zlym miejscu, powinien dostac jako wejscie pard i napiecie z porzedniego kroku?
+		//observer_update(v_alpha, v_beta, i_alpha, i_beta, &tetha);
+
+		//SVM
+		uint32_t duty1, duty2, duty3, svm_sector;
+		bldc_svm(mod_alpha, mod_beta, DRV8301_PWM_3F_PWM_MAX, &duty1, &duty3, &duty2, &svm_sector);
+
+		//Set PWM
+		//if(pwm_enabled == true){
+		TIM1->CR1 |= TIM_CR1_UDIS;
+		drv8301_set_pwm(duty1, duty2, duty3);
+		TIM1->CR1 &= ~TIM_CR1_UDIS;
+		//}
+		//PLL
+		//pll_run(tetha, BLDC_DT, &m_pll_phase, &m_pll_speed);
+		//tetha = tetha * (180.0f / (float) M_PI);
+
+		//Speed controller
+		float speed = m_pll_speed / (2.0f * (float) M_PI) / 7.0f;
+
+		static uint32_t cnt = 0;
+		cnt++;
+		if (cnt == DRV8301_PWM_3F_SWITCHING_FREQ_HZ / 1000) {
+			//bldc_state_speed_controller(speed);
+			cnt = 0;
+		}
+
 	}
-
-	//Current limit
-	if (i_q_ref > i_q_max) {
-		i_q_ref = i_q_max;
-	} else if (i_q_ref < -i_q_max) {
-		i_q_ref = -i_q_max;
-	}
-
-	//Check saturation
-	float i_dq_mag = 1e-10f;
-	arm_sqrt_f32(i_d_ref * i_d_ref + i_q_ref * i_q_ref, &i_dq_mag);
-
-	if (i_dq_mag < 1e-10f) {
-		i_dq_mag = 1e-10f;
-	}
-
-	if (i_dq_mag > i_q_max) {
-		//Risk of division by zero v_dq_mag
-		float dq_scale = i_q_max / i_dq_mag;
-		i_d_ref *= dq_scale;
-		i_q_ref *= dq_scale;
-	}
-
-	//I1
-	float p1_i = -(((float) ADC_INJ_P1_I) - p1_i_offset) * v_ldo_v / ( ADC_MAX_VALUE * ADC_I_R_OHM * ADC_I_GAIN);
-	//float p3_i = -(((float) ADC_INJ_P3_I) - p3_i_offset) * v_ldo_v / (  ADC_MAX_VALUE * ADC_I_R_OHM * ADC_I_GAIN);
-	float p3_i = -(((float) ADC_INJ_P3_I) - p3_i_offset) * v_ldo_v / ( ADC_MAX_VALUE * ADC_I_R_OHM * ADC_I_GAIN);
-
-	//static float p1_i_lpf = 0;
-	//p1_i_lpf = p1_i_lpf * 0.4f + 0.6f * p1_i;
-	//p1_i = p1_i_lpf;
-
-	//static float p3_i_lpf = 0;
-	//p3_i_lpf = p3_i_lpf * 0.4f + 0.6f * p3_i;
-	//p3_i = p3_i_lpf;
-
-	//Clarke Transform
-	i_alpha = p1_i;
-	i_beta = ONE_BY_SQRT3 * p1_i + TWO_BY_SQRT3 * p3_i;
-
-	//Park Transform
-	float sin_tetha;
-	float cos_tetha;
-	arm_sin_cos_f32(tetha, &sin_tetha, &cos_tetha);
-
-	float i_d = i_alpha * cos_tetha + i_beta * sin_tetha;
-	float i_q = i_beta * cos_tetha - i_alpha * sin_tetha;
-
-	//Current LPF
-	float lpf_val = 1.0f - BLDC_DQ_LPF_ALPHA;
-	i_d_lpf = BLDC_DQ_LPF_ALPHA * i_d + lpf_val * i_d_lpf;
-	i_q_lpf = BLDC_DQ_LPF_ALPHA * i_q + lpf_val * i_q_lpf;
-
-	//This reduce noise during standstill
-	i_d = i_d_lpf;
-	i_q = i_q_lpf;
-
-	//PID P error
-	float i_d_err = i_d_ref - i_d;
-	float i_q_err = i_q_ref - i_q;
-
-	float v_d = i_d_err * BLDC_PID_KP + i_d_err_acc;
-	float v_q = i_q_err * BLDC_PID_KP + i_q_err_acc;
-
-	//PID I error
-	i_d_err_acc += i_d_err * BLDC_DT * BLDC_PID_KI;
-	i_q_err_acc += i_q_err * BLDC_DT * BLDC_PID_KI;
-
-	//Maximum limitation
-	float v_dq_mag = 1e-10f;
-	arm_sqrt_f32(v_d * v_d + v_q * v_q, &v_dq_mag);
-	float v_dq_max = BLDC_VDQ_MAX_LIMIT * v_vcc_v * BLDC_MAX_DUTY;
-
-	if (v_dq_mag < 1e-10f) {
-		v_dq_mag = 1e-10f;
-	}
-
-	if (v_dq_mag > v_dq_max) {
-		//Risk of division by zero v_dq_mag
-		float dq_scale = v_dq_max / v_dq_mag;
-		v_d *= dq_scale;
-		v_q *= dq_scale;
-	}
-
-	float v_mod = 1.0f / ((2.0f / 3.0f) * v_vcc_v);
-	float mod_d = v_d * v_mod;
-	float mod_q = v_q * v_mod;
-
-	//PID I limit
-	float i_lim_mul_vcc = BLDC_PID_I_LIMIT * v_vcc_v * BLDC_MAX_DUTY;
-	if (i_d_err_acc > i_lim_mul_vcc) {
-		i_d_err_acc = i_lim_mul_vcc;
-	} else if (i_d_err_acc < -i_lim_mul_vcc) {
-		i_d_err_acc = -i_lim_mul_vcc;
-	}
-
-	if (i_q_err_acc > i_lim_mul_vcc) {
-		i_q_err_acc = i_lim_mul_vcc;
-	} else if (i_q_err_acc < -i_lim_mul_vcc) {
-		i_q_err_acc = -i_lim_mul_vcc;
-	}
-
-	//TODO check I_bus current calculation
-	i_bus = mod_d * i_d + mod_q * i_q;
-
-	//Dead time compensation
-	float mod_alpha = cos_tetha * mod_d - sin_tetha * mod_q;
-	float mod_beta = cos_tetha * mod_q + sin_tetha * mod_d;
-
-	float i_alpha_filter = cos_tetha * i_d_ref - sin_tetha * i_q_ref;
-	float i_beta_filter = cos_tetha * i_q_ref + sin_tetha * i_d_ref;
-
-	float ia_filter = i_alpha_filter;
-	float ib_filter = -0.5f * i_alpha_filter + SQRT3_BY_2 * i_beta_filter;
-	float ic_filter = -0.5f * i_alpha_filter - SQRT3_BY_2 * i_beta_filter;
-
-	float mod_alpha_filter_sgn = (2.0f / 3.0f) * SIGN(ia_filter) - (1.0f / 3.0f) * SIGN(ib_filter) - (1.0f / 3.0f) * SIGN(ic_filter);
-	float mod_beta_filter_sgn = ONE_BY_SQRT3 * SIGN(ib_filter) - ONE_BY_SQRT3 * SIGN(ic_filter);
-
-	//25 -  0.17361111e-6f	-checked by oscilloscope
-	//150 - 1.1944e-6f   	-checked by oscilloscope add 80nS from DRV
-	//TODO add macro to calculate this value
-	float mod_comp_fact = 0.17361111e-6f * (float) DRV8301_PWM_3F_SWITCHING_FREQ_HZ;
-	float mod_alpha_comp = mod_alpha_filter_sgn * mod_comp_fact;
-	float mod_beta_comp = mod_beta_filter_sgn * mod_comp_fact;
-
-	v_alpha = mod_alpha * (2.0f / 3.0f) * v_vcc_v;
-	v_beta = mod_beta * (2.0f / 3.0f) * v_vcc_v;
-
-	//Correct dead time
-	mod_alpha += mod_alpha_comp;
-	mod_beta += mod_beta_comp;
-
-	//Run observer
-	//TODO observer w zlym miejscu, powinien dostac jako wejscie pard i napiecie z porzedniego kroku?
-	observer_update(v_alpha, v_beta, i_alpha, i_beta, &tetha);
-
-	//SVM
-	uint32_t duty1, duty2, duty3, svm_sector;
-	bldc_svm(mod_alpha, mod_beta, DRV8301_PWM_3F_PWM_MAX, &duty1, &duty3, &duty2, &svm_sector);
-
-	//Set PWM
-	TIM1->CR1 |= TIM_CR1_UDIS;
-	drv8301_set_pwm(duty1, duty2, duty3);
-	TIM1->CR1 &= ~TIM_CR1_UDIS;
-
-	//PLL
-	pll_run(tetha, BLDC_DT, &m_pll_phase, &m_pll_speed);
-	tetha = tetha * (180.0f / (float) M_PI);
+	//Speed controller
+			float speed = m_pll_speed / (2.0f * (float) M_PI) / 7.0f;
 
 	//Send to scope
-	bldc_scope_send_data((int16_t) (p1_i * 100.0f), (int16_t) (p3_i * 100.0f), (int16_t) (m_pll_speed), (int16_t) (tetha * 10.0f));
+	bldc_scope_send_data((int16_t) (p1_i * 100.0f), (int16_t) (v1 * 100.0f), (int16_t) (speed * 1000.0f), (int16_t) (tetha * 10.0f));
 
 	/*
 	 //Gimbal mode - start
