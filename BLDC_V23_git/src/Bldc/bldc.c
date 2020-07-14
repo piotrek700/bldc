@@ -1079,6 +1079,26 @@ bool utils_saturate_vector_2d(float *x, float *y, float max) {
 	return retval;
 }
 
+float utils_angle_difference(float angle1, float angle2) {
+//	utils_norm_angle(&angle1);
+//	utils_norm_angle(&angle2);
+//
+//	if (fabsf(angle1 - angle2) > 180.0) {
+//		if (angle1 < angle2) {
+//			angle1 += 360.0;
+//		} else {
+//			angle2 += 360.0;
+//		}
+//	}
+//
+//	return angle1 - angle2;
+
+	// Faster in most cases
+	float difference = angle1 - angle2;
+	while (difference < -180.0) difference += 2.0 * 180.0;
+	while (difference > 180.0) difference -= 2.0 * 180.0;
+	return difference;
+}
 
 #include "../Led/led.h"
 
@@ -1090,7 +1110,7 @@ bool utils_saturate_vector_2d(float *x, float *y, float max) {
 
  float angle_offset = 0;
  float angle_offset_rad = 0;
-	static float angle_bin_2 = 0;
+
 
 	static int32_t direction = 0;
 	float diff_rad = 0 ;
@@ -1099,6 +1119,19 @@ bool utils_saturate_vector_2d(float *x, float *y, float max) {
 	float fft_pure_angle_rad=0;
 
 	volatile uint32_t hfi_inject_index = 0 ;
+	static float angle_bin_2 = 0;
+
+	volatile hfi_pll_kp = 200;
+	volatile hfi_pll_ki = 1000;
+
+float motor_speed_rps = 0;
+float magnetic_speed_rps = 0;
+float magnetic_speed_rps_last = 0;
+
+bool hfi_enable = false;
+bool motor_running = false;
+float theta_hfi_rad = 0;
+
 
 /*CCMRAM_FUCNTION*/ static void bldc_state_foc(void) {
 
@@ -1118,22 +1151,22 @@ bool utils_saturate_vector_2d(float *x, float *y, float max) {
 	}
 
 
-	/*
-	 //Ramp iq
-	 if (i_q_ref > i_q_ref_rc) {
-	 if (i_q_ref - i_q_ref_rc > BLDC_MAX_DQ_STEP) {
-	 i_q_ref -= BLDC_MAX_DQ_STEP;
-	 } else {
-	 i_q_ref = i_q_ref_rc;
-	 }
-	 } else if (i_q_ref < i_q_ref_rc) {
-	 if (i_q_ref_rc - i_q_ref > BLDC_MAX_DQ_STEP) {
-	 i_q_ref += BLDC_MAX_DQ_STEP;
-	 } else {
-	 i_q_ref = i_q_ref_rc;
-	 }
-	 }*/
-	i_q_ref = i_q_ref_rc;
+
+	//Ramp iq
+	if (i_q_ref > i_q_ref_rc) {
+		if (i_q_ref - i_q_ref_rc > BLDC_MAX_DQ_STEP) {
+			i_q_ref -= BLDC_MAX_DQ_STEP;
+		} else {
+			i_q_ref = i_q_ref_rc;
+		}
+	} else if (i_q_ref < i_q_ref_rc) {
+		if (i_q_ref_rc - i_q_ref > BLDC_MAX_DQ_STEP) {
+			i_q_ref += BLDC_MAX_DQ_STEP;
+		} else {
+			i_q_ref = i_q_ref_rc;
+		}
+	}
+
 
 /*
 	if (i_q_ref == 0 && pwm_disabled == false) {
@@ -1208,21 +1241,6 @@ bool utils_saturate_vector_2d(float *x, float *y, float max) {
 		tetha = tetha * (180.0f / (float) M_PI);
 */
 	} else {
-		//Inject d pulses
-		/*
-		uint32_t inject_cnt = 0;
-		if(i_q_ref == 0){
-			inject_cnt++;
-			if(inject_cnt < DRV8301_PWM_3F_PWM_MAX / 10){
-				i_d_ref = 1;
-			}else  if(inject_cnt == DRV8301_PWM_3F_PWM_MAX){
-				inject_cnt = 0;
-			}else{
-				i_d_ref = 0;
-			}
-		}
-
-*/
 		//Current limit
 		if (i_q_ref > i_q_max) {
 			i_q_ref = i_q_max;
@@ -1247,7 +1265,6 @@ bool utils_saturate_vector_2d(float *x, float *y, float max) {
 
 		//I1
 		p1_i = -(((float) ADC_INJ_P1_I) - p1_i_offset) * v_ldo_v / ( ADC_MAX_VALUE * ADC_I_R_OHM * ADC_I_GAIN);
-		//float p3_i = -(((float) ADC_INJ_P3_I) - p3_i_offset) * v_ldo_v / (  ADC_MAX_VALUE * ADC_I_R_OHM * ADC_I_GAIN);
 		p3_i = -(((float) ADC_INJ_P3_I) - p3_i_offset) * v_ldo_v / ( ADC_MAX_VALUE * ADC_I_R_OHM * ADC_I_GAIN);
 
 		//static float p1_i_lpf = 0;
@@ -1262,123 +1279,47 @@ bool utils_saturate_vector_2d(float *x, float *y, float max) {
 		i_alpha = p1_i;
 		i_beta = ONE_BY_SQRT3 * p1_i + TWO_BY_SQRT3 * p3_i;
 
-		/*
-		 * if(phase override == false){
-		 * 		run observer
-		 * }
-		 *
-		 * if(phase override == false){
-		 * 	tetha from observer += m_pll_speed * BLDC_DT;
-		 *
-		 * }else{
-		 * 	tetha = theta override
-		 * }
-		 *
-		 */
-
-
-		//Speed controller
-/*
-		//Lock protection
-		static uint32_t motor_start_time = 0;
-		static int cnt_correct = 100000;
-		float speed = m_pll_speed / (2.0f * (float) M_PI) / 7.0f;
-
-		if (i_q_ref_prev == 0 && i_q_ref != 0) {
-			start = true;
-			motor_start_time = tick_get_time_ms();
-			cnt_correct = 0;
-		}
-
-		if (start) {
-			if (cnt_correct < DRV8301_PWM_3F_SWITCHING_FREQ_HZ / 50) {
-				if ((tick_get_time_ms() - motor_start_time > 100) && fabsf(speed) < 10.0f) {
-					if (i_q_ref > 0) {
-						tetha += (float) M_PI / 2.0f;
-					} else {
-						tetha -= (float) M_PI / 2.0f;
-					}
-					utils_norm_angle_rad(&tetha);
-					cnt_correct++;
-				}
-			}
-		}
-
-*/
-
-
-		//utils_norm_angle_rad(&tetha);
-		float speed = m_pll_speed / (2.0f * (float) M_PI) / 7.0f;
 
 		//Run observer
-		float theta2 = 0;
-		observer_update(v_alpha, v_beta, i_alpha, i_beta, &theta2);
-		theta2 = theta2 * (180.0f / (float) M_PI);
+		//HFI
+		float theta_rad;
+		if(hfi_enable && motor_running){
+			observer_update(v_alpha, v_beta, i_alpha, i_beta, &theta_rad);
+			tetha = theta_hfi_rad * (180.0f / (float) M_PI);
 
-		pll_run(theta2*((float) M_PI / 180.0f), BLDC_DT, &m_pll_phase, &m_pll_speed);
+		//FOC
+		}else{
+			observer_update(v_alpha, v_beta, i_alpha, i_beta, &theta_rad);
+			tetha = theta_rad * (180.0f / (float) M_PI);
+		}
 
-
+		//PLL
+		pll_run(theta_rad, BLDC_DT, &m_pll_phase, &m_pll_speed);
 
 		//Predict position in next step
 		//tetha += m_pll_speed * BLDC_DT * (180.0f / (float) M_PI);
 
-		static bool was_running = false;
-		static uint32_t init_cnt = 0;
+		//Calculate magnetic and motor speed
+		//TODO setup poles as define
+		magnetic_speed_rps = m_pll_speed / (2.0f * (float) M_PI);
+		motor_speed_rps = magnetic_speed_rps / 7.0f;
 
-		if(i_q_ref_rc == 0 && fabsf(speed)< 0.2f ){
-			//NOT HFI
-			angle_offset = 0;
+		//Detection HFI with hysteresis
+		if(fabsf(magnetic_speed_rps) < 8.0f){
+			hfi_enable = true;
 			i_q_max = BLDC_IQ_MAX_FOR_HFI;
 
-		}else{
-		if (fabsf(speed) < 1.0f) {
-
-			i_q_max = BLDC_IQ_MAX_FOR_HFI;
-			//HFI
-			angle_offset = 1;
-
-			//Detect first time enter to hfi
-			if (was_running && fft_ready) {
-				fft_ready =false;
-
-				diff_rad = utils_angle_difference_rad(fft_pure_angle_rad, theta2 * ((float) M_PI / 180.0f));
-				if (fabsf(diff_rad) > (float) M_PI / 2.0f) {
-					direction++;
-				} else {
-					direction--;
-				}
-
-
-				init_cnt++;
-				if (init_cnt == 15) {
-					was_running = false;
-
-
-					if (direction > 0) {
-						angle_offset_rad = (float) M_PI;
-					} else {
-						angle_offset_rad = 0;
-					}
-				}
-
-			}
-
-			tetha = angle_bin_2;
-
-		} else {
+		}else if(fabsf(magnetic_speed_rps) > 10.0f){
+			hfi_enable = false;
 			i_q_max = BLDC_IQ_MAX_FOR_RUN;
-
-			tetha = theta2;
-
-			angle_offset = 0;
-			was_running = true;
-			init_cnt = 0;
-			direction = 0;
 		}
+
+		//Stop detection
+		if(i_q_ref_rc == 0 && fabsf(magnetic_speed_rps)< 5.0f ){
+			motor_running = false;
+		} else{
+			motor_running = true;
 		}
-		tetha += m_pll_speed * BLDC_DT * (180.0f / (float) M_PI);
-
-
 
 		//Park Transform
 		float sin_tetha;
@@ -1450,84 +1391,191 @@ bool utils_saturate_vector_2d(float *x, float *y, float max) {
 		float mod_beta = cos_tetha * mod_q + sin_tetha * mod_d;
 
 		//HFI
-		static bool rising_edge = false;
-		static float i_q_ref_rc_prev = 0;
-		static float hfi_voltage = 0.0f;
-		static uint32_t hfi_index = 0;
-		uint32_t index_devider = 4;
-		static bool even = false;	//parzysty
-		static uint32_t hfi_start = 0;
-		float current_sample = 0;
+		if (hfi_enable && motor_running) {
+			const float hfi_voltage = 2.0f;
+			const uint32_t index_devider = 1;
+			static uint32_t hfi_index = 0;
+			static float current_sample1 = 0;
+			static float current_sample2 = 0;
+			static float hfi_i_buffer[32];
+			static float sin_prev = 0;
+			static float cos_prev = 0;
+			static float last_angle = 0;
+			static bool even = false;
 
-		//Disable control
-		mod_alpha = 0;
-		mod_beta = 0;
-
-		//Edge detection
-		if(i_q_ref_rc > 0 && i_q_ref_rc_prev == 0){
-			rising_edge = true;
-		}
-
-		i_q_ref_rc_prev = i_q_ref_rc;
-
-		//Init HFI
-		if(rising_edge){
-			hfi_voltage = 5.0f;
-			hfi_index = 0;
-			hfi_start = 5;
-			even = false;
-			rising_edge = false;
-			LED_RED_ON;
-		}
-
-		if (hfi_start) {
 			//0, 2, 4
 			if (even) {
 				even = false;
 
-				//if (hfi_index < 32 / index_devider) {
-					mod_alpha = mod_alpha - hfi_voltage * utils_tab_sin_32_1[hfi_inject_index * index_devider] / ((2.0f / 3.0f) * v_vcc_v);
-					mod_beta = mod_beta + hfi_voltage * utils_tab_cos_32_1[hfi_inject_index * index_devider] / ((2.0f / 3.0f) * v_vcc_v);
-				//} else {
-				//	mod_alpha = 0;
-				//	mod_beta = 0;
-				//}
+				mod_alpha = mod_alpha - hfi_voltage * utils_tab_sin_32_1[hfi_index * index_devider] / ((2.0f / 3.0f) * v_vcc_v);
+				mod_beta = mod_beta + hfi_voltage * utils_tab_cos_32_1[hfi_index * index_devider] / ((2.0f / 3.0f) * v_vcc_v);
 
-				current_sample = utils_tab_sin_32_1[hfi_inject_index * index_devider] * i_alpha - utils_tab_cos_32_1[hfi_inject_index * index_devider] * i_beta;
-				bldc_scope_send_data((int16_t) (current_sample * 100.0f), (int16_t) (0 * 100.0f), (int16_t) (hfi_index * 10.0f), (int16_t) (0 * 10.0f));
+				current_sample2 = sin_prev * i_alpha - cos_prev * i_beta;
+				hfi_i_buffer[hfi_index] = current_sample2 - current_sample1;
+
+				sin_prev = utils_tab_sin_32_1[hfi_index * index_devider];
+				cos_prev = utils_tab_cos_32_1[hfi_index * index_devider];
 
 				hfi_index++;
 				if (hfi_index == 32 / index_devider) {
-					hfi_start--;
 					hfi_index = 0;
 					LED_RED_OFF;
+
+					float real_bin2, imag_bin2;
+
+					utils_fft32_bin2(hfi_i_buffer, &real_bin2, &imag_bin2);
+					angle_bin_2 = -fast_atan2f_sec(imag_bin2, real_bin2) / 2.0f;
+
+					angle_bin_2 += m_pll_speed * (32.0f / (float) index_devider / 2.0f) * BLDC_DT;
+
+					if (fabsf(utils_angle_difference_rad(angle_bin_2 + (float) M_PI, last_angle)) < fabsf(utils_angle_difference_rad(angle_bin_2, last_angle))) {
+						angle_bin_2 += (float) M_PI;
+					}
+
+					last_angle = angle_bin_2;
+
+					utils_norm_angle_rad(&angle_bin_2);
+
+					//fft_pure_angle_rad = angle_bin_2;
+					//angle_bin_2 += angle_offset_rad;
+					//utils_norm_angle_rad(&angle_bin_2);
+
+
+					theta_hfi_rad = angle_bin_2;
 				}
 
-			//1, 3, 5
+				//1, 3, 5
 			} else {
 				even = true;
 
-				//if (hfi_index < 32 / index_devider) {
-					mod_alpha = mod_alpha + hfi_voltage * utils_tab_sin_32_1[hfi_inject_index * index_devider] / ((2.0f / 3.0f) * v_vcc_v);
-					mod_beta = mod_beta - hfi_voltage * utils_tab_cos_32_1[hfi_inject_index * index_devider] / ((2.0f / 3.0f) * v_vcc_v);
-				//} else {
-				//	mod_alpha = 0;
-				//	mod_beta = 0;
-				//}
+				mod_alpha = mod_alpha + hfi_voltage * utils_tab_sin_32_1[hfi_index * index_devider] / ((2.0f / 3.0f) * v_vcc_v);
+				mod_beta = mod_beta - hfi_voltage * utils_tab_cos_32_1[hfi_index * index_devider] / ((2.0f / 3.0f) * v_vcc_v);
 
-				current_sample = utils_tab_sin_32_1[hfi_inject_index * index_devider] * i_alpha - utils_tab_cos_32_1[hfi_inject_index * index_devider] * i_beta;
+				current_sample1 = sin_prev * i_alpha - cos_prev * i_beta;
 
-				//Not sample when hfi_index 0
-				//if (hfi_index != 0) {
-					bldc_scope_send_data((int16_t) (current_sample * 100.0f), (int16_t) (0 * 100.0f), (int16_t) (hfi_index * 10.0f), (int16_t) (0 * 10.0f));
-				//}
+				sin_prev = utils_tab_sin_32_1[hfi_index * index_devider];
+				cos_prev = utils_tab_cos_32_1[hfi_index * index_devider];
 			}
-		}else{
-			hfi_voltage = 0.0f;
 		}
 
+		float ch1 = theta_rad * 180.0f / (float) M_PI * 10.0f;
+		float ch2 = theta_hfi_rad * 180.0f / (float) M_PI * 10.0f;
+		float ch3 = magnetic_speed_rps * 100.0f;
+		float ch4 = 0.0f;
 
 
+		bldc_scope_send_data((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+				//Speed controller
+		/*
+				//Lock protection
+				static uint32_t motor_start_time = 0;
+				static int cnt_correct = 100000;
+				float speed = m_pll_speed / (2.0f * (float) M_PI) / 7.0f;
+
+				if (i_q_ref_prev == 0 && i_q_ref != 0) {
+					start = true;
+					motor_start_time = tick_get_time_ms();
+					cnt_correct = 0;
+				}
+
+				if (start) {
+					if (cnt_correct < DRV8301_PWM_3F_SWITCHING_FREQ_HZ / 50) {
+						if ((tick_get_time_ms() - motor_start_time > 100) && fabsf(speed) < 10.0f) {
+							if (i_q_ref > 0) {
+								tetha += (float) M_PI / 2.0f;
+							} else {
+								tetha -= (float) M_PI / 2.0f;
+							}
+							utils_norm_angle_rad(&tetha);
+							cnt_correct++;
+						}
+					}
+				}
+
+		*/
+
+
+
+
+
+
+
+/*
+
+				static bool was_running = false;
+				static uint32_t init_cnt = 0;
+
+				if(i_q_ref_rc == 0 && fabsf(speed)< 0.2f ){
+					//NOT HFI
+					angle_offset = 0;
+					i_q_max = BLDC_IQ_MAX_FOR_HFI;
+
+				}else{
+				if (fabsf(speed) < 1.0f) {
+
+					i_q_max = BLDC_IQ_MAX_FOR_HFI;
+					//HFI
+					angle_offset = 1;
+
+					//Detect first time enter to hfi
+					if (was_running && fft_ready) {
+						fft_ready =false;
+
+						diff_rad = utils_angle_difference_rad(fft_pure_angle_rad, theta2 * ((float) M_PI / 180.0f));
+						if (fabsf(diff_rad) > (float) M_PI / 2.0f) {
+							direction++;
+						} else {
+							direction--;
+						}
+
+
+						init_cnt++;
+						if (init_cnt == 15) {
+							was_running = false;
+
+
+							if (direction > 0) {
+								angle_offset_rad = (float) M_PI;
+							} else {
+								angle_offset_rad = 0;
+							}
+						}
+
+					}
+
+					tetha = angle_bin_2;
+
+				} else {
+					i_q_max = BLDC_IQ_MAX_FOR_RUN;
+
+					tetha = theta2;
+
+					angle_offset = 0;
+					was_running = true;
+					init_cnt = 0;
+					direction = 0;
+				}
+				}
+				tetha += m_pll_speed * BLDC_DT * (180.0f / (float) M_PI);
+				*/
 
 /*
 
@@ -1538,10 +1586,9 @@ bool utils_saturate_vector_2d(float *x, float *y, float max) {
 
 		volatile static float prev_sample = 0;
 		volatile float sample_now = 0;
-		static float i_buffer[32];
 		static float current_sample = 0;
 		//static float angle_bin_1 = 0;
-		static float last_angle = 0;
+
 
 
 
@@ -1637,16 +1684,6 @@ bool utils_saturate_vector_2d(float *x, float *y, float max) {
 			}
 		}*/
 
-		v_alpha = mod_alpha * (2.0f / 3.0f) * v_vcc_v;
-		v_beta = mod_beta * (2.0f / 3.0f) * v_vcc_v;
-
-
-
-
-
-
-
-/*
 
 		float i_alpha_filter = cos_tetha * i_d_ref - sin_tetha * i_q_ref;
 		float i_beta_filter = cos_tetha * i_q_ref + sin_tetha * i_d_ref;
@@ -1667,51 +1704,36 @@ bool utils_saturate_vector_2d(float *x, float *y, float max) {
 
 		v_alpha = mod_alpha * (2.0f / 3.0f) * v_vcc_v;
 		v_beta = mod_beta * (2.0f / 3.0f) * v_vcc_v;
-*/
+
 		//Correct dead time
-		//mod_alpha += mod_alpha_comp;
-		//mod_beta += mod_beta_comp;
-
-
-
-
+		mod_alpha += mod_alpha_comp;
+		mod_beta += mod_beta_comp;
 
 		//Add saturation protection
-
-		//utils_saturate_vector_2d(&mod_alpha, &mod_beta, SQRT3_BY_2 * BLDC_MAX_DUTY);
+		utils_saturate_vector_2d(&mod_alpha, &mod_beta, SQRT3_BY_2 * BLDC_MAX_DUTY);
 
 		//SVM
 		uint32_t duty1, duty2, duty3, svm_sector;
 		bldc_svm(mod_alpha, mod_beta, DRV8301_PWM_3F_PWM_MAX, &duty1, &duty3, &duty2, &svm_sector);
 
 		//Set PWM
-		//if(pwm_enabled == true){
 		TIM1->CR1 |= TIM_CR1_UDIS;
 		drv8301_set_pwm(duty1, duty2, duty3);
 		TIM1->CR1 &= ~TIM_CR1_UDIS;
 
-		//TIM1->EGR |=TIM_EGR_UG;
-		//}
-		//PLL
-		//pll_run(tetha, BLDC_DT, &m_pll_phase, &m_pll_speed);
-		//tetha = tetha * (180.0f / (float) M_PI);
-
-
+		//Speed controller
 		//static uint32_t cnt = 0;
 		//cnt++;
 		//if (cnt == DRV8301_PWM_3F_SWITCHING_FREQ_HZ / 1000) {
-			//float speed = m_pll_speed / (2.0f * (float) M_PI) / 7.0f;
-		//	bldc_state_speed_controller(speed);
-			//cnt = 0;
+		//bldc_state_speed_controller(motor_sleed_rps);
+		//cnt = 0;
 		//}
-
 	}
 
-	i_q_ref_prev = i_q_ref;
 
 
-	//Speed controller
-			//float speed = m_pll_speed / (2.0f * (float) M_PI) / 7.0f;
+
+
 
 	//Send to scope
 	//bldc_scope_send_data((int16_t) (i_alpha * 1000.0f), (int16_t) (i_beta * 100.0f), (int16_t) (hfi_index * 1.0f), (int16_t) (0 * 10.0f));
