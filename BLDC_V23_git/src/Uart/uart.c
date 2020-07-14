@@ -300,11 +300,13 @@ void DMA1_Channel7_IRQHandler(void) {
 	rybos_task_stop_marker(MARKER_IRQ_UART_DMA);
 }
 
+
+volatile uint32_t len = 0;	//todo move to local
 void uart_send_scope_frame(uint8_t frame_type, uint32_t frame_len, uint8_t *frame){
 	uint8_t tx_buff[UART_FRAME_TX_BUFF_SIZE];
 
 	UartFrame *frame_buff;
-	uint32_t len = 0;
+	len = 0;
 	uint8_t crc_tmp;
 
 	//Start symbol
@@ -326,9 +328,15 @@ void uart_send_scope_frame(uint8_t frame_type, uint32_t frame_len, uint8_t *fram
 		if (frame[i] == FRAME_START_SYMBOL) {
 			tx_buff[len] = frame[i];
 			len++;
+			if(len == UART_FRAME_TX_BUFF_SIZE){
+				return;
+			}
 		}
 		tx_buff[len] = frame[i];
 		len++;
+		if(len == UART_FRAME_TX_BUFF_SIZE){
+						return;
+					}
 		crc_tmp += (uint8_t) frame[i];
 	}
 
@@ -336,9 +344,15 @@ void uart_send_scope_frame(uint8_t frame_type, uint32_t frame_len, uint8_t *fram
 	if (crc_tmp == FRAME_START_SYMBOL) {
 		tx_buff[len] = crc_tmp;
 		len++;
+		if(len == UART_FRAME_TX_BUFF_SIZE){
+						return;
+					}
 	}
 	tx_buff[len] = crc_tmp;
 	len++;
+	if(len == UART_FRAME_TX_BUFF_SIZE){
+					return;
+				}
 
 	if (len >= UART_FRAME_TX_BUFF_SIZE) {
 		return;//TODO it is not critical error

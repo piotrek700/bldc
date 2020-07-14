@@ -66,6 +66,9 @@
 #define BLDC_DQ_LPF_ALPHA						(BLDC_DQ_LPF_CUTOFF_FREQ/(BLDC_DQ_LPF_CUTOFF_FREQ+((float)DRV8301_PWM_3F_SWITCHING_FREQ_HZ)/(2.0f*(float)M_PI)))
 #define BLDC_LDO_VCC_LPF_ALPHA					0.025f		//100Hz
 
+#define BLDC_IQ_MAX_FOR_RUN						10.0f
+#define BLDC_IQ_MAX_FOR_HFI						2.0f
+
 //Variables
 static float v1_bemf_h = 0;
 static float v2_bemf_h = 0;
@@ -80,30 +83,30 @@ static float v_bemf_offset_ldo = 0;
 static float v_bemf_offset_vcc = 0;
 
 //CCM variables
-CCMRAM_VARIABLE static float p1_i_offset = 0;
-CCMRAM_VARIABLE static float p3_i_offset = 0;
-CCMRAM_VARIABLE static float i_offset_ldo = 0;
+/*CCMRAM_VARIABLE*/ static float p1_i_offset = 0;
+/*CCMRAM_VARIABLE*/ static float p3_i_offset = 0;
+/*CCMRAM_VARIABLE*/ static float i_offset_ldo = 0;
 
-CCMRAM_VARIABLE float i_q_ref_rc = 0.0;
-CCMRAM_VARIABLE float tetha = 0;
+/*CCMRAM_VARIABLE*/ float i_q_ref_rc = 0.0;
+/*CCMRAM_VARIABLE*/ float tetha = 0;
 
-CCMRAM_VARIABLE float i_d_ref = 0;
+/*CCMRAM_VARIABLE*/ float i_d_ref = 0;
 //Control current by IQ
-CCMRAM_VARIABLE float i_q_ref = 0.0;
-CCMRAM_VARIABLE float i_q_max = 10.0;
-CCMRAM_VARIABLE float i_d_err_acc = 0;
-CCMRAM_VARIABLE float i_q_err_acc = 0;
-CCMRAM_VARIABLE float i_d_lpf = 0;
-CCMRAM_VARIABLE float i_q_lpf = 0;
+/*CCMRAM_VARIABLE*/ float i_q_ref = 0.0;
+/*CCMRAM_VARIABLE*/ float i_q_max = BLDC_IQ_MAX_FOR_HFI;
+/*CCMRAM_VARIABLE*/ float i_d_err_acc = 0;
+/*CCMRAM_VARIABLE*/ float i_q_err_acc = 0;
+/*CCMRAM_VARIABLE*/ float i_d_lpf = 0;
+/*CCMRAM_VARIABLE*/ float i_q_lpf = 0;
 
-CCMRAM_VARIABLE static float adc_vref_mul_vrefint_cal = 0;
-CCMRAM_VARIABLE static float one_over_adc_temp_call = 0;
+/*CCMRAM_VARIABLE*/ static float adc_vref_mul_vrefint_cal = 0;
+/*CCMRAM_VARIABLE*/ static float one_over_adc_temp_call = 0;
 
-CCMRAM_VARIABLE float i_alpha = 0;
-CCMRAM_VARIABLE float i_beta = 0;
-CCMRAM_VARIABLE float v_alpha = 0;
-CCMRAM_VARIABLE float v_beta = 0;
-CCMRAM_VARIABLE volatile float i_bus = 0;
+/*CCMRAM_VARIABLE*/ float i_alpha = 0;
+/*CCMRAM_VARIABLE*/ float i_beta = 0;
+/*CCMRAM_VARIABLE*/ float v_alpha = 0;
+/*CCMRAM_VARIABLE*/ float v_beta = 0;
+/*CCMRAM_VARIABLE*/ volatile float i_bus = 0;
 
 //Measurements
 static uint32_t meaure_r_start_time = 0;
@@ -193,7 +196,7 @@ float bldc_get_up_temperature_c(void) {
 	return up_temperature_c;
 }
 
-CCMRAM_FUCNTION static void bldc_svm(float alpha, float beta, uint32_t PWMHalfPeriod, uint32_t* tAout, uint32_t* tBout, uint32_t* tCout, uint32_t *svm_sector) {
+/*CCMRAM_FUCNTION*/ static void bldc_svm(float alpha, float beta, uint32_t PWMHalfPeriod, uint32_t* tAout, uint32_t* tBout, uint32_t* tCout, uint32_t *svm_sector) {
 	uint32_t sector;
 
 	if (beta >= 0.0f) {
@@ -801,7 +804,8 @@ static void bldc_state_measure_l(void) {
 	}
 }
 
-CCMRAM_FUCNTION void observer_update(float v_alpha, float v_beta, float i_alpha, float i_beta, /*volatile*/float *phase) {
+//TODO add to CCRAM
+void observer_update(float v_alpha, float v_beta, float i_alpha, float i_beta, /*volatile*/float *phase) {
 	float L = MOTOR_L * 3.0f / 3.0f;
 	float R = MOTOR_R * 3.0f / 3.0f;
 	float lambda = MOTOR_LAMBDA;
@@ -843,7 +847,7 @@ CCMRAM_FUCNTION void utils_norm_angle_rad(float *angle) {
 	}
 }
 
-CCMRAM_FUCNTION static void pll_run(float phase, float dt, float *phase_var, float *speed_var) {
+/*CCMRAM_FUCNTION */static void pll_run(float phase, float dt, float *phase_var, float *speed_var) {
 	if (IS_NAN(*phase_var)) {
 		*phase_var = 0.0f;
 	}
@@ -882,7 +886,7 @@ void bldc_get_frame_ready_clear(uint32_t index) {
 	scope_frame_ready_buff[index] = false;
 }
 
-CCMRAM_FUCNTION static void bldc_scope_send_data(int16_t ch1, int16_t ch2, int16_t ch3, int16_t ch4) {
+/*CCMRAM_FUCNTION*/ static void bldc_scope_send_data(int16_t ch1, int16_t ch2, int16_t ch3, int16_t ch4) {
 	static uint32_t frame_index_cnt = 0;
 	if (scope_frame_data_cnt < FRAME_MAX_DISPLAY_CHANNELS_8 * 2) {
 		uint32_t index = scope_frame_data_cnt;
@@ -915,8 +919,8 @@ CCMRAM_FUCNTION static void bldc_scope_send_data(int16_t ch1, int16_t ch2, int16
 volatile float kp_speed = 0;		//2.5
 volatile float ki_speed = 0;		//10
 volatile float kd_speed = 0;		//0.15, 0.3-lower rump up
-volatile float iq_speed_max = 10;	//iq max
-volatile float speed_ref_rps = 20.0f;
+volatile float iq_speed_max = 2;	//iq max
+volatile float speed_ref_rps = 10.0f;
 volatile float i_max_div = 1.0f;	//5
 
 
@@ -975,10 +979,130 @@ static void bldc_state_speed_controller(float speed_rps) {
 	i_q_ref_rc = pid;
 	err_last = err;
 
-	bldc_scope_send_data((int16_t) (p * 1000.0f), (int16_t) (i * 1000.0f), (int16_t) (pid * 1000.0f), (int16_t) (speed_rps * 1000.0f));
+	//bldc_scope_send_data((int16_t) (p * 1000.0f), (int16_t) (i * 1000.0f), (int16_t) (pid * 1000.0f), (int16_t) (speed_rps * 1000.0f));
 }
 
-CCMRAM_FUCNTION static void bldc_state_foc(void) {
+
+
+const float utils_tab_sin_32_1[] = {
+	0.000000, 0.195090, 0.382683, 0.555570, 0.707107, 0.831470, 0.923880, 0.980785,
+	1.000000, 0.980785, 0.923880, 0.831470, 0.707107, 0.555570, 0.382683, 0.195090,
+	0.000000, -0.195090, -0.382683, -0.555570, -0.707107, -0.831470, -0.923880, -0.980785,
+	-1.000000, -0.980785, -0.923880, -0.831470, -0.707107, -0.555570, -0.382683, -0.195090};
+
+const float utils_tab_sin_32_2[] = {
+	0.000000, 0.382683, 0.707107, 0.923880, 1.000000, 0.923880, 0.707107, 0.382683,
+	0.000000, -0.382683, -0.707107, -0.923880, -1.000000, -0.923880, -0.707107, -0.382683,
+	-0.000000, 0.382683, 0.707107, 0.923880, 1.000000, 0.923880, 0.707107, 0.382683,
+	0.000000, -0.382683, -0.707107, -0.923880, -1.000000, -0.923880, -0.707107, -0.382683};
+
+const float utils_tab_cos_32_1[] = {
+	1.000000, 0.980785, 0.923880, 0.831470, 0.707107, 0.555570, 0.382683, 0.195090,
+	0.000000, -0.195090, -0.382683, -0.555570, -0.707107, -0.831470, -0.923880, -0.980785,
+	-1.000000, -0.980785, -0.923880, -0.831470, -0.707107, -0.555570, -0.382683, -0.195090,
+	-0.000000, 0.195090, 0.382683, 0.555570, 0.707107, 0.831470, 0.923880, 0.980785};
+
+const float utils_tab_cos_32_2[] = {
+	1.000000, 0.923880, 0.707107, 0.382683, 0.000000, -0.382683, -0.707107, -0.923880,
+	-1.000000, -0.923880, -0.707107, -0.382683, -0.000000, 0.382683, 0.707107, 0.923880,
+	1.000000, 0.923880, 0.707107, 0.382683, 0.000000, -0.382683, -0.707107, -0.923880,
+	-1.000000, -0.923880, -0.707107, -0.382683, -0.000000, 0.382683, 0.707107, 0.923880};
+
+
+void utils_fft32_bin1(float *real_in, float *real, float *imag) {
+	*real = 0.0;
+	*imag = 0.0;
+	for (int i = 0;i < 32;i++) {
+		*real += real_in[i] * utils_tab_cos_32_1[i];
+		*imag -= real_in[i] * utils_tab_sin_32_1[i];
+	}
+	*real /= 32.0;
+	*imag /= 32.0;
+}
+
+void utils_fft32_bin2(float *real_in, float *real, float *imag) {
+	*real = 0.0;
+	*imag = 0.0;
+	for (int i = 0;i < 32;i++) {
+		*real += real_in[i] * utils_tab_cos_32_2[i];
+		*imag -= real_in[i] * utils_tab_sin_32_2[i];
+	}
+	*real /= 32.0;
+	*imag /= 32.0;
+}
+
+ float utils_angle_difference_rad(float angle1, float angle2) {
+	float difference = angle1 - angle2;
+	while (difference < -M_PI) difference += 2.0f * M_PI;
+	while (difference > M_PI) difference -= 2.0f * M_PI;
+	return difference;
+}
+
+void utils_fft16_bin1(float *real_in, float *real, float *imag) {
+	*real = 0.0;
+	*imag = 0.0;
+	for (int i = 0;i < 16;i++) {
+		*real += real_in[i] * utils_tab_cos_32_1[2 * i];
+		*imag -= real_in[i] * utils_tab_sin_32_1[2 * i];
+	}
+	*real /= 16.0f;
+	*imag /= 16.0f;
+}
+
+void utils_fft16_bin2(float *real_in, float *real, float *imag) {
+	*real = 0.0;
+	*imag = 0.0;
+	for (int i = 0;i < 16;i++) {
+		*real += real_in[i] * utils_tab_cos_32_2[2 * i];
+		*imag -= real_in[i] * utils_tab_sin_32_2[2 * i];
+	}
+	*real /= 16.0f;
+	*imag /= 16.0f;
+}
+
+bool utils_saturate_vector_2d(float *x, float *y, float max) {
+	bool retval = false;
+	float mag = sqrtf((*x)*(*x) + (*y)*(*y));
+	max = fabsf(max);
+
+	if (mag < 1e-10f) {
+		mag = 1e-10f;
+	}
+
+	if (mag > max) {
+		const float f = max / mag;
+		*x *= f;
+		*y *= f;
+		retval = true;
+	}
+
+	return retval;
+}
+
+
+#include "../Led/led.h"
+
+//states
+//HFI
+//BEMF tracking
+//FOC
+
+
+ float angle_offset = 0;
+ float angle_offset_rad = 0;
+	static float angle_bin_2 = 0;
+
+	static int32_t direction = 0;
+	float diff_rad = 0 ;
+	bool fft_ready = false;
+
+	float fft_pure_angle_rad=0;
+
+	volatile uint32_t hfi_inject_index = 0 ;
+
+/*CCMRAM_FUCNTION*/ static void bldc_state_foc(void) {
+
+
 	static bool pwm_disabled = false;
 	static bool pwm_enabled = true;
 	float p1_i=0;
@@ -986,6 +1110,12 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 	float v1=0;
 	float v2=0;
 	float v3=0;
+	static float i_q_ref_prev = 0;
+	static bool start = false;
+
+	if(i_q_ref == 0){
+		start = false;
+	}
 
 
 	/*
@@ -1005,6 +1135,7 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 	 }*/
 	i_q_ref = i_q_ref_rc;
 
+/*
 	if (i_q_ref == 0 && pwm_disabled == false) {
 		bldc_disable_all_pwm_output();
 		DRV8301_PWM_UPDATE_EVENT;
@@ -1020,8 +1151,10 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 		pwm_enabled = true;
 		pwm_disabled = false;
 	}
-
+*/
+	pwm_disabled = false;
 	if (pwm_disabled) {
+		/*
 		static float x1_prev = 0;
 		static float x2_prev = 0;
 
@@ -1047,7 +1180,7 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 		v2 -= vdc;
 		v3 -= vdc;
 
-		v_alpha = (2.0 / 3.0) * v1 - (1.0 / 3.0) * v2 - (1.0 / 3.0) * v3;
+		v_alpha = (2.0f / 3.0f) * v1 - (1.0f / 3.0f) * v2 - (1.0f / 3.0f) * v3;
 		v_beta = ONE_BY_SQRT3 * v2 - ONE_BY_SQRT3 * v3;
 
 #ifdef HW_USE_LINE_TO_LINE
@@ -1073,9 +1206,23 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 		//PLL
 		pll_run(tetha, BLDC_DT, &m_pll_phase, &m_pll_speed);
 		tetha = tetha * (180.0f / (float) M_PI);
-
+*/
 	} else {
+		//Inject d pulses
+		/*
+		uint32_t inject_cnt = 0;
+		if(i_q_ref == 0){
+			inject_cnt++;
+			if(inject_cnt < DRV8301_PWM_3F_PWM_MAX / 10){
+				i_d_ref = 1;
+			}else  if(inject_cnt == DRV8301_PWM_3F_PWM_MAX){
+				inject_cnt = 0;
+			}else{
+				i_d_ref = 0;
+			}
+		}
 
+*/
 		//Current limit
 		if (i_q_ref > i_q_max) {
 			i_q_ref = i_q_max;
@@ -1128,18 +1275,110 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 		 * }
 		 *
 		 */
+
+
+		//Speed controller
+/*
+		//Lock protection
+		static uint32_t motor_start_time = 0;
+		static int cnt_correct = 100000;
+		float speed = m_pll_speed / (2.0f * (float) M_PI) / 7.0f;
+
+		if (i_q_ref_prev == 0 && i_q_ref != 0) {
+			start = true;
+			motor_start_time = tick_get_time_ms();
+			cnt_correct = 0;
+		}
+
+		if (start) {
+			if (cnt_correct < DRV8301_PWM_3F_SWITCHING_FREQ_HZ / 50) {
+				if ((tick_get_time_ms() - motor_start_time > 100) && fabsf(speed) < 10.0f) {
+					if (i_q_ref > 0) {
+						tetha += (float) M_PI / 2.0f;
+					} else {
+						tetha -= (float) M_PI / 2.0f;
+					}
+					utils_norm_angle_rad(&tetha);
+					cnt_correct++;
+				}
+			}
+		}
+
+*/
+
+
+		//utils_norm_angle_rad(&tetha);
+		float speed = m_pll_speed / (2.0f * (float) M_PI) / 7.0f;
+
 		//Run observer
-		//TODO observer w zlym miejscu, powinien dostac jako wejscie pard i napiecie z porzedniego kroku?
-		observer_update(v_alpha, v_beta, i_alpha, i_beta, &tetha);
+		float theta2 = 0;
+		observer_update(v_alpha, v_beta, i_alpha, i_beta, &theta2);
+		theta2 = theta2 * (180.0f / (float) M_PI);
+
+		pll_run(theta2*((float) M_PI / 180.0f), BLDC_DT, &m_pll_phase, &m_pll_speed);
+
+
 
 		//Predict position in next step
-		tetha += m_pll_speed * BLDC_DT;
+		//tetha += m_pll_speed * BLDC_DT * (180.0f / (float) M_PI);
 
-		utils_norm_angle_rad(&tetha);
+		static bool was_running = false;
+		static uint32_t init_cnt = 0;
 
-		//PLL
-		pll_run(tetha, BLDC_DT, &m_pll_phase, &m_pll_speed);
-		tetha = tetha * (180.0f / (float) M_PI);
+		if(i_q_ref_rc == 0 && fabsf(speed)< 0.2f ){
+			//NOT HFI
+			angle_offset = 0;
+			i_q_max = BLDC_IQ_MAX_FOR_HFI;
+
+		}else{
+		if (fabsf(speed) < 1.0f) {
+
+			i_q_max = BLDC_IQ_MAX_FOR_HFI;
+			//HFI
+			angle_offset = 1;
+
+			//Detect first time enter to hfi
+			if (was_running && fft_ready) {
+				fft_ready =false;
+
+				diff_rad = utils_angle_difference_rad(fft_pure_angle_rad, theta2 * ((float) M_PI / 180.0f));
+				if (fabsf(diff_rad) > (float) M_PI / 2.0f) {
+					direction++;
+				} else {
+					direction--;
+				}
+
+
+				init_cnt++;
+				if (init_cnt == 15) {
+					was_running = false;
+
+
+					if (direction > 0) {
+						angle_offset_rad = (float) M_PI;
+					} else {
+						angle_offset_rad = 0;
+					}
+				}
+
+			}
+
+			tetha = angle_bin_2;
+
+		} else {
+			i_q_max = BLDC_IQ_MAX_FOR_RUN;
+
+			tetha = theta2;
+
+			angle_offset = 0;
+			was_running = true;
+			init_cnt = 0;
+			direction = 0;
+		}
+		}
+		tetha += m_pll_speed * BLDC_DT * (180.0f / (float) M_PI);
+
+
 
 		//Park Transform
 		float sin_tetha;
@@ -1155,8 +1394,8 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 		i_q_lpf = BLDC_DQ_LPF_ALPHA * i_q + lpf_val * i_q_lpf;
 
 		//This reduce noise during standstill
-		i_d = i_d_lpf;
-		i_q = i_q_lpf;
+		//i_d = i_d_lpf;
+		//i_q = i_q_lpf;
 
 		//PID P error
 		float i_d_err = i_d_ref - i_d;
@@ -1210,6 +1449,205 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 		float mod_alpha = cos_tetha * mod_d - sin_tetha * mod_q;
 		float mod_beta = cos_tetha * mod_q + sin_tetha * mod_d;
 
+		//HFI
+		static bool rising_edge = false;
+		static float i_q_ref_rc_prev = 0;
+		static float hfi_voltage = 0.0f;
+		static uint32_t hfi_index = 0;
+		uint32_t index_devider = 4;
+		static bool even = false;	//parzysty
+		static uint32_t hfi_start = 0;
+		float current_sample = 0;
+
+		//Disable control
+		mod_alpha = 0;
+		mod_beta = 0;
+
+		//Edge detection
+		if(i_q_ref_rc > 0 && i_q_ref_rc_prev == 0){
+			rising_edge = true;
+		}
+
+		i_q_ref_rc_prev = i_q_ref_rc;
+
+		//Init HFI
+		if(rising_edge){
+			hfi_voltage = 5.0f;
+			hfi_index = 0;
+			hfi_start = 5;
+			even = false;
+			rising_edge = false;
+			LED_RED_ON;
+		}
+
+		if (hfi_start) {
+			//0, 2, 4
+			if (even) {
+				even = false;
+
+				//if (hfi_index < 32 / index_devider) {
+					mod_alpha = mod_alpha - hfi_voltage * utils_tab_sin_32_1[hfi_inject_index * index_devider] / ((2.0f / 3.0f) * v_vcc_v);
+					mod_beta = mod_beta + hfi_voltage * utils_tab_cos_32_1[hfi_inject_index * index_devider] / ((2.0f / 3.0f) * v_vcc_v);
+				//} else {
+				//	mod_alpha = 0;
+				//	mod_beta = 0;
+				//}
+
+				current_sample = utils_tab_sin_32_1[hfi_inject_index * index_devider] * i_alpha - utils_tab_cos_32_1[hfi_inject_index * index_devider] * i_beta;
+				bldc_scope_send_data((int16_t) (current_sample * 100.0f), (int16_t) (0 * 100.0f), (int16_t) (hfi_index * 10.0f), (int16_t) (0 * 10.0f));
+
+				hfi_index++;
+				if (hfi_index == 32 / index_devider) {
+					hfi_start--;
+					hfi_index = 0;
+					LED_RED_OFF;
+				}
+
+			//1, 3, 5
+			} else {
+				even = true;
+
+				//if (hfi_index < 32 / index_devider) {
+					mod_alpha = mod_alpha + hfi_voltage * utils_tab_sin_32_1[hfi_inject_index * index_devider] / ((2.0f / 3.0f) * v_vcc_v);
+					mod_beta = mod_beta - hfi_voltage * utils_tab_cos_32_1[hfi_inject_index * index_devider] / ((2.0f / 3.0f) * v_vcc_v);
+				//} else {
+				//	mod_alpha = 0;
+				//	mod_beta = 0;
+				//}
+
+				current_sample = utils_tab_sin_32_1[hfi_inject_index * index_devider] * i_alpha - utils_tab_cos_32_1[hfi_inject_index * index_devider] * i_beta;
+
+				//Not sample when hfi_index 0
+				//if (hfi_index != 0) {
+					bldc_scope_send_data((int16_t) (current_sample * 100.0f), (int16_t) (0 * 100.0f), (int16_t) (hfi_index * 10.0f), (int16_t) (0 * 10.0f));
+				//}
+			}
+		}else{
+			hfi_voltage = 0.0f;
+		}
+
+
+
+
+/*
+
+
+
+
+		static bool even = false;
+
+		volatile static float prev_sample = 0;
+		volatile float sample_now = 0;
+		static float i_buffer[32];
+		static float current_sample = 0;
+		//static float angle_bin_1 = 0;
+		static float last_angle = 0;
+
+
+
+
+		mod_alpha = 0 ;
+		mod_beta = 0 ;
+
+
+		static int single_shot = 0;
+
+		if(angle_offset >0){
+			hfi_voltage = 2.0f;
+
+
+		}else{
+			hfi_voltage = 0;
+			hfi_index = 0;
+			single_shot = 1;
+			even = false;
+		}
+
+
+		if(hfi_voltage >0 && single_shot >0){
+			if (even) {
+
+				even = false;
+
+				mod_alpha = mod_alpha - hfi_voltage * utils_tab_sin_32_1[0 * 2] / ((2.0f / 3.0f) * v_vcc_v);
+				mod_beta = mod_beta + hfi_voltage * utils_tab_cos_32_1[0 * 2] / ((2.0f / 3.0f) * v_vcc_v);
+
+				sample_now = utils_tab_sin_32_1[(0-0)  * 2] * i_alpha - utils_tab_cos_32_1[(0-0)  * 2] * i_beta;
+				current_sample = sample_now - prev_sample;
+				i_buffer[hfi_index] = current_sample;
+
+				//Send to scope
+				bldc_scope_send_data((int16_t) (sample_now * 100.0f), (int16_t) (0 * 100.0f), (int16_t) (hfi_index * 10.0f), (int16_t) (0 * 10.0f));
+
+				hfi_index++;
+				if (hfi_index == 16) {
+					hfi_index = 0;
+					LED_RED_OFF;
+				}
+
+
+				if (hfi_index == 15) {
+					float real_bin2, imag_bin2;
+					//utils_fft16_bin1(i_buffer, &real_bin1, &imag_bin1);
+
+					utils_fft16_bin2(i_buffer, &real_bin2, &imag_bin2);
+
+					//float mag_bin_1 = sqrtf(SQ(imag_bin1) + SQ(real_bin1));
+					//angle_bin_1 = -fast_atan2f_sec(imag_bin1, real_bin1);
+					angle_bin_2 = -fast_atan2f_sec(imag_bin2, real_bin2) / 2.0f;
+
+					angle_bin_2 += m_pll_speed * ((float) 16.0f) * BLDC_DT;
+
+					if (fabsf(utils_angle_difference_rad(angle_bin_2 + (float) M_PI, last_angle)) <
+							fabsf(utils_angle_difference_rad(angle_bin_2, last_angle))) {
+						angle_bin_2 += (float) M_PI;
+					}
+
+					last_angle = angle_bin_2;
+
+					utils_norm_angle_rad(&angle_bin_2);
+
+					fft_pure_angle_rad = angle_bin_2;
+
+					angle_bin_2 += angle_offset_rad;
+
+					utils_norm_angle_rad(&angle_bin_2);
+
+					angle_bin_2 = angle_bin_2 * 180.0f / (float) M_PI;
+					tetha = angle_bin_2;
+					fft_ready = true;
+					single_shot--;
+
+				}
+
+			} else {
+				even = true;
+
+				mod_alpha = mod_alpha + hfi_voltage * utils_tab_sin_32_1[0 * 2] / ((2.0f / 3.0f) * v_vcc_v);
+				mod_beta = mod_beta - hfi_voltage * utils_tab_cos_32_1[0 * 2] / ((2.0f / 3.0f) * v_vcc_v);
+
+				prev_sample = utils_tab_sin_32_1[(1-1) * 2] * i_alpha - utils_tab_cos_32_1[(1-1)  * 2] * i_beta;
+
+				if(hfi_index!=0){
+
+					bldc_scope_send_data((int16_t) (prev_sample * 100.0f), (int16_t) (0 * 100.0f), (int16_t) (hfi_index * 10.0f), (int16_t) (0 * 10.0f));
+				}else{
+					LED_RED_ON;
+				}
+			}
+		}*/
+
+		v_alpha = mod_alpha * (2.0f / 3.0f) * v_vcc_v;
+		v_beta = mod_beta * (2.0f / 3.0f) * v_vcc_v;
+
+
+
+
+
+
+
+/*
+
 		float i_alpha_filter = cos_tetha * i_d_ref - sin_tetha * i_q_ref;
 		float i_beta_filter = cos_tetha * i_q_ref + sin_tetha * i_d_ref;
 
@@ -1229,13 +1667,18 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 
 		v_alpha = mod_alpha * (2.0f / 3.0f) * v_vcc_v;
 		v_beta = mod_beta * (2.0f / 3.0f) * v_vcc_v;
-
+*/
 		//Correct dead time
-		mod_alpha += mod_alpha_comp;
-		mod_beta += mod_beta_comp;
-		//Run observer
-		//TODO observer w zlym miejscu, powinien dostac jako wejscie pard i napiecie z porzedniego kroku?
-		//observer_update(v_alpha, v_beta, i_alpha, i_beta, &tetha);
+		//mod_alpha += mod_alpha_comp;
+		//mod_beta += mod_beta_comp;
+
+
+
+
+
+		//Add saturation protection
+
+		//utils_saturate_vector_2d(&mod_alpha, &mod_beta, SQRT3_BY_2 * BLDC_MAX_DUTY);
 
 		//SVM
 		uint32_t duty1, duty2, duty3, svm_sector;
@@ -1246,27 +1689,32 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 		TIM1->CR1 |= TIM_CR1_UDIS;
 		drv8301_set_pwm(duty1, duty2, duty3);
 		TIM1->CR1 &= ~TIM_CR1_UDIS;
+
+		//TIM1->EGR |=TIM_EGR_UG;
 		//}
 		//PLL
 		//pll_run(tetha, BLDC_DT, &m_pll_phase, &m_pll_speed);
 		//tetha = tetha * (180.0f / (float) M_PI);
 
-		//Speed controller
-		float speed = m_pll_speed / (2.0f * (float) M_PI) / 7.0f;
 
-		static uint32_t cnt = 0;
-		cnt++;
-		if (cnt == DRV8301_PWM_3F_SWITCHING_FREQ_HZ / 1000) {
-			//bldc_state_speed_controller(speed);
-			cnt = 0;
-		}
+		//static uint32_t cnt = 0;
+		//cnt++;
+		//if (cnt == DRV8301_PWM_3F_SWITCHING_FREQ_HZ / 1000) {
+			//float speed = m_pll_speed / (2.0f * (float) M_PI) / 7.0f;
+		//	bldc_state_speed_controller(speed);
+			//cnt = 0;
+		//}
 
 	}
+
+	i_q_ref_prev = i_q_ref;
+
+
 	//Speed controller
-			float speed = m_pll_speed / (2.0f * (float) M_PI) / 7.0f;
+			//float speed = m_pll_speed / (2.0f * (float) M_PI) / 7.0f;
 
 	//Send to scope
-	bldc_scope_send_data((int16_t) (p1_i * 100.0f), (int16_t) (v1 * 100.0f), (int16_t) (speed * 1000.0f), (int16_t) (tetha * 10.0f));
+	//bldc_scope_send_data((int16_t) (i_alpha * 1000.0f), (int16_t) (i_beta * 100.0f), (int16_t) (hfi_index * 1.0f), (int16_t) (0 * 10.0f));
 
 	/*
 	 //Gimbal mode - start

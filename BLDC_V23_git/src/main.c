@@ -522,6 +522,8 @@ static void task_load_monitor(void) {
 	print_uart_param();
 }
 
+extern float angle_offset;
+
 void frame_cb_frame_rc_control(void *buff, uint8_t params) {
 	UNUSED(params);
 
@@ -534,7 +536,8 @@ void frame_cb_frame_rc_control(void *buff, uint8_t params) {
 		rc_throttle = frame->throttle;
 		rc_status = frame->status;
 
-		bldc_set_i_q_ref((float) rc_throttle / 2048.0f * 20.0f);
+		angle_offset = (float) rc_roll / 2048.0f * (float)M_PI;
+		bldc_set_i_q_ref((float) rc_throttle / 2048.0f * 10.0f);
 
 	} else {
 		rc_disconnected();
@@ -583,7 +586,7 @@ void frame_cb_frame_rc_control(void *buff, uint8_t params) {
  * Spi		| DMA1_CH2 	| 5	| -	| DMA1_CH2		|	+		| Unlock GPIO comment RF NSS
  * 			| 			| -	| -	| DMA1_CH3		|			| Check if asm not is really needed
  * --------------------------------------------------------------------------------------------------------------------
- * Tick		| SysTick	| 1	| -	| SystTick		|	+		| Replace by 32 bit timer - tim2 - not possible in this hardware(PA0<->PA1)
+ * Tick		| SysTick	| 4	| -	| SystTick		|	+		| Replace by 32 bit timer - tim2 - not possible in this hardware(PA0<->PA1)
  * --------------------------------------------------------------------------------------------------------------------
  * Uart		| DMA1_CH7	| 8	| -	| USART2		|	-		| Optimization of frame generation
  * --------------------------------------------------------------------------------------------------------------------
@@ -633,6 +636,9 @@ void frame_cb_frame_rc_control(void *buff, uint8_t params) {
  * TOOD add dead time compensation to RL measurement
  * TODO add dynamic PID with I active limitation
  * TODO 10x mniejsze wmocnienie dla nizszysch predkosci
+ * TODO add preload for ARR and CCR for all signals
+ * TODO use ADC interrupt to measure time
+ * TODO after disconnect disable all control
  */
 
 int main(void) {

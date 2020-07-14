@@ -5,7 +5,7 @@
 #include "drv8301_reg.h"
 #include "../Tick/tick.h"
 
-#define DRV8301_PWM_3F_SWITCHING_FREQ_HZ			10000		//TODO can be even 25000
+#define DRV8301_PWM_3F_SWITCHING_FREQ_HZ			20000		//TODO can be even 25000
 #define DRV8301_PWM_PERIOD							(TICK_CPU_FREQUENCY_HZ / DRV8301_PWM_3F_SWITCHING_FREQ_HZ)
 //#define DRV8301_PWM_3F_DEAD_TIME_CYCLES			25	//TODO must be 25,    200 -2.22222us		//max reg value 255
 #define DRV8301_PWM_3F_DEAD_TIME_CYCLES				25

@@ -176,6 +176,11 @@ static void drv8301_timer_init(void) {
 	TIM_OC2Init(TIM1, &TIM_OCInitStructure);
 	TIM_OC3Init(TIM1, &TIM_OCInitStructure);
 
+	//OC4
+	//TIM_OCInitStructure.TIM_Pulse = DRV8301_PWM_PERIOD-1;
+	//TIM_OC4Init(TIM1, &TIM_OCInitStructure);
+
+
 	TIM_OC1PreloadConfig(TIM1, TIM_OCPreload_Enable);
 	TIM_OC2PreloadConfig(TIM1, TIM_OCPreload_Enable);
 	TIM_OC3PreloadConfig(TIM1, TIM_OCPreload_Enable);
@@ -197,27 +202,32 @@ static void drv8301_timer_init(void) {
 
 	TIM_ITConfig(TIM1, TIM_IT_Break, ENABLE);
 	TIM_SelectOutputTrigger(TIM1, TIM_TRGOSource_Update);
+	//TIM_SelectOutputTrigger(TIM1, TIM_TRGOSource_OC4Ref);
+
 
 	TIM_CCPreloadControl(TIM1, ENABLE);
+
+	//TIM_ARRPreloadConfig(TIM1, ENABLE);
 
 	TIM_Cmd(TIM1, ENABLE);
 	TIM_CtrlPWMOutputs(TIM1, ENABLE);
 
 	//Very important to update at proper sequence, must be set after timer enable
+	//This shoudl go before stat counter
 	TIM1->RCR = 1;
 }
 
 void drv8301_set_pwm(uint16_t ch1, uint16_t ch2, uint16_t ch3) {
 	if (ch1 > DRV8301_PWM_3F_PWM_MAX) {
-		TIM1->CCR1 = DRV8301_PWM_3F_PWM_MAX;
+		ch1 = DRV8301_PWM_3F_PWM_MAX;
 	}
 
 	if (ch2 > DRV8301_PWM_3F_PWM_MAX) {
-		TIM1->CCR2 = DRV8301_PWM_3F_PWM_MAX;
+		ch2 = DRV8301_PWM_3F_PWM_MAX;
 	}
 
 	if (ch3 > DRV8301_PWM_3F_PWM_MAX) {
-		TIM1->CCR3 = DRV8301_PWM_3F_PWM_MAX;
+		ch3 = DRV8301_PWM_3F_PWM_MAX;
 	}
 
 	TIM1->CCR1 = ch1;
