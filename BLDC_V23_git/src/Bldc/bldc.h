@@ -67,4 +67,6 @@ bool bldc_get_frame_ready(uint32_t index);
 
 void bldc_get_frame_ready_clear(uint32_t index);
 
+void bldc_start_sig(void);
+
 #endif

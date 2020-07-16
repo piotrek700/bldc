@@ -1132,6 +1132,9 @@ bool hfi_enable = false;
 bool motor_running = false;
 float theta_hfi_rad = 0;
 
+void bldc_start_sig(void){
+	//TODO implement start
+}
 
 /*CCMRAM_FUCNTION*/ static void bldc_state_foc(void) {
 

@@ -44,6 +44,7 @@
 
 #define UNDEVOLTAGE_SOUND_PERIOD_MS					1000
 #define OVERTEMPERATURE_SOUND_PERIOD_MS				1000
+#define START_BUTTON_LONG_PRESS_PERIOD_MS			3000
 
 static float height_compensated = 0;
 static float vel_compensated[3];
@@ -60,7 +61,7 @@ static uint16_t rc_status = 0;
 static uint32_t ii_uart_send = 0;
 
 static void uart_send_scope_data(void) {
-
+	//TODO refactor this
 	while (bldc_get_frame_ready(ii_uart_send)) {
 		uart_send_scope_frame(FRAME_TYPE_DISPLAY_CHANNELS_DATA_4, sizeof(FrameDisplayChannelsData4), (uint8_t *) bldc_get_scope_4ch_frame(ii_uart_send));
 		bldc_get_frame_ready_clear(ii_uart_send);
@@ -288,8 +289,7 @@ static void task_imu_read(void) {
 	vel_compensated[2] = vel[2] - vel_offset[2];
 
 	//AHRS update
-	ahrs_update(vel_compensated[0] * (float) M_PI / 180.0f, -vel_compensated[1] * (float) M_PI / 180.0f, -vel_compensated[2] * (float) M_PI / 180.0f, //YPR 0 0 0
-	acc[0], -acc[1], -acc[2]);
+	ahrs_update(DEG_TO_RAD(vel_compensated[0]), DEG_TO_RAD(-vel_compensated[1]), DEG_TO_RAD(-vel_compensated[2]), acc[0], -acc[1], -acc[2]); //YPR 0 0 0
 
 	ahrs_rotate_45();
 
@@ -326,15 +326,15 @@ static void print_fast_param(void) {
 	float *q = ahrs_get_q2();
 	float *angle = servo_get_angle();
 
-	frame.ahrs.q[0] = (int16_t) (q[0] * 32767.0f);																		//	  -1 	-     1
-	frame.ahrs.q[1] = (int16_t) (q[1] * 32767.0f);																		//	  -1 	-     1
-	frame.ahrs.q[2] = (int16_t) (q[2] * 32767.0f);																		//	  -1 	-     1
-	frame.ahrs.q[3] = (int16_t) (q[3] * 32767.0f);																		//	  -1 	-     1
+	frame.ahrs.q[0] = SCALE_FLOAT_TO_INT16(q[0], -1.0f, 1.0f);															//	  -1 	-     1
+	frame.ahrs.q[1] = SCALE_FLOAT_TO_INT16(q[1], -1.0f, 1.0f);															//	  -1 	-     1
+	frame.ahrs.q[2] = SCALE_FLOAT_TO_INT16(q[2], -1.0f, 1.0f);															//	  -1 	-     1
+	frame.ahrs.q[3] = SCALE_FLOAT_TO_INT16(q[3], -1.0f, 1.0f);															//	  -1 	-     1
 
-	frame.servo.angle[0] = (int16_t) ((angle[0] * 32767.0f) / 180.0f);													//	-180 	-  	180		deg
-	frame.servo.angle[1] = (int16_t) ((angle[1] * 32767.0f) / 180.0f);													//	-180 	-  	180		deg
-	frame.servo.angle[2] = (int16_t) ((angle[2] * 32767.0f) / 180.0f);													//	-180 	-  	180		deg
-	frame.servo.angle[3] = (int16_t) ((angle[3] * 32767.0f) / 180.0f);													//	-180 	-  	180		deg
+	frame.servo.angle[0] = SCALE_FLOAT_TO_INT16(angle[0], -180.0f, 180.0f);												//	-180 	-  	180		deg
+	frame.servo.angle[1] = SCALE_FLOAT_TO_INT16(angle[1], -180.0f, 180.0f);												//	-180 	-  	180		deg
+	frame.servo.angle[2] = SCALE_FLOAT_TO_INT16(angle[2], -180.0f, 180.0f);												//	-180 	-  	180		deg
+	frame.servo.angle[3] = SCALE_FLOAT_TO_INT16(angle[3], -180.0f, 180.0f);												//	-180 	-  	180		deg
 
 	//Slave->Master->PC
 	frame_radio_send(FRAME_TYPE_FAST_PARAMS_SLAVE, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
@@ -344,28 +344,27 @@ static void print_slow_param(void) {
 	FrameSlowParamSlave frame;
 
 	//ADC
-	frame.adc.ntc_temp = (uint16_t) (((bldc_get_ntc_temperature_c() + 128.0f) * 65535.0f) / (128.0f + 256.0f));			//	-128 	- 	256		C
-	frame.adc.up_temp = (uint16_t) (((bldc_get_up_temperature_c() + 128.0f) * 65535.0f) / (128.0f + 256.0f));			//	-128 	- 	256		C
-	frame.adc.bat_v = (uint16_t) ((bldc_get_v_vcc_v() * 65535.0f) / 32.0f);												//	   0 	-  	 32 	V
-	frame.adc.ldo_v = (uint16_t) ((bldc_get_v_ldo_v() * 65535.0f) / 4.0f);												//	   0 	-     4		V
+	frame.adc.ntc_temp = SCALE_FLOAT_TO_UINT16(bldc_get_ntc_temperature_c(), -128.0f, 256.f);							//	-128 	- 	256		C
+	frame.adc.up_temp = SCALE_FLOAT_TO_UINT16(bldc_get_up_temperature_c(), -128.0f, 256.0f);							//	-128 	- 	256		C
+	frame.adc.bat_v = SCALE_FLOAT_TO_UINT16(bldc_get_v_vcc_v(), 0.0f, 32.0f);											//	   0 	-  	 32 	V
+	frame.adc.ldo_v = SCALE_FLOAT_TO_UINT16(bldc_get_v_ldo_v(), 0.0f, 4.0f);											//	   0 	-     4		V
 
 	//IMU
 	float *acc = imu_get_imu_acceleration();
 
-	frame.imu.acc[0] = (int16_t) ((acc[0] * 32767.0f) / 80.0f);															//	 -80 	-    80		m/s2
-	frame.imu.acc[1] = (int16_t) ((acc[1] * 32767.0f) / 80.0f);															//	 -80 	-    80		m/s2
-	frame.imu.acc[2] = (int16_t) ((acc[2] * 32767.0f) / 80.0f);															//	 -80 	-    80		m/s2
+	frame.imu.acc[0] = SCALE_FLOAT_TO_INT16(acc[0], -80.0f, 80.0f);														//	 -80 	-    80		m/s2
+	frame.imu.acc[1] = SCALE_FLOAT_TO_INT16(acc[1], -80.0f, 80.0f);														//	 -80 	-    80		m/s2
+	frame.imu.acc[2] = SCALE_FLOAT_TO_INT16(acc[2], -80.0f, 80.0f);														//	 -80 	-    80		m/s2
 
-	frame.imu.vel[0] = (int16_t) ((vel_compensated[0] * 32767.0f) / 2000.0f);											//   -2k 	-  	 2k		deg/s
-	frame.imu.vel[1] = (int16_t) ((vel_compensated[1] * 32767.0f) / 2000.0f);											//   -2k 	-  	 2k		deg/s
-	frame.imu.vel[2] = (int16_t) ((vel_compensated[2] * 32767.0f) / 2000.0f);											//   -2k 	-  	 2k		deg/s
+	frame.imu.vel[0] = SCALE_FLOAT_TO_INT16(vel_compensated[0], -2000.0f, 2000.0f);										//   -2k 	-  	 2k		deg/s
+	frame.imu.vel[1] = SCALE_FLOAT_TO_INT16(vel_compensated[1], -2000.0f, 2000.0f);										//   -2k 	-  	 2k		deg/s
+	frame.imu.vel[2] = SCALE_FLOAT_TO_INT16(vel_compensated[2], -2000.0f, 2000.0f);										//   -2k 	-  	 2k		deg/s
 
-	frame.imu.temp = (uint16_t) (((imu_get_temperature_c() + 128.0f) * 65535.0f) / (128.0f + 256.0f));					//	-128 	- 	256		C
+	frame.imu.temp = SCALE_FLOAT_TO_UINT16(imu_get_temperature_c(), -128.0f, 256.0f);									//	-128 	- 	256		C
 
-	//Pressure
-	frame.pressure.height = (int16_t) ((height_compensated * 32767.0f) / 1000.0f);										//	 -1000 	-  1000		m
-	frame.pressure.press = (uint16_t) (((pressure_get_pressure_pa() - 90000.0f) * 65535.0f) / (110000.0f - 90000.0f));	//	 90k	-  110k 	Pa
-	frame.pressure.temp = (uint16_t) (((pressure_get_temperature_c() + 128.0f) * 65535.0f) / (128.0f + 256.0f));			//	-128 	- 	256		C
+	frame.pressure.height = SCALE_FLOAT_TO_INT16(height_compensated, -1000.0f, 1000.0f);								//	 -1000 	-  1000		m
+	frame.pressure.press = SCALE_FLOAT_TO_UINT16(pressure_get_pressure_pa(), 90000.0f, 110000.0f);						//	 90k	-  110k 	Pa
+	frame.pressure.temp = SCALE_FLOAT_TO_UINT16(pressure_get_temperature_c(), -128.0f, 256.0f);							//	-128 	- 	256		C
 
 	//Slave->Master->PC
 	frame_radio_send(FRAME_TYPE_SLOW_PARAMS_SLAVE, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
@@ -409,6 +408,8 @@ static void task_param_update(void) {
 		cnt = 0;
 	}
 
+	//Protection
+	//TODO separate thread
 	undervoltage_protection();
 	overtemperature_protection();
 }
@@ -445,23 +446,23 @@ static void print_cpu_load(void) {
 		rybos_clear_task_execution_time(i);
 
 		task_load /= 10000.0f * (float) TASK_LOAD_MONITOR_PERIOD_S;
-		frame.load[i] = (uint16_t) (task_load * 65535.0f / 100.0f);	//Scale 0 - 65535
+		frame.load[i] = SCALE_FLOAT_TO_UINT16(task_load, 0.0f, 100.0f);
 
 		accumulate += task_load;
 
 		cnt = (float) rybos_get_task_execution_cnt(i) / (float) TASK_LOAD_MONITOR_PERIOD_S;
 		rybos_clear_task_execution_cnt(i);
 
-		printf("%u\t%6.3f\t%9.2f\t%s\n", (unsigned int) i + 1, task_load, cnt, TASK_NAMES[i]);
+		printf("%u\t%6.3f\t%9.2f\t%s\n", (unsigned int) i + 1, (double) task_load, (double) cnt, TASK_NAMES[i]);
 
 	}
 	task_load = 100.0f - accumulate;
-	frame.load[i] = (uint16_t) (task_load * 65535.0f / 100.0f);	//Scale 0 - 65535
+	frame.load[i] = SCALE_FLOAT_TO_UINT16(task_load, 0.0f, 100.0f);
 
 	cnt = (float) rybos_get_task_execution_cnt(i) / (float) TASK_LOAD_MONITOR_PERIOD_S;
 	rybos_clear_task_execution_cnt(i);
 
-	printf("%u\t%6.3f\t%9.2f\t%s\n", (unsigned int) i + 1, task_load, cnt, TASK_NAMES[i]);
+	printf("%u\t%6.3f\t%9.2f\t%s\n", (unsigned int) i + 1, (double) task_load, (double) cnt, TASK_NAMES[i]);
 
 	//Slave->Master->PC
 	frame_radio_send(FRAME_TYPE_SYSTEM_LOAD_SLAVE, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
@@ -470,9 +471,9 @@ static void print_cpu_load(void) {
 static void print_radio_parameters(void) {
 	FrameRadioStat frame;
 
-	frame.avarage_rssi = (uint16_t) (((radio_get_avarage_rssi() + 256.0f) * 65535.0f) / (256.0f + 32.0f));	//Scale -256 - 32
-	frame.max_rssi = (uint16_t) ((((float) radio_get_max_rssi() + 256.0f) * 65535.0f) / (256.0f + 32.0f));	//Scale -256 - 32
-	frame.min_rssi = (uint16_t) ((((float) radio_get_min_rssi() + 256.0f) * 65535.0f) / (256.0f + 32.0f));	//Scale -256 - 32
+	frame.avarage_rssi = SCALE_FLOAT_TO_UINT16(radio_get_avarage_rssi(), -256.0f, 32.0f);						//Scale -256 - 32
+	frame.max_rssi = SCALE_FLOAT_TO_UINT16(radio_get_max_rssi(), -256.0f, 32.0f);								//Scale -256 - 32
+	frame.min_rssi = SCALE_FLOAT_TO_UINT16(radio_get_min_rssi(), -256.0f, 32.0f);								//Scale -256 - 32
 
 	frame.max_tran_deph = radio_get_max_queue_depth();
 	frame.rettransmition = radio_get_retransmition_cnt();
@@ -522,7 +523,27 @@ static void task_load_monitor(void) {
 	print_uart_param();
 }
 
-extern float angle_offset;
+static void motor_start_detection(uint16_t status) {
+	//Check if unlocked
+	if (!(status & FRAME_STATUS_LOCK)) {
+		//RB long press detection
+		static uint32_t rb_press_timmer = 0;
+
+		if (status & FRAME_STATUS_BUTTON_RB) {
+
+			if (rb_press_timmer == 0) {
+				rb_press_timmer = tick_get_time_ms();
+			} else {
+				if (tick_get_time_ms() - rb_press_timmer > START_BUTTON_LONG_PRESS_PERIOD_MS) {
+					rb_press_timmer = 0;
+					bldc_start_sig();
+				}
+			}
+		} else {
+			rb_press_timmer = 0;
+		}
+	}
+}
 
 void frame_cb_frame_rc_control(void *buff, uint8_t params) {
 	UNUSED(params);
@@ -536,8 +557,10 @@ void frame_cb_frame_rc_control(void *buff, uint8_t params) {
 		rc_throttle = frame->throttle;
 		rc_status = frame->status;
 
-		angle_offset = (float) rc_roll / 2048.0f * (float)M_PI;
-		bldc_set_i_q_ref((float) rc_throttle / 2048.0f * 10.0f);
+		motor_start_detection(rc_status);
+
+		//angle_offset = (float) rc_roll / 2048.0f * (float)M_PI;
+		//bldc_set_i_q_ref((float) rc_throttle / 2048.0f * 10.0f);
 
 	} else {
 		rc_disconnected();
@@ -639,6 +662,7 @@ void frame_cb_frame_rc_control(void *buff, uint8_t params) {
  * TODO add preload for ARR and CCR for all signals
  * TODO use ADC interrupt to measure time
  * TODO after disconnect disable all control
+ * TODO update RAD_TO_DEG and DEG_TO_RAD
  */
 
 int main(void) {
