@@ -44,7 +44,7 @@
 
 #define UNDEVOLTAGE_SOUND_PERIOD_MS					1000
 #define OVERTEMPERATURE_SOUND_PERIOD_MS				1000
-#define START_BUTTON_LONG_PRESS_PERIOD_MS			3000
+#define START_BUTTON_LONG_PRESS_PERIOD_MS			2000
 
 static float height_compensated = 0;
 static float vel_compensated[3];
