@@ -10,6 +10,8 @@
 #define ONE_BY_SQRT3							0.57735026919f
 #define TWO_BY_SQRT3							1.15470053838f
 #define ONE_OVER_3							    0.66666666667f
+#define SQRT3_BY_2								0.86602540378f
+#define SQRT3_BY_2_MUL_2_OVER_3					0.57735026919f
 
 //Calibration
 #define BEMF_V_CALIBRATION_WAIT_TIME_MS			10
@@ -41,8 +43,7 @@
 
 #define MOTOR_KA								(MOTOR_L/MOTOR_PID_TIME_CONSTANT)
 #define MOTOR_KB								(MOTOR_R/MOTOR_L)
-#define SQRT3_BY_2								0.86602540378f
-#define SQRT3_BY_2_MUL_2_OVER_3					0.57735026919f
+
 
 //FOC
 #define BLDC_DQ_LPF_CUTOFF_FREQ					500.0f
@@ -961,12 +962,14 @@ void bldc_get_frame_ready_clear(uint32_t index) {
 volatile float kp_speed = 1.5;		//2.5
 volatile float ki_speed = 5;		//10
 volatile float kd_speed = 0.01f;		//0.15, 0.3-lower rump up
-volatile float iq_speed_max = 3;	//iq max
+volatile float iq_speed_max = 10.0;	//iq max
 volatile float motor_speed_target_rps = 0.0f;
 volatile float i_max_div = 1.0f;	//5
 
 float speed_controller_i = 0;
 float speed_controller_err_last = 0;
+
+
 
 
 static void bldc_state_speed_controller(float speed_rps) {
@@ -1268,7 +1271,7 @@ uint32_t hfi_complete_run_cnt = 0;
 		}
 	}
 
-	/*
+
 	//Ramp i_q_ref
 	if (i_q_ref > i_q_ref_rc) {
 		if (i_q_ref - i_q_ref_rc > BLDC_MAX_DQ_STEP) {
@@ -1283,10 +1286,10 @@ uint32_t hfi_complete_run_cnt = 0;
 			i_q_ref = i_q_ref_rc;
 		}
 	}
-	*/
+
 
 	//No ramp
-	i_q_ref = i_q_ref_rc;
+	//i_q_ref = i_q_ref_rc;
 
 	//IQ Current limit
 	if (i_q_ref > i_q_max) {
@@ -1517,8 +1520,8 @@ uint32_t hfi_complete_run_cnt = 0;
 
 	//Send to scope
 	float ch1 = RAD_TO_DEG(teta_rad) * 10.0f;
-	float ch2 = RAD_TO_DEG(teta_hfi_rad) * 10.0f;
-	float ch3 = p1_i * 1000.0f;
+	float ch2 = motor_speed_rps * 10.0f;
+	float ch3 = motor_speed_target_rps * 10.0f;
 	float ch4 = p3_i * 1000.0f;
 
 	bldc_scope_send_data((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
@@ -1597,8 +1600,8 @@ CCMRAM_FUCNTION void bldc_adc_irq_hanlder(void) {
 	up_temperature_c = tmp * one_over_adc_temp_call + 30.0f;
 
 	//Voltage calculation
-	tmp = ((float) ADC_INJ_VCC) * v_ldo_v * (ADC_V_GAIN / ADC_MAX_VALUE);
-	v_vcc_v = v_vcc_v * (1.0f - BLDC_LDO_VCC_LPF_ALPHA) + tmp * BLDC_LDO_VCC_LPF_ALPHA;
+	v_vcc_v = ((float) ADC_INJ_VCC) * v_ldo_v * (ADC_V_GAIN / ADC_MAX_VALUE);
+	//v_vcc_v = v_vcc_v * (1.0f - BLDC_LDO_VCC_LPF_ALPHA) + tmp * BLDC_LDO_VCC_LPF_ALPHA;
 
 	bldc_active_state_cb();
 }
@@ -1609,6 +1612,17 @@ static void bldc_state_calibrate_finish(void) {
 		bldc_set_active_state(BLDC_STATE_STOP);
 	}
 }
+
+void bldc_increase_motor_speed_rps(float speed_rps){
+	if (bldc_active_state == BLDC_STATE_FOC) {
+		motor_speed_target_rps +=speed_rps;
+		//TODO implement speed max limit
+		if(motor_speed_target_rps < MOTOR_START_SPEED_TARGET_RPS){
+			bldc_set_active_state(BLDC_STATE_STOP);
+		}
+	}
+}
+
 
 void bldc_start_sig(void) {
 	if (bldc_active_state == BLDC_STATE_DO_NOTHING) {

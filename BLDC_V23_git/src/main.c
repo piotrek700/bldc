@@ -558,7 +558,7 @@ void frame_cb_frame_rc_control(void *buff, uint8_t params) {
 		rc_status = frame->status;
 
 		motor_start_detection(rc_status);
-
+		bldc_increase_motor_speed_rps(rc_throttle / 2048.0f * 1.0f);
 		//angle_offset = (float) rc_roll / 2048.0f * (float)M_PI;
 		//bldc_set_i_q_ref((float) rc_throttle / 2048.0f * 10.0f);
 
