@@ -101,10 +101,10 @@ static float v_bemf_offset_vcc = 0;
 /*CCMRAM_VARIABLE*/ static float adc_vref_mul_vrefint_cal = 0;
 /*CCMRAM_VARIABLE*/ static float one_over_adc_temp_call = 0;
 
-/*CCMRAM_VARIABLE*/ float i_alpha = 0;
-/*CCMRAM_VARIABLE*/ float i_beta = 0;
-/*CCMRAM_VARIABLE*/ float v_alpha = 0.1f;	//Cannot be zero at start
-/*CCMRAM_VARIABLE*/ float v_beta = 0.1f;	//Cannot be zero at start
+/*CCMRAM_VARIABLE*/ float i_alpha = 0.01f;
+/*CCMRAM_VARIABLE*/ float i_beta = -0.01f;
+/*CCMRAM_VARIABLE*/ float v_alpha = 0.2f;	//Cannot be zero at start
+/*CCMRAM_VARIABLE*/ float v_beta = -0.2f;	//Cannot be zero at start
 /*CCMRAM_VARIABLE*/ volatile float i_bus = 0;
 
 //Measurements
