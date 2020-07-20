@@ -27,7 +27,7 @@
 #define BLDC_MEASURE_L_DUTY						0.4f
 #define BLDC_MEASURE_L_SAMPLES					1024*BLDC_MEASURE_L_WAIT_CYCLES
 #define BLDC_MAX_DUTY							0.8f									//TODO can be increased
-#define BLDC_MAX_DQ_STEP  						0.005f
+#define BLDC_MAX_DQ_STEP  						0.01f
 
 //Silver-blue
 #define MOTOR_R									(0.093f*0.85f)							//Single arm value, compensation 0.85 - why? - i dont know
@@ -66,7 +66,7 @@
 #define BLDC_DQ_LPF_ALPHA						(BLDC_DQ_LPF_CUTOFF_FREQ/(BLDC_DQ_LPF_CUTOFF_FREQ+((float)DRV8301_PWM_3F_SWITCHING_FREQ_HZ)/(2.0f*(float)M_PI)))
 #define BLDC_LDO_VCC_LPF_ALPHA					0.025f		//100Hz
 
-#define BLDC_IQ_MAX_FOR_RUN						10.0f
+#define BLDC_IQ_MAX_FOR_RUN						15.0f
 #define BLDC_IQ_MAX_FOR_HFI						2.0f
 
 //Variables
@@ -107,6 +107,9 @@ static float v_bemf_offset_vcc = 0;
 /*CCMRAM_VARIABLE*/ float v_alpha = 0.2f;	//Cannot be zero at start
 /*CCMRAM_VARIABLE*/ float v_beta = -0.2f;	//Cannot be zero at start
 /*CCMRAM_VARIABLE*/ volatile float i_bus = 0;
+/*CCMRAM_VARIABLE*/ float mod_alpha = 0;
+/*CCMRAM_VARIABLE*/ float mod_beta =0;
+
 
 //Measurements
 static uint32_t meaure_r_start_time = 0;
@@ -149,7 +152,6 @@ static void bldc_state_do_nothing(void);
 static void bldc_gimbal_mode(void);
 static void bldc_flux_linkage_measurement(float v_d, float v_q, float i_d, float i_q);
 
-static void bldc_scope_send_data(int16_t ch1, int16_t ch2, int16_t ch3, int16_t ch4);
 
 static BldcStateDictionaryRow state_dictionary[] = {
 		{ BLDC_STATE_CALIBRATE_I, bldc_state_calibrate_i },
@@ -425,11 +427,11 @@ static void bldc_state_calibrate_v(void) {
 
 				p_offset_cnt++;
 			} else if (p_offset_cnt == ADC_V_OFFSET_COUNTER_MAX) {
-				v1_bemf_offset /= (float) (p_offset_cnt - 1);
-				v2_bemf_offset /= (float) (p_offset_cnt - 1);
-				v3_bemf_offset /= (float) (p_offset_cnt - 1);
-				v_bemf_offset_ldo /= (float) (p_offset_cnt - 1);
-				v_bemf_offset_vcc /= (float) (p_offset_cnt - 1);
+				v1_bemf_offset /= (float) p_offset_cnt;
+				v2_bemf_offset /= (float) p_offset_cnt;
+				v3_bemf_offset /= (float) p_offset_cnt;
+				v_bemf_offset_ldo /= (float) p_offset_cnt;
+				v_bemf_offset_vcc /= (float) p_offset_cnt;
 
 				float v1 = v1_bemf_offset * ADC_V_GAIN;
 				v1 *= v_bemf_offset_ldo / ADC_MAX_VALUE;
@@ -459,11 +461,11 @@ static void bldc_state_calibrate_v(void) {
 
 				p_offset_cnt++;
 			} else if (p_offset_cnt == ADC_V_OFFSET_COUNTER_MAX) {
-				v1_bemf_h /= (float) (p_offset_cnt - 1);
-				v2_bemf_h /= (float) (p_offset_cnt - 1);
-				v3_bemf_h /= (float) (p_offset_cnt - 1);
-				v_bemf_h_ldo /= (float) (p_offset_cnt - 1);
-				v_bemf_h_vcc /= (float) (p_offset_cnt - 1);
+				v1_bemf_h /= (float) p_offset_cnt;
+				v2_bemf_h /= (float) p_offset_cnt;
+				v3_bemf_h /= (float) p_offset_cnt;
+				v_bemf_h_ldo /= (float) p_offset_cnt;
+				v_bemf_h_vcc /= (float) p_offset_cnt;
 
 				float v1 = v1_bemf_h * ADC_V_GAIN;
 				v1 *= v_bemf_h_ldo / ADC_MAX_VALUE;
@@ -510,9 +512,9 @@ static void bldc_state_calibrate_i(void) {
 		i_offset_ldo += v_ldo_v;
 		p_offset_cnt++;
 	} else if (p_offset_cnt == ADC_I_OFFSET_COUNTER_MAX) {
-		p1_i_offset /= (float) (p_offset_cnt - 1);
-		p3_i_offset /= (float) (p_offset_cnt - 1);
-		i_offset_ldo /= (float) (p_offset_cnt - 1);
+		p1_i_offset /= (float) p_offset_cnt;
+		p3_i_offset /= (float) p_offset_cnt;
+		i_offset_ldo /= (float) p_offset_cnt;
 
 		float p1 = ((float) p1_i_offset - ADC_MAX_VALUE / 2) / ADC_I_GAIN;
 		p1 *= i_offset_ldo / ADC_MAX_VALUE / ADC_I_R_OHM;
@@ -922,7 +924,7 @@ void bldc_get_frame_ready_clear(uint32_t index) {
 	scope_frame_ready_buff[index] = false;
 }
 
-/*CCMRAM_FUCNTION*/ static void bldc_scope_send_data(int16_t ch1, int16_t ch2, int16_t ch3, int16_t ch4) {
+/*CCMRAM_FUCNTION*/ void bldc_scope_send_data(int16_t ch1, int16_t ch2, int16_t ch3, int16_t ch4) {
 	static uint32_t frame_index_cnt = 0;
 	if (scope_frame_data_cnt < FRAME_MAX_DISPLAY_CHANNELS_8 * 2) {
 		uint32_t index = scope_frame_data_cnt;
@@ -959,18 +961,18 @@ void bldc_get_frame_ready_clear(uint32_t index) {
 #define MAXIMUM_HFI_MAGNETIC_SPEED_RPS	10.0f
 #define MOTOR_START_SPEED_TARGET_RPS	10.0f
 
-volatile float kp_speed = 1.5;		//2.5
-volatile float ki_speed = 5;		//10
-volatile float kd_speed = 0.01f;		//0.15, 0.3-lower rump up
-volatile float iq_speed_max = 10.0;	//iq max
+volatile float kp_speed = 1.8;		//2.5
+volatile float ki_speed = 0;		//10
+volatile float kd_speed = 0.09f;		//0.15, 0.3-lower rump up
+volatile float iq_speed_max = 5.0;	//iq max
 volatile float motor_speed_target_rps = 0.0f;
-volatile float i_max_div = 1.0f;	//5
+volatile float i_max_div = 0.25f;	//5
 
 float speed_controller_i = 0;
 float speed_controller_err_last = 0;
 
 
-
+float speed_direction = -1.0f;
 
 static void bldc_state_speed_controller(float speed_rps) {
 
@@ -980,9 +982,9 @@ static void bldc_state_speed_controller(float speed_rps) {
 	float dt = BLDC_DT;
 
 	static float speed_rps_lpf = 0;
-	speed_rps_lpf = speed_rps_lpf * 0.9f + 0.1f * speed_rps;
+	speed_rps_lpf = speed_rps_lpf * 0.0f + 1.0f * speed_rps;
 
-	err = motor_speed_target_rps - speed_rps_lpf;
+	err = speed_direction*motor_speed_target_rps - speed_rps_lpf;
 
 	p = kp_speed * err;
 	speed_controller_i = ki_speed * err * dt + speed_controller_i;
@@ -1233,7 +1235,6 @@ static void bldc_bemf_tracking(void){
 
 
  float angle_offset = 0;
- float angle_offset_rad = 0;
 
 
 	static int32_t direction = 0;
@@ -1243,6 +1244,8 @@ static void bldc_bemf_tracking(void){
 	float fft_pure_angle_rad=0;
 
 	volatile uint32_t hfi_inject_index = 0 ;
+	static float angle_bin_1 = 0;
+
 	static float angle_bin_2 = 0;
 
 	volatile hfi_pll_kp = 200;
@@ -1258,6 +1261,112 @@ float teta_hfi_rad = 0;
 
 uint32_t hfi_complete_run_cnt = 0;
 
+#define HFI_VOLTAGE_START		10.0f
+#define HFI_VOLTAGE				2.0f
+#define HFI_FFT_INDEX_DIV		1
+static volatile float hfi_i_buffer[32 / HFI_FFT_INDEX_DIV];
+static uint32_t hfi_index = 0;
+static void bldc_hfi(void) {
+	static bool even = false;
+	float hfi_voltage;
+	static float current_sample1 = 0;
+	static float current_sample2 = 0;
+
+	static float sin_prev = 0;
+	static float cos_prev = 0;
+	static float last_angle = 0;
+	static float angle_offset_rad = 0;
+
+	if (hfi_complete_run_cnt < 3) {
+		//0, 1
+		hfi_voltage = HFI_VOLTAGE_START;
+		mod_alpha = 0;
+		mod_beta = 0;
+	} else {
+		//2, 3, 4...
+		hfi_voltage = HFI_VOLTAGE;
+	}
+
+	if (even) {
+		//0, 2, 4
+		even = false;
+
+		mod_alpha = mod_alpha - hfi_voltage * utils_tab_sin_32_1[hfi_index * HFI_FFT_INDEX_DIV] / ((2.0f / 3.0f) * v_vcc_v);
+		mod_beta = mod_beta + hfi_voltage * utils_tab_cos_32_1[hfi_index * HFI_FFT_INDEX_DIV] / ((2.0f / 3.0f) * v_vcc_v);
+
+		current_sample2 = sin_prev * i_alpha - cos_prev * i_beta;
+		hfi_i_buffer[hfi_index] = current_sample2 - current_sample1;
+
+		sin_prev = utils_tab_sin_32_1[hfi_index * HFI_FFT_INDEX_DIV];
+		cos_prev = utils_tab_cos_32_1[hfi_index * HFI_FFT_INDEX_DIV];
+
+		hfi_index++;
+		if (hfi_index == 32 / HFI_FFT_INDEX_DIV) {
+			hfi_index = 0;
+
+			float real_bin1, imag_bin1, real_bin2, imag_bin2;
+			utils_fft32_bin1(hfi_i_buffer, &real_bin1, &imag_bin1);
+			utils_fft32_bin2(hfi_i_buffer, &real_bin2, &imag_bin2);
+
+			angle_bin_1 =	 -fast_atan2f_sec(imag_bin1, real_bin1);
+			angle_bin_2 =	 -fast_atan2f_sec(imag_bin2, real_bin2) / 2.0f;
+
+			angle_bin_1 += M_PI / 1.7; // Why 1.7??
+			utils_norm_angle_rad(&angle_bin_1);
+
+
+			//Detect polarization
+			if(hfi_voltage == 2){
+				if (fabsf(utils_angle_difference_rad(angle_bin_2, angle_bin_1)) > (M_PI / 2.0)) {
+					angle_offset_rad = M_PI;
+				}else{
+					angle_offset_rad = 0;
+
+				}
+			}
+
+
+			angle_bin_2 += pll_speed_rad * (32.0f / (float) HFI_FFT_INDEX_DIV / 2.0f) * BLDC_DT;
+
+			if (fabsf(utils_angle_difference_rad(angle_bin_2 + (float) M_PI, last_angle)) < fabsf(utils_angle_difference_rad(angle_bin_2, last_angle))) {
+				angle_bin_2 += (float) M_PI;
+			}
+
+			last_angle = angle_bin_2;
+
+			utils_norm_angle_rad(&angle_bin_2);
+
+			fft_pure_angle_rad = angle_bin_2;
+			angle_bin_2 += angle_offset_rad;
+			utils_norm_angle_rad(&angle_bin_2);
+
+			teta_hfi_rad = angle_bin_2;
+
+			hfi_complete_run_cnt++;
+		}
+
+
+		//Send to scope
+		//float ch1 = current_sample2 - current_sample1* 1000.0f;
+		//float ch2 = angle_bin_2 * 10.0f;
+		//float ch3 = 0 * 10.0f;
+		//float ch4 = 0;
+
+		//bldc_scope_send_data((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
+
+	} else {
+		//1, 3, 5
+		even = true;
+
+		mod_alpha = mod_alpha + hfi_voltage * utils_tab_sin_32_1[hfi_index * HFI_FFT_INDEX_DIV] / ((2.0f / 3.0f) * v_vcc_v);
+		mod_beta = mod_beta - hfi_voltage * utils_tab_cos_32_1[hfi_index * HFI_FFT_INDEX_DIV] / ((2.0f / 3.0f) * v_vcc_v);
+
+		current_sample1 = sin_prev * i_alpha - cos_prev * i_beta;
+
+		sin_prev = utils_tab_sin_32_1[hfi_index * HFI_FFT_INDEX_DIV];
+		cos_prev = utils_tab_cos_32_1[hfi_index * HFI_FFT_INDEX_DIV];
+	}
+}
 
 /*CCMRAM_FUCNTION*/ static void bldc_state_foc(void) {
 	//TODO add window comparator
@@ -1265,7 +1374,7 @@ uint32_t hfi_complete_run_cnt = 0;
 
 	//Check startup speed timeout
 	if (tick_get_time_ms() - foc_start_time > FOC_START_TIEMOUT_MS) {
-		if (motor_speed_rps < FOC_STARTUP_SPEED_RPS) {
+		if (fabsf(motor_speed_rps) < FOC_STARTUP_SPEED_RPS) {
 			bldc_set_active_state(BLDC_STATE_STOP);				//Comment when flux linkage measurements
 			return;												//Comment when flux linkage measurements
 		}
@@ -1346,6 +1455,7 @@ uint32_t hfi_complete_run_cnt = 0;
 	if (fabsf(magnetic_speed_rps) > MAXIMUM_HFI_MAGNETIC_SPEED_RPS) {
 		hfi_enable = false;
 		i_q_max = BLDC_IQ_MAX_FOR_RUN;
+		iq_speed_max = BLDC_IQ_MAX_FOR_RUN;
 	}
 
 	//Park Transform
@@ -1403,79 +1513,13 @@ uint32_t hfi_complete_run_cnt = 0;
 	//i_bus = mod_d * i_d + mod_q * i_q;
 
 	//Inverse Park
-	float mod_alpha = cos_tetha * mod_d - sin_tetha * mod_q;
-	float mod_beta = cos_tetha * mod_q + sin_tetha * mod_d;
+	mod_alpha = cos_tetha * mod_d - sin_tetha * mod_q;
+	mod_beta = cos_tetha * mod_q + sin_tetha * mod_d;
 
 	//HFI injection
-	//hfi_complete_run_cnt
-	/*
 	if (hfi_enable) {
-		const float hfi_voltage = 2.0f;
-		const uint32_t index_devider = 1;
-		static uint32_t hfi_index = 0;
-		static float current_sample1 = 0;
-		static float current_sample2 = 0;
-		static float hfi_i_buffer[32];
-		static float sin_prev = 0;
-		static float cos_prev = 0;
-		static float last_angle = 0;
-		static bool even = false;
-
-		//0, 2, 4
-		if (even) {
-			even = false;
-
-			mod_alpha = mod_alpha - hfi_voltage * utils_tab_sin_32_1[hfi_index * index_devider] / ((2.0f / 3.0f) * v_vcc_v);
-			mod_beta = mod_beta + hfi_voltage * utils_tab_cos_32_1[hfi_index * index_devider] / ((2.0f / 3.0f) * v_vcc_v);
-
-			current_sample2 = sin_prev * i_alpha - cos_prev * i_beta;
-			hfi_i_buffer[hfi_index] = current_sample2 - current_sample1;
-
-			sin_prev = utils_tab_sin_32_1[hfi_index * index_devider];
-			cos_prev = utils_tab_cos_32_1[hfi_index * index_devider];
-
-			hfi_index++;
-			if (hfi_index == 32 / index_devider) {
-				hfi_index = 0;
-				LED_RED_OFF;
-
-				float real_bin2, imag_bin2;
-
-				utils_fft32_bin2(hfi_i_buffer, &real_bin2, &imag_bin2);
-				angle_bin_2 = -fast_atan2f_sec(imag_bin2, real_bin2) / 2.0f;
-
-				angle_bin_2 += pll_speed_rad * (32.0f / (float) index_devider / 2.0f) * BLDC_DT;
-
-				if (fabsf(utils_angle_difference_rad(angle_bin_2 + (float) M_PI, last_angle)) < fabsf(utils_angle_difference_rad(angle_bin_2, last_angle))) {
-					angle_bin_2 += (float) M_PI;
-				}
-
-				last_angle = angle_bin_2;
-
-				utils_norm_angle_rad(&angle_bin_2);
-
-				//fft_pure_angle_rad = angle_bin_2;
-				//angle_bin_2 += angle_offset_rad;
-				//utils_norm_angle_rad(&angle_bin_2);
-
-				teta_hfi_rad = angle_bin_2;
-			}
-
-			//1, 3, 5
-		} else {
-			even = true;
-
-			mod_alpha = mod_alpha + hfi_voltage * utils_tab_sin_32_1[hfi_index * index_devider] / ((2.0f / 3.0f) * v_vcc_v);
-			mod_beta = mod_beta - hfi_voltage * utils_tab_cos_32_1[hfi_index * index_devider] / ((2.0f / 3.0f) * v_vcc_v);
-
-			current_sample1 = sin_prev * i_alpha - cos_prev * i_beta;
-
-			sin_prev = utils_tab_sin_32_1[hfi_index * index_devider];
-			cos_prev = utils_tab_cos_32_1[hfi_index * index_devider];
-		}
+		//bldc_hfi();																//Comment when flux linkage measurements
 	}
-	*/
-	//...................
 
 	//Dead time compensation
 	float i_alpha_f = cos_tetha * i_d_ref - sin_tetha * i_q_ref;
@@ -1524,7 +1568,7 @@ uint32_t hfi_complete_run_cnt = 0;
 	float ch3 = motor_speed_target_rps * 10.0f;
 	float ch4 = p3_i * 1000.0f;
 
-	bldc_scope_send_data((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
+	//bldc_scope_send_data((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
 
 
 	//Detecting HFI polarity during ramp speed down
@@ -1617,7 +1661,7 @@ void bldc_increase_motor_speed_rps(float speed_rps){
 	if (bldc_active_state == BLDC_STATE_FOC) {
 		motor_speed_target_rps +=speed_rps;
 		//TODO implement speed max limit
-		if(motor_speed_target_rps < MOTOR_START_SPEED_TARGET_RPS){
+		if(fabsf(motor_speed_target_rps) < MOTOR_START_SPEED_TARGET_RPS){
 			bldc_set_active_state(BLDC_STATE_STOP);
 		}
 	}
@@ -1640,6 +1684,8 @@ void bldc_start_sig(void) {
 		motor_speed_target_rps = MOTOR_START_SPEED_TARGET_RPS;
 		//Clear HFI run counter
 		hfi_complete_run_cnt = 0;
+		hfi_index = 0;
+		iq_speed_max = 2.5f;
 
 		//Clear all integral components
 		//Current control PID

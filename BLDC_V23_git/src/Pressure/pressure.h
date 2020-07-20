@@ -3,7 +3,7 @@
 
 #include "platform.h"
 
-#define PRESSURE_OFFSET_COUNTER		128
+#define PRESSURE_OFFSET_COUNTER		128*4
 
 #define LPS22HB_PRESSURE_SCALE      40.96f
 #define LPS22HB_TEMPERATURE_SCALE   100.0f

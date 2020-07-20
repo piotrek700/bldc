@@ -71,4 +71,6 @@ void bldc_start_sig(void);
 
 void bldc_increase_motor_speed_rps(float speed_rps);
 
+void bldc_scope_send_data(int16_t ch1, int16_t ch2, int16_t ch3, int16_t ch4);
+
 #endif

@@ -3,7 +3,7 @@
 
 #include "platform.h"
 
-#define IMU_OFFSET_COUNTER						1024
+#define IMU_OFFSET_COUNTER						1024*8
 
 #define LSM6DSL_8G_SENSITIVITY					(0.244f/1000.0f)
 #define LSM6DSL_2000DPS_SENSITIVITY				(70.0f/1000.0f)

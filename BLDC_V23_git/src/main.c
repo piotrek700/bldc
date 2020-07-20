@@ -223,7 +223,7 @@ static void task_read_pressure(void) {
 		height_tmp += pressure_get_height_m();
 		offset_cnt++;
 	} else if (offset_cnt == PRESSURE_OFFSET_COUNTER) {
-		height_offset = height_tmp / (float) (offset_cnt - 1);
+		height_offset = height_tmp / (float) offset_cnt;
 		offset_cnt++;
 	}
 
@@ -249,16 +249,16 @@ static void control_drone(void) {
 	 */
 
 	float tmp = 0;
-	//tmp = (float)rc_pitch * 45.0f/2048.0f;
+	tmp = (float)rc_pitch * 45.0f/2048.0f;
 	servo_set_position_angle(SERVO_POSITION_2_TOP, tmp);
 
-	//tmp = (float)rc_pitch * 45.0f/2048.0f;
+	tmp = (float)rc_pitch * 45.0f/2048.0f;
 	servo_set_position_angle(SERVO_POSITION_4_BOTTOM, tmp);
 
-	//tmp = (float)rc_pitch * 45.0f/2048.0f;
+	tmp = (float)rc_pitch * 45.0f/2048.0f;
 	servo_set_position_angle(SERVO_POSITION_1_LEFT, tmp);
 
-	//tmp = (float)rc_pitch * 45.0f/2048.0f;
+	tmp = (float)rc_pitch * 45.0f/2048.0f;
 	servo_set_position_angle(SERVO_POSITION_3_RIGHT, tmp);
 }
 
@@ -277,9 +277,9 @@ static void task_imu_read(void) {
 		vel_offset_tmp[2] += vel[2];
 		offset_cnt++;
 	} else if (offset_cnt == IMU_OFFSET_COUNTER) {
-		vel_offset[0] = vel_offset_tmp[0] / (float) (offset_cnt - 1);
-		vel_offset[1] = vel_offset_tmp[1] / (float) (offset_cnt - 1);
-		vel_offset[2] = vel_offset_tmp[2] / (float) (offset_cnt - 1);
+		vel_offset[0] = vel_offset_tmp[0] / (float) offset_cnt;
+		vel_offset[1] = vel_offset_tmp[1] / (float) offset_cnt;
+		vel_offset[2] = vel_offset_tmp[2] / (float) offset_cnt;
 		offset_cnt++;
 		ahrs_set_beta(AHRS_BETA_FINAL);
 	}
@@ -300,6 +300,14 @@ static void task_imu_read(void) {
 	imu_read_sensor();
 
 	control_drone();
+
+	//Send to scope
+	float ch1 = vel_compensated[0] * 1000.0f;
+	float ch2 = vel_compensated[1] * 1000.0f;
+	float ch3 = vel_compensated[2] * 1000.0f;
+	float ch4 = vel[0] * 1000.0f;
+
+	bldc_scope_send_data((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
 }
 
 void frame_cb_frame_req_init_data(void *buff, uint8_t params) {
