@@ -3,17 +3,18 @@
 #include "../Tick/tick.h"
 #include "../utils.h"
 
-CCMRAM_VARIABLE static volatile RybosTask task_list[RYBOS_NUMBER_OF_TASK];
+CCMRAM_VARIABLE static volatile RybosTask task_list[RYBOS_MARKER_TASK_SIZE - 1];
 CCMRAM_VARIABLE static volatile TaskLoadStack stack[RYBOS_TASK_MARKER_STACK_SIZE];
-CCMRAM_VARIABLE static volatile uint32_t exec_time[MARKER_SYSTEM];
-CCMRAM_VARIABLE static volatile uint32_t exec_cnt[MARKER_SYSTEM + 1];
+CCMRAM_VARIABLE static volatile uint32_t exec_time[RYBOS_TASK_AND_IRQ_SIZE - 1];
+CCMRAM_VARIABLE static volatile uint32_t exec_cnt[RYBOS_TASK_AND_IRQ_SIZE];
 CCMRAM_VARIABLE static volatile uint32_t stack_ptr = 0;
-CCMRAM_VARIABLE static volatile uint32_t marker_to_id[MARKER_SYSTEM];
+CCMRAM_VARIABLE static volatile uint32_t marker_to_id[RYBOS_TASK_AND_IRQ_SIZE - 1];
+CCMRAM_VARIABLE static volatile uint32_t iqr_execution_mask = 0;
 
-void rybos_add_task(uint32_t period, uint32_t priority, uint8_t *description, void (*cb)(void), TaskMarker marker, bool enable) {
+void rybos_add_task(uint32_t period, uint32_t priority, uint8_t *description, void (*cb)(void), RybosIrqTaskMarker marker, bool enable) {
 	static uint32_t task_cnt = 0;
 
-	if (task_cnt == RYBOS_NUMBER_OF_TASK) {
+	if (task_cnt == (RYBOS_MARKER_TASK_SIZE - 1)) {
 		debug_error(DEBUG_RYBOS_TASK_LIST_LENGTH_ERROR);
 	}
 
@@ -41,7 +42,7 @@ CCMRAM_FUCNTION void rybos_scheduler_run(void) {
 
 	do {
 		active_task_ptr++;
-		if (active_task_ptr == RYBOS_NUMBER_OF_TASK) {
+		if (active_task_ptr == (RYBOS_MARKER_TASK_SIZE - 1)) {
 			active_task_ptr = 0;
 		}
 
@@ -54,8 +55,7 @@ CCMRAM_FUCNTION void rybos_scheduler_run(void) {
 				}
 			}
 		}
-
-		//TODO Check if cyclic task, Check if refresh required
+	//TODO Check if cyclic task, Check if refresh required
 	} while (last_task != active_task_ptr);
 
 	//Update timer and execute task
@@ -67,17 +67,16 @@ CCMRAM_FUCNTION void rybos_scheduler_run(void) {
 	rybos_task_stop_marker(task_list[active_task_ptr].marker);
 
 	//Execution counter
-	exec_cnt[MARKER_SYSTEM]++;
+	exec_cnt[RYBOS_TASK_AND_IRQ_SIZE - 1]++;
 }
 
-CCMRAM_FUCNTION void rybos_task_start_marker(TaskMarker marker) {
+CCMRAM_FUCNTION void rybos_task_start_marker(RybosIrqTaskMarker marker) {
 	enter_critical();
 
-	//TODO debug, do not remove
 	//Check stack overflow
-	//if (stack_ptr == RYBOS_TASK_MARKER_STACK_SIZE) {
-	//	debug_error_handler(RYBOS_TASK_MARKER_STACK_OVERLOW);
-	//}
+	if (stack_ptr == RYBOS_TASK_MARKER_STACK_SIZE) {
+		debug_error(RYBOS_TASK_MARKER_STACK_OVERLOW);
+	}
 
 	//Get start tick time
 	stack[stack_ptr].start_cnt = tick_get_clock_tick();
@@ -91,17 +90,27 @@ CCMRAM_FUCNTION void rybos_task_start_marker(TaskMarker marker) {
 	exit_critical();
 }
 
-CCMRAM_FUCNTION void rybos_task_stop_marker(TaskMarker marker) {
+CCMRAM_FUCNTION void rybos_task_stop_marker(RybosIrqTaskMarker marker) {
 	//Check marker
 	enter_critical();
 
-	//asm volatile("" ::: "memory");
 	stack_ptr--;
 
-	//TODO debug, do not remove
+	//Debug only
 	//if (stack[stack_ptr].marker != marker) {
 	//	debug_error_handler(RYBOS_TASK_MARKER_ERROR);
 	//}
+
+	//IRQ section
+	if (marker < RYBOS_MARKER_IRQ_SIZE) {
+		//Mark IRQ execution flag
+		iqr_execution_mask |= (1 << marker);
+
+		//Lazy stacking detection
+		//if ((FPU->FPCCR & FPU_FPCCR_LSPACT_Msk) == 0) {
+		//	lazy_stacking_cnt[marker]++;
+		//}
+	}
 
 	//Get stop time
 	uint32_t task_stop_tick = tick_get_clock_tick();
@@ -112,7 +121,7 @@ CCMRAM_FUCNTION void rybos_task_stop_marker(TaskMarker marker) {
 	if (task_stop_tick >= stack[stack_ptr].start_cnt) {
 		task_execution_time = task_stop_tick - stack[stack_ptr].start_cnt;
 	} else {
-		task_execution_time = (uint32_t) 0xFFFFFFFF - (stack[stack_ptr].start_cnt - task_stop_tick) + (uint32_t)1;
+		task_execution_time = (uint32_t) 0xFFFFFFFF - (stack[stack_ptr].start_cnt - task_stop_tick) + (uint32_t) 1;
 	}
 
 	if (stack_ptr > 0) {
@@ -131,23 +140,31 @@ CCMRAM_FUCNTION void rybos_task_stop_marker(TaskMarker marker) {
 	exit_critical();
 }
 
-CCMRAM_FUCNTION uint32_t rybos_get_task_execution_time(TaskMarker marker) {
+CCMRAM_FUCNTION uint32_t rybos_get_task_execution_time(RybosIrqTaskMarker marker) {
 	return exec_time[marker];
 }
 
-CCMRAM_FUCNTION void rybos_clear_task_execution_time(TaskMarker marker) {
+CCMRAM_FUCNTION void rybos_clear_task_execution_time(RybosIrqTaskMarker marker) {
 	exec_time[marker] = 0;
 }
 
-CCMRAM_FUCNTION uint32_t rybos_get_task_execution_cnt(TaskMarker marker) {
+CCMRAM_FUCNTION uint32_t rybos_get_task_execution_cnt(RybosIrqTaskMarker marker) {
 	return exec_cnt[marker];
 }
 
-CCMRAM_FUCNTION void rybos_clear_task_execution_cnt(TaskMarker marker) {
+CCMRAM_FUCNTION void rybos_clear_task_execution_cnt(RybosIrqTaskMarker marker) {
 	exec_cnt[marker] = 0;
 }
 
-CCMRAM_FUCNTION void rybos_task_enable(TaskMarker marker, bool enable) {
+CCMRAM_FUCNTION uint32_t rybos_get_irq_execution_mask(void) {
+	return iqr_execution_mask;
+}
+
+CCMRAM_FUCNTION void rybos_clear_irq_execution_mask(void) {
+	iqr_execution_mask = 0;
+}
+
+CCMRAM_FUCNTION void rybos_task_enable(RybosIrqTaskMarker marker, bool enable) {
 	enter_critical();
 
 	uint32_t i = marker_to_id[marker];
@@ -162,7 +179,7 @@ CCMRAM_FUCNTION void rybos_task_enable(TaskMarker marker, bool enable) {
 	exit_critical();
 }
 
-CCMRAM_FUCNTION void rybos_task_enable_time(TaskMarker marker, uint32_t timer, bool enable) {
+CCMRAM_FUCNTION void rybos_task_enable_time(RybosIrqTaskMarker marker, uint32_t timer, bool enable) {
 	enter_critical();
 
 	uint32_t i = marker_to_id[marker];

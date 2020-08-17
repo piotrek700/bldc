@@ -285,7 +285,7 @@ void uart_send(uint8_t frame_type, uint8_t *frame, uint32_t frame_len) {
 
 //UART TX
 void DMA1_Channel7_IRQHandler(void) {
-	rybos_task_start_marker(MARKER_IRQ_UART_DMA);
+	rybos_task_start_marker(RYBOS_MARKER_IRQ_UART_DMA);
 
 	if (DMA_GetITStatus(DMA1_IT_TC7) != RESET) {
 		DMA_ClearITPendingBit(DMA1_IT_TC7);
@@ -297,7 +297,7 @@ void DMA1_Channel7_IRQHandler(void) {
 			uart_dma_start_next_transation();
 		}
 	}
-	rybos_task_stop_marker(MARKER_IRQ_UART_DMA);
+	rybos_task_stop_marker(RYBOS_MARKER_IRQ_UART_DMA);
 }
 
 

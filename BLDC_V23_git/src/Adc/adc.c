@@ -271,7 +271,7 @@ static void adc_nvic_init(void) {
 }
 
 CCMRAM_FUCNTION void ADC1_2_IRQHandler(void) {
-	rybos_task_start_marker(MARKER_IRQ_ADC_NTC);
+	rybos_task_start_marker(RYBOS_MARKER_IRQ_ADC_NTC);
 
 	//ADC1 clear pending IRQ bit
 	ADC1->ISR = (uint32_t) 0x7FF;
@@ -308,7 +308,7 @@ CCMRAM_FUCNTION void ADC1_2_IRQHandler(void) {
 	//FOC
 	bldc_adc_irq_hanlder();
 
-	rybos_task_stop_marker(MARKER_IRQ_ADC_NTC);
+	rybos_task_stop_marker(RYBOS_MARKER_IRQ_ADC_NTC);
 }
 
 /*

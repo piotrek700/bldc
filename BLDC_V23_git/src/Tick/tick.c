@@ -48,9 +48,9 @@ uint32_t tick_get_clock_tick(void) {
 }*/
 
 CCMRAM_FUCNTION void SysTick_Handler(void) {
-	rybos_task_start_marker(MARKER_IRQ_TICK);
+	rybos_task_start_marker(RYBOS_MARKER_IRQ_TICK);
 	tick_counter++;
-	rybos_task_stop_marker(MARKER_IRQ_TICK);
+	rybos_task_stop_marker(RYBOS_MARKER_IRQ_TICK);
 }
 
 bool tick_get_init_status(void) {

@@ -138,14 +138,14 @@ static void drv8301_fault_irq(void) {
 }
 
 void TIM1_BRK_TIM15_IRQHandler(void) {
-	rybos_task_start_marker(MARKER_IRQ_DRV_FAULT);
+	rybos_task_start_marker(RYBOS_MARKER_IRQ_DRV_FAULT);
 
 	if (TIM_GetITStatus(TIM1, TIM_IT_Break) != RESET) {
 		TIM_ClearITPendingBit(TIM1, TIM_IT_Break);
 		drv8301_fault_irq();
 	}
 
-	rybos_task_stop_marker(MARKER_IRQ_DRV_FAULT);
+	rybos_task_stop_marker(RYBOS_MARKER_IRQ_DRV_FAULT);
 }
 
 static void drv8301_timer_init(void) {

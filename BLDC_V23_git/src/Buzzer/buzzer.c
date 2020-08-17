@@ -106,7 +106,7 @@ void buzzer_generate_sound(BuzzerSoundType sound_type) {
 	sound_length = sound_dictionary[sound_type].sound_length;
 	sound_step = 0;
 
-	rybos_task_enable(MARKER_TASK_BUZZER, true);
+	rybos_task_enable(RYBOS_MARKER_TASK_BUZZER, true);
 }
 
 void buzzer_state_machine(void) {
@@ -121,7 +121,7 @@ void buzzer_state_machine(void) {
 			if (tick_get_time_ms() >= next_time_step) {
 				if (sound_step == sound_length) {
 					buzzer_set_frequency(0);
-					rybos_task_enable(MARKER_TASK_BUZZER, false);
+					rybos_task_enable(RYBOS_MARKER_TASK_BUZZER, false);
 					return;
 				}
 				next_time_step += sound_ptr[sound_step].generation_time_ms;

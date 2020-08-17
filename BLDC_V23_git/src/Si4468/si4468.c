@@ -50,7 +50,7 @@ bool si4468_get_cmd_ready(void) {
 void si4468_set_cmd_ready(bool cmd) {
 	cmd_ready = cmd;
 	if (cmd == false) {
-		rybos_task_enable(MARKER_TASK_RF, false);
+		rybos_task_enable(RYBOS_MARKER_TASK_RF, false);
 	}
 }
 
@@ -84,7 +84,7 @@ void si4468_read_frr_bcd_cb(uint8_t *rx) {
 		} else {
 			cmd_error = true;
 			debug_error(SI4468_CMD_ERROR_IRQ);
-			rybos_task_enable(MARKER_TASK_RF, true);
+			rybos_task_enable(RYBOS_MARKER_TASK_RF, true);
 			return;
 		}
 	}
@@ -92,7 +92,7 @@ void si4468_read_frr_bcd_cb(uint8_t *rx) {
 	if (ph_pend & SI446X_CMD_GET_INT_STATUS_REP_PH_PEND_CRC_ERROR_PEND_BIT) {
 		cmd_error = true;
 		debug_error(SI4468_PACKET_CRC_ERROR_IRQ);
-		rybos_task_enable(MARKER_TASK_RF, true);
+		rybos_task_enable(RYBOS_MARKER_TASK_RF, true);
 			return;
 	}
 
@@ -109,7 +109,7 @@ void si4468_read_frr_bcd_cb(uint8_t *rx) {
 		packet_sent_time = tick_get_time_ms();
 	}
 
-	rybos_task_enable(MARKER_TASK_RF, true);
+	rybos_task_enable(RYBOS_MARKER_TASK_RF, true);
 }
 
 static void si4468_gpio_init(void) {
@@ -161,7 +161,7 @@ static void si4468_exti_init(void) {
 }
 
 void EXTI9_5_IRQHandler(void) {
-	rybos_task_start_marker(MARKER_IRQ_SI4468_NIRQ);
+	rybos_task_start_marker(RYBOS_MARKER_IRQ_SI4468_NIRQ);
 
 	//IRQ
 	EXTI_ClearITPendingBit(EXTI_Line5);
@@ -173,20 +173,20 @@ void EXTI9_5_IRQHandler(void) {
 	spi_add_transaction((SpiTransactionRecord *) &record_get_int_status);
 	cmd_ready = false;
 
-	rybos_task_enable(MARKER_TASK_RF, true);
-	rybos_task_stop_marker(MARKER_IRQ_SI4468_NIRQ);
+	rybos_task_enable(RYBOS_MARKER_TASK_RF, true);
+	rybos_task_stop_marker(RYBOS_MARKER_IRQ_SI4468_NIRQ);
 }
 
 void EXTI15_10_IRQHandler(void) {
-	rybos_task_start_marker(MARKER_IRQ_SI4468_CTS);
+	rybos_task_start_marker(RYBOS_MARKER_IRQ_SI4468_CTS);
 
 	//CTS
 	EXTI_ClearITPendingBit(EXTI_Line10);
 
 	cmd_ready = true;
 
-	rybos_task_enable(MARKER_TASK_RF, true);
-	rybos_task_stop_marker(MARKER_IRQ_SI4468_CTS);
+	rybos_task_enable(RYBOS_MARKER_TASK_RF, true);
+	rybos_task_stop_marker(RYBOS_MARKER_IRQ_SI4468_CTS);
 }
 
 static void si4468_add_transaction_blocking(SpiTransactionRecord *record) {

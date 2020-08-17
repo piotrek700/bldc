@@ -49,13 +49,13 @@ static void radio_reset_sm(void) {
 
 void radio_timeout_init(void) {
 	timeout = false;
-	rybos_task_enable_time(MARKER_TASK_RF_TIMEOUT, si4468_get_packet_sent_time() + RADIO_TX_TIMEOUT_CNT_MS, true);
+	rybos_task_enable_time(RYBOS_MARKER_TASK_RF_TIMEOUT, si4468_get_packet_sent_time() + RADIO_TX_TIMEOUT_CNT_MS, true);
 }
 
 void radio_timeout(void) {
 	timeout = true;
-	rybos_task_enable(MARKER_TASK_RF_TIMEOUT, false);
-	rybos_task_enable(MARKER_TASK_RF, true);
+	rybos_task_enable(RYBOS_MARKER_TASK_RF_TIMEOUT, false);
+	rybos_task_enable(RYBOS_MARKER_TASK_RF, true);
 }
 
 static void radio_update_statistics(uint32_t frame_size, int32_t rssi) {
@@ -153,7 +153,7 @@ void radio_resp_fifo_info_cb(uint8_t *rx) {
 		debug_error(SI4468_CMD_ERROR_RESP);
 	}
 
-	rybos_task_enable(MARKER_TASK_RF, true);
+	rybos_task_enable(RYBOS_MARKER_TASK_RF, true);
 }
 
 static bool radio_tx_sm(void) {
@@ -175,7 +175,7 @@ static bool radio_tx_sm(void) {
 			break;
 
 		case RADIO_TX_SM_SEND_COMPLETE:
-			rybos_task_enable(MARKER_TASK_RF, false);
+			rybos_task_enable(RYBOS_MARKER_TASK_RF, false);
 
 			//todo implement timeout
 			//Waiting loop for TX complete
@@ -284,7 +284,7 @@ static bool radio_rx_sm(void) {
 
 			case RADIO_RX_SM_RECEVIE_COMPLETE:
 				si4468_set_rx_packet_pending(false);
-				rybos_task_enable(MARKER_TASK_RF, false);
+				rybos_task_enable(RYBOS_MARKER_TASK_RF, false);
 				rx_sm_state = RADIO_RX_SM_GET_FIFO_INFO;
 				return true;
 				break;
@@ -295,7 +295,7 @@ static bool radio_rx_sm(void) {
 			}
 		}
 	} else {
-		rybos_task_enable(MARKER_TASK_RF, false);
+		rybos_task_enable(RYBOS_MARKER_TASK_RF, false);
 	}
 
 	return false;
@@ -387,7 +387,7 @@ static void radio_send_frame(uint8_t ack_response, uint8_t ack_request, bool dat
 		tx_cnt++;
 	}
 
-	rybos_task_enable(MARKER_TASK_RF, true);
+	rybos_task_enable(RYBOS_MARKER_TASK_RF, true);
 
 }
 
@@ -412,7 +412,7 @@ static void radio_error_sm(void) {
 
 		case RADIO_ERROR_SM_ENTER_RX_COMPLETE:
 			si4468_set_cmd_error(false);
-			rybos_task_enable(MARKER_TASK_RF, false);
+			rybos_task_enable(RYBOS_MARKER_TASK_RF, false);
 			error_sm = RADIO_ERROR_SM_RESET_FIFO;
 			break;
 
@@ -421,7 +421,7 @@ static void radio_error_sm(void) {
 			break;
 		}
 	} else {
-		rybos_task_enable(MARKER_TASK_RF, false);
+		rybos_task_enable(RYBOS_MARKER_TASK_RF, false);
 	}
 }
 
@@ -454,7 +454,7 @@ void radio_master_sm(void) {
 			if (si4468_get_rx_packet_pending()) {
 				master_sm = RADIO_MASTER_SM_WAIT_FOR_ACK;
 			}
-			rybos_task_enable(MARKER_TASK_RF, false);
+			rybos_task_enable(RYBOS_MARKER_TASK_RF, false);
 		}
 		break;
 
@@ -486,7 +486,7 @@ void radio_master_sm(void) {
 			//Timeout disable
 			if (rx_frame->rx_tx_parameters & RADIO_PARAM_ACK_RESPONSE) {
 				timeout = false;
-				rybos_task_enable(MARKER_TASK_RF_TIMEOUT, false); //TODO required? radio_rx_sm should block
+				rybos_task_enable(RYBOS_MARKER_TASK_RF_TIMEOUT, false); //TODO required? radio_rx_sm should block
 			}
 
 			//Receiver handler
@@ -611,7 +611,7 @@ void radio_slave_sm(void) {
 			//Timeout disable
 			if (rx_frame->rx_tx_parameters & RADIO_PARAM_ACK_RESPONSE) {
 				timeout = false;
-				rybos_task_enable(MARKER_TASK_RF_TIMEOUT, false); //TODO required? radio_rx_sm should block
+				rybos_task_enable(RYBOS_MARKER_TASK_RF_TIMEOUT, false); //TODO required? radio_rx_sm should block
 			}
 
 			//Receiver handler
@@ -724,7 +724,7 @@ void radio_send_test_frame1(void) {		//TODO remove
 	memcpy(frame->tx_buff, (uint8_t *) tmp, sizeof(tmp));
 	cyclic_move((CyclicBuffer *) &radio_cyclic);
 
-	rybos_task_enable(MARKER_TASK_RF, true);
+	rybos_task_enable(RYBOS_MARKER_TASK_RF, true);
 
 	exit_critical();
 }
@@ -748,7 +748,7 @@ void radio_send_test_frame2(void) { 	//TODO remove
 	memcpy(frame->tx_buff, (uint8_t *) tmp, sizeof(tmp));
 	cyclic_move((CyclicBuffer *) &radio_cyclic);
 
-	rybos_task_enable(MARKER_TASK_RF, true);
+	rybos_task_enable(RYBOS_MARKER_TASK_RF, true);
 
 	exit_critical();
 }
@@ -770,7 +770,7 @@ void radio_send(uint8_t frame_type, uint8_t *frame, uint32_t frame_len) {	//TODO
 	//memcpy(frame_buff->tx_buff, frame, sizeof(frame_len));
 	cyclic_move((CyclicBuffer *) &radio_cyclic);
 
-	rybos_task_enable(MARKER_TASK_RF, true);
+	rybos_task_enable(RYBOS_MARKER_TASK_RF, true);
 
 	exit_critical();
 }

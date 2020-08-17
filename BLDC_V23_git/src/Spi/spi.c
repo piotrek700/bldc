@@ -358,7 +358,7 @@ void spi_add_transaction(SpiTransactionRecord *record) {
 //SPI RX
 void DMA1_Channel2_IRQHandler(void) {
 	//TODO speedup this sequence by replacing all DMA by direct register access
-	rybos_task_start_marker(MARKER_IRQ_SPI_DMA);
+	rybos_task_start_marker(RYBOS_MARKER_IRQ_SPI_DMA);
 
 	if (DMA_GetITStatus(DMA1_IT_TC2) != RESET) {
 		DMA_ClearITPendingBit(DMA1_IT_TC2);
@@ -393,5 +393,5 @@ void DMA1_Channel2_IRQHandler(void) {
 			}
 		}
 	}
-	rybos_task_stop_marker(MARKER_IRQ_SPI_DMA);
+	rybos_task_stop_marker(RYBOS_MARKER_IRQ_SPI_DMA);
 }

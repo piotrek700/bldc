@@ -21,7 +21,7 @@ void log_tx_state_mashine(void) {
 	}
 
 	if (tx_cyclic.elements == 0) {
-		rybos_task_enable(MARKER_TASK_LOGGER, false);
+		rybos_task_enable(RYBOS_MARKER_TASK_LOGGER, false);
 	}
 }
 
@@ -50,7 +50,7 @@ void log_send_byte(uint8_t data) {
 		cyclic_byte_add((CyclicByteBuffer *) &tx_cyclic, data);
 	}
 
-	rybos_task_enable(MARKER_TASK_LOGGER, true);
+	rybos_task_enable(RYBOS_MARKER_TASK_LOGGER, true);
 }
 
 void log_send_string(uint8_t *string) {
@@ -61,7 +61,7 @@ void log_send_string(uint8_t *string) {
 		}
 	}
 
-	rybos_task_enable(MARKER_TASK_LOGGER, true);
+	rybos_task_enable(RYBOS_MARKER_TASK_LOGGER, true);
 }
 
 void log_send_string_len(uint8_t *string, uint32_t len) {
@@ -72,7 +72,7 @@ void log_send_string_len(uint8_t *string, uint32_t len) {
 		}
 	}
 
-	rybos_task_enable(MARKER_TASK_LOGGER, true);
+	rybos_task_enable(RYBOS_MARKER_TASK_LOGGER, true);
 }
 
 bool log_get_byte(uint8_t *data) {
