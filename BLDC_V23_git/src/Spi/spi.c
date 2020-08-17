@@ -259,6 +259,74 @@ static void spi_dma_start_next_transation(void) {
 	DMA1_Channel3->CNDTR = active_transaction->data_length;
 	DMA1_Channel3->CMAR = (uint32_t) active_transaction->tx_buff;
 
+	//TODO chose one of the options
+
+	/* Option 1
+	if(active_transaction->rx_buff == 0){
+		static uint8_t null[1];
+
+		//Redirect received data to null
+		DMA1_Channel2->CNDTR = active_transaction->data_length;
+		DMA1_Channel2->CMAR = (uint32_t) null;
+
+		//memory increment off
+		DMA1_Channel2->CCR &=~ DMA_CCR_MINC;
+	}else{
+		DMA1_Channel2->CNDTR = active_transaction->data_length;
+		DMA1_Channel2->CMAR = (uint32_t) active_transaction->rx_buff;
+
+		//memory increment on
+		DMA1_Channel2->CCR |= DMA_CCR_MINC;
+	}
+	*/
+
+	/* Option 2
+	if(active_transaction->rx_buff == 0){
+		//TX
+		DMA1_Channel3->CNDTR = active_transaction->data_length;
+		DMA1_Channel3->CMAR = (uint32_t) active_transaction->tx_buff;
+
+		//IRQ RX disable
+		DMA_ITConfig(DMA1_Channel2, DMA_IT_TC, DISABLE);
+		//IRq TX enable
+		DMA_ITConfig(DMA1_Channel3, DMA_IT_TC, ENABLE);
+
+		//Slave select
+		spi_slave_select(active_transaction->slave);
+
+		//SPI DMA enable
+		SPI1->CR2 |= SPI_I2S_DMAReq_Tx;
+
+		//DMA enable
+		DMA1_Channel3->CCR |= DMA_CCR_EN;
+
+	}else{
+		//RX and TX
+		DMA1_Channel2->CNDTR = active_transaction->data_length;
+		DMA1_Channel2->CMAR = (uint32_t) active_transaction->rx_buff;
+
+		DMA1_Channel3->CNDTR = active_transaction->data_length;
+		DMA1_Channel3->CMAR = (uint32_t) active_transaction->tx_buff;
+
+		//IRQ RX enable
+		DMA_ITConfig(DMA1_Channel2, DMA_IT_TC, ENABLE);
+
+		//IRq TX disable
+		DMA_ITConfig(DMA1_Channel3, DMA_IT_TC, DISABLE);
+
+
+		//Slave select
+		spi_slave_select(active_transaction->slave);
+
+		//SPI DMA enable
+		SPI1->CR2 |= SPI_I2S_DMAReq_Rx | SPI_I2S_DMAReq_Tx;
+
+		//DMA enable
+		DMA1_Channel2->CCR |= DMA_CCR_EN;
+		DMA1_Channel3->CCR |= DMA_CCR_EN;
+	}
+	*/
+
 	//Slave select
 	spi_slave_select(active_transaction->slave);
 
@@ -289,6 +357,7 @@ void spi_add_transaction(SpiTransactionRecord *record) {
 
 //SPI RX
 void DMA1_Channel2_IRQHandler(void) {
+	//TODO speedup this sequence by replacing all DMA by direct register access
 	rybos_task_start_marker(MARKER_IRQ_SPI_DMA);
 
 	if (DMA_GetITStatus(DMA1_IT_TC2) != RESET) {

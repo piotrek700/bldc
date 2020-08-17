@@ -64,7 +64,7 @@ float fast_atan2f_sec(float y, float x) {
 	}
 }
 
-
+//TODO __attribute__((always_inline))
 CCMRAM_FUCNTION void enter_critical(void) {
 	//__disable_irq();
 	__set_BASEPRI(4<<4); //4 is a ADC pririty must be shifted by 4 x<<4
@@ -75,6 +75,7 @@ CCMRAM_FUCNTION void enter_critical(void) {
 	}
 }
 
+//TODO __attribute__((always_inline))
 CCMRAM_FUCNTION void exit_critical(void) {
 	critical_cnt--;	//Todo safe decrement
 	if (critical_cnt == 0) {

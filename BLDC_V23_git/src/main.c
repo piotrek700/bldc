@@ -671,7 +671,54 @@ void frame_cb_frame_rc_control(void *buff, uint8_t params) {
  * TODO use ADC interrupt to measure time
  * TODO after disconnect disable all control
  * TODO update RAD_TO_DEG and DEG_TO_RAD
+ * TODO scheduler upgrade - ISR separate from Tasks
+ * TODO compensation of task execution time IRQ - based on number of execution and float/no float,
+ * TODO FPCCR->LSPACT
+ * TODO update to binary form 0b10
+ * TODO memory barier in the atomic __asm__ volatile ("" ::: "memory");
+ * TODO BOD add
+ * TODO add a init info about what generate a reset
+ * TODO add wtd as a global
+ * TODO add wtd as window comparator
  */
+
+
+/*
+STATIC_ASSERT(sizeof(enum lsm6ds3tr_reg) == sizeof(uint8_t), Unsupported_enum_lsm6ds3tr_reg);
+
+#ifdef CONFIG_BIG_ENDIAN
+#error "This module is not ready to work with BIG Endiannes"
+#endif
+*/
+//TODO check if enum is uint8_t
+
+
+union lsm6ds3tr_reg {
+	struct  {
+	    uint8_t raw;
+	}whoami_reg;
+
+	struct {
+		uint8_t ODR_XL :4;
+		uint8_t FS_XL :2;
+		uint8_t BW_XL :2;
+	} ctrl1_xl;
+
+	struct {
+		uint8_t ODR_G :4;
+		uint8_t FS_G :2;
+		uint8_t FS_125 :1;
+		uint8_t :1;
+	} ctrl2_g;
+	uint8_t raw;
+};
+
+union lsm6ds3tr_reg xxx[2] = {
+		{.ctrl1_xl.ODR_XL = 5},
+		{.ctrl1_xl.ODR_XL = 5},
+};
+
+//xxx[0].whoami_reg.raw = 7;
 
 int main(void) {
 	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_4);
