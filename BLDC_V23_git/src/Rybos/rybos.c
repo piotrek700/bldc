@@ -2,6 +2,7 @@
 #include "../Debug/debug.h"
 #include "../Tick/tick.h"
 #include "../utils.h"
+#include "../Atomic/atomic.h"
 
 CCMRAM_VARIABLE static volatile RybosTask task_list[RYBOS_MARKER_TASK_SIZE - 1];
 CCMRAM_VARIABLE static volatile TaskLoadStack stack[RYBOS_TASK_MARKER_STACK_SIZE];

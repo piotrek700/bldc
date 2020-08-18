@@ -20,7 +20,7 @@ static void drv8301_check_fault(uint16_t * value) {
 //1
 void drv8301_status_register1_cb(uint8_t *rx) {
 	uint16_t *stat_reg1 = (uint16_t *) rx;
-	*stat_reg1 = SWAP_UINT16(*stat_reg1);
+	*stat_reg1 = FAST_SWAP_UINT16(*stat_reg1);
 
 	drv8301_check_fault(stat_reg1);
 
@@ -30,7 +30,7 @@ void drv8301_status_register1_cb(uint8_t *rx) {
 //2
 void drv8301_status_register2_cb(uint8_t *rx) {
 	uint16_t *stat_reg2 = (uint16_t *) rx;
-	*stat_reg2 = SWAP_UINT16(*stat_reg2);
+	*stat_reg2 = FAST_SWAP_UINT16(*stat_reg2);
 
 	drv8301_check_fault(stat_reg2);
 

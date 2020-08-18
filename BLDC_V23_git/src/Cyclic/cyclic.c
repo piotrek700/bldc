@@ -1,7 +1,7 @@
 #include "cyclic.h"
 #include <string.h>
 #include "../Debug/debug.h"
-#include "../utils.h"
+#include "../Atomic/atomic.h"
 
 void cyclic_clear(CyclicBuffer *cyclic) {
 	cyclic->elements = 0;

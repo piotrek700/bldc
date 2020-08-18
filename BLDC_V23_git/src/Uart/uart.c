@@ -1,5 +1,5 @@
 #include "uart.h"
-#include "utils.h"
+#include "../Atomic/atomic.h"
 #include "../Debug/debug.h"
 #include "../Cyclic/cyclic.h"
 #include "../Frame/frame.h"

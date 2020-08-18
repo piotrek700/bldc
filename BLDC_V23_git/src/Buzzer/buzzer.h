@@ -2,6 +2,11 @@
 #define BUZZER_H_
 
 #include "platform.h"
+#include "buzzer_timer.h"
+#include "buzzer_settings.h"
+
+#define BUZZER_GENERATE_ENUM(STR, SOUND) 			BUZZER_SOUND_##STR,
+#define BUZZER_GENERATE_DICTIONARY(STR, SOUND) 		{SOUND, sizeof(SOUND)/sizeof(BuzzerSoundStep)},
 
 typedef struct {
 	uint16_t generation_time_ms;
@@ -9,12 +14,7 @@ typedef struct {
 } BuzzerSoundStep;
 
 typedef enum {
-	BUZZER_SOUND_START = 0,
-	BUZZER_SOUND_MARIO,
-	BUZZER_SOUND_SINGLE_PEAK,
-	BUZZER_SOUND_DOUBLE_PEAK,
-	BUZZER_SOUND_TRIPLE_PEAK,
-	BUZZER_SOUND_TURN_OFF
+	BUZZER_SOUNDS_LIST(BUZZER_GENERATE_ENUM)
 } BuzzerSoundType;
 
 typedef struct {

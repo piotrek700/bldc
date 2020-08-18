@@ -27,7 +27,7 @@
 #define ADC_INJ_P2_BEMF				ADC3->JDR2
 #define ADC_INJ_P3_BEMF				ADC4->JDR2
 
-#define ADC_VREF_V					3.3f 										//3.3f TODO Verify - ERRATA
+#define ADC_VREF_V					3.3f
 #define ADC_VREF_COMPENSATION		(3.3f/3.39f)								//Set to 1 if new chip revision will be used
 #define ADC_MAX_VALUE				4095.0f
 

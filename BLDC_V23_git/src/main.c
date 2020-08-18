@@ -84,7 +84,7 @@ static void task_sleep(void) {
 	do{
 		rybos_clear_irq_execution_mask();
 		__WFI();
-	}while(rybos_get_irq_execution_mask() == RYBOS_IRQ_UNIQUE_MASK_ADC_NTC);
+	}while(rybos_get_irq_execution_mask() == RYBOS_IRQ_UNIQUE_MASK_ADC_BLDC);
 
 }
 
@@ -705,6 +705,33 @@ STATIC_ASSERT(sizeof(enum lsm6ds3tr_reg) == sizeof(uint8_t), Unsupported_enum_ls
 #endif
 */
 //TODO check if enum is uint8_t
+
+
+/*
+ *  1 | ADC			| No
+ *  2 | AHRS		| Yes
+ *  3 | Atomic		| Yes
+ *  4 | BLDC		| No
+ *  5 | Buzzer		| Yes
+ *  6 | Cyclic		| Yes
+ *  7 | Debug		|
+ *  8 | Drv8301		|
+ *  9 | Frame		|
+ * 10 | Imu			|
+ * 11 | Led			|
+ * 12 | Log			| Yes
+ * 13 | Pressure	|
+ * 14 | Printf		| Yes
+ * 15 | Radio		|
+ * 16 | Rybos		| Yes
+ * 17 | Servo		|
+ * 18 | Si4468		|
+ * 19 | Spi			|
+ * 20 | Tick		| Yes
+ * 21 | Uart		|
+ * 22 | Utils		| Yes
+ */
+
 
 
 union lsm6ds3tr_reg {

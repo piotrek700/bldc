@@ -6,11 +6,10 @@
 		IRQ(TICK)				\
 		IRQ(SPI_DMA)			\
 		IRQ(DRV_FAULT)			\
-		IRQ(ADC_NTC)			\
 		IRQ(ADC_BLDC)			\
 		IRQ(UART_DMA)			\
 		IRQ(SI4468_NIRQ)		\
-		IRQ(SI4468_CTS)			\
+		IRQ(SI4468_CTS)
 
 //Task list definition
 #define RYBOS_TASK_LIST(TASK) 	\
@@ -25,6 +24,6 @@
 		TASK(RF)				\
 		TASK(PARAM_UPDATE)		\
 		TASK(LOGGER)			\
-		TASK(RF_TIMEOUT)		\
+		TASK(RF_TIMEOUT)
 
 #endif

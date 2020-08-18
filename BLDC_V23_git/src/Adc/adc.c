@@ -271,7 +271,7 @@ static void adc_nvic_init(void) {
 }
 
 CCMRAM_FUCNTION void ADC1_2_IRQHandler(void) {
-	rybos_task_start_marker(RYBOS_MARKER_IRQ_ADC_NTC);
+	rybos_task_start_marker(RYBOS_MARKER_IRQ_ADC_BLDC);
 
 	//ADC1 clear pending IRQ bit
 	ADC1->ISR = (uint32_t) 0x7FF;
@@ -308,28 +308,8 @@ CCMRAM_FUCNTION void ADC1_2_IRQHandler(void) {
 	//FOC
 	bldc_adc_irq_hanlder();
 
-	rybos_task_stop_marker(RYBOS_MARKER_IRQ_ADC_NTC);
+	rybos_task_stop_marker(RYBOS_MARKER_IRQ_ADC_BLDC);
 }
-
-/*
-void ADC4_IRQHandler(void) {
-	rybos_task_start_marker(MARKER_IRQ_ADC_BLDC);
-	ADC_ClearITPendingBit(ADC4, ADC_IT_JEOS);
-
-	if (ADC_GetITStatus(ADC4, ADC_IT_OVR)) {
-		debug_error_handler(ADC234_OVERRUN_ERROR);
-	}
-
-	v_vcc_v = (float) ADC_INJ_VCC * ADC_V_GAIN;
-	v_vcc_v *= v_ldo_v / ADC_MAX_VALUE;
-
-	if(bldc_enable){
-		bldc_task();
-	}
-
-	rybos_task_stop_marker(MARKER_IRQ_ADC_BLDC);
-}
- */
 
 void adc_init(void) {
 	adc_gpio_init();

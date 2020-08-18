@@ -7,7 +7,7 @@
 #include "../Frame/frame.h"
 #include "../Cyclic/cyclic.h"
 #include "../Rybos/rybos.h"
-#include "utils.h"
+#include "../Atomic/atomic.h"
 
 static bool init_status = false;
 

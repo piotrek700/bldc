@@ -1,6 +1,6 @@
 #include "cyclic_byte.h"
 #include "../Debug/debug.h"
-#include "../utils.h"
+#include "../Atomic/atomic.h"
 
 void cyclic_byte_clear(CyclicByteBuffer *cyclic) {
 	cyclic->elements = 0;

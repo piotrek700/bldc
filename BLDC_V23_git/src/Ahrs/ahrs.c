@@ -1,5 +1,4 @@
 #include "ahrs.h"
-#include <math.h>
 #include "../utils.h"
 
 CCMRAM_VARIABLE static float q1w = 1.0f, q1x = 0.0f, q1y = 0.0f, q1z = 0.0f;
