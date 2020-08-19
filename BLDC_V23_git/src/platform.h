@@ -4,4 +4,7 @@
 #include "stm32f30x.h"
 #include <stdbool.h>
 
+#define CCMRAM_VARIABLE								__attribute__((section(".ccmram_v")))
+#define CCMRAM_FUCNTION								__attribute__((section(".ccmram_f")))
+
 #endif

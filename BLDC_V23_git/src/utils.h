@@ -12,9 +12,6 @@
 #define IS_NAN(x)									((x) != (x))
 #define UNUSED_WARNING_DISABLE 						__attribute__((unused))
 
-#define CCMRAM_VARIABLE								__attribute__((section(".ccmram_v")))
-#define CCMRAM_FUCNTION								__attribute__((section(".ccmram_f")))
-
 //Value scaling
 #define SCALE_FLOAT_TO_UINT16(value, min, max) 		(uint16_t)(((float)value - min) * 65535.0f / (max - min))
 #define SCALE_UINT16_TO_FLOAT(value, min, max) 		(float)((float)value * (max - min) / 65535.0f + min)

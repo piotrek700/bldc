@@ -714,7 +714,7 @@ STATIC_ASSERT(sizeof(enum lsm6ds3tr_reg) == sizeof(uint8_t), Unsupported_enum_ls
  *  4 | BLDC		| No
  *  5 | Buzzer		| Yes
  *  6 | Cyclic		| Yes
- *  7 | Debug		|
+ *  7 | Debug		| Yes
  *  8 | Drv8301		|
  *  9 | Frame		|
  * 10 | Imu			|

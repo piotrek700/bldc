@@ -133,12 +133,10 @@ typedef enum{
  DRV8301_ADDR2_CR1 = 0b0010,
  DRV8301_ADDR3_CR2 = 0b0011
 }Drv8301_addr;
-*/
-
-/*
 
 typedef struct{
-	uint16_t 				:5;
+	uint16_t rw				:1;
+	uint16_t addr			:4;
 	uint16_t fault			:1;
 	uint16_t fgvdd_uv		:1;
 	uint16_t fpvdd_uv		:1;
@@ -153,7 +151,8 @@ typedef struct{
 }Drv8301_reg_sr1;
 
 typedef struct{
-	uint16_t 				:5;
+	uint16_t rw				:1;
+	uint16_t addr			:4;
 	uint16_t 				:3;
 	uint16_t gvdd_Ov 		:1;
 	uint16_t 				:3;
@@ -161,7 +160,8 @@ typedef struct{
 }Drv8301_reg_sr2;
 
 typedef struct{
-	uint16_t 				:5;
+	uint16_t rw				:1;
+	uint16_t addr			:4;
 	uint16_t oc_adj_set		:5;
 	uint16_t ocp_mode		:2;
 	uint16_t pwm_mode		:1;
@@ -170,7 +170,8 @@ typedef struct{
 }Drv8301_reg_cr1;
 
 typedef struct{
-	uint16_t 				:5;
+	uint16_t rw				:1;
+	uint16_t addr			:4;
 	uint16_t 				:4;
 	uint16_t oc_toff		:1;
 	uint16_t dc_cal_ch2		:1;
@@ -186,12 +187,6 @@ typedef union{
 	Drv8301_reg_cr2 cr2;
 	uint16_t raw;
 }Drv8301_reg;
-
-typedef struct{
-	uint16_t rw				:1;
-	uint16_t addr			:4;
-	uint16_t data			:11;
-}Drv8301_spi_data;
-
 */
+
 #endif

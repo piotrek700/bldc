@@ -4,7 +4,6 @@
 //List off all available sounds, each enum will star at prefix BUZZER_SOUND_xxx
 #define BUZZER_SOUNDS_LIST(SOUND) 					\
 	SOUND(START, 		buzzer_sound_start)			\
-	SOUND(MARIO, 		buzzer_sound_mario)			\
 	SOUND(SINGLE_PEAK, 	buzzer_sound_single_peak)	\
 	SOUND(DOUBLE_PEAK, 	buzzer_sound_double_peak)	\
 	SOUND(TRIPLE_PEAK, 	buzzer_sound_triple_peak)	\
