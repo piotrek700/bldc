@@ -16,16 +16,16 @@ typedef struct {
 	bool overflow_allowed;
 } CyclicPtrBuffer;
 
-#define CYCLIC_BUFFER_PTR_DEF(cyclic_name, OVERFLOW_ALLOWED, QUEUE_LENGTH)	\
-static volatile type_buff cyclic_name##_buff[QUEUE_LENGTH];					\
-static volatile CyclicPtrBuffer cyclic_name ={              				\
-	.write_ptr = 0,                   			   							\
-	.read_ptr = 0,         		  											\
-	.elements	= 0,	    			   									\
-	.length = QUEUE_LENGTH,								                  	\
-	.max_elements = 0,					                  					\
-	.buffer = (type_buff *)cyclic_name##_buff,							    \
-	.overflow_allowed = OVERFLOW_ALLOWED,					          		\
+#define CYCLIC_BUFFER_PTR_DEF(_cyclic_name, _overflow_allowed, _queue_length)	\
+static volatile type_buff _cyclic_name##_buff[_queue_length];					\
+static volatile CyclicPtrBuffer _cyclic_name ={              					\
+	.write_ptr = 0,                   			   								\
+	.read_ptr = 0,         		  												\
+	.elements	= 0,	    			   										\
+	.length = _queue_length,								                  	\
+	.max_elements = 0,					                  						\
+	.buffer = (type_buff *)_cyclic_name##_buff,							    	\
+	.overflow_allowed = _overflow_allowed,					          			\
 };
 
 void cyclic_ptr_clear(CyclicPtrBuffer *cyclic);

@@ -14,16 +14,16 @@ typedef struct {
 	bool overflow_allowed;
 } CyclicByteBuffer;
 
-#define CYCLIC_BUFFER_BYTE_DEF(cyclic_name, OVERFLOW_ALLOWED, QUEUE_LENGTH)	\
-static volatile uint8_t cyclic_name##_buff[QUEUE_LENGTH];					\
-static volatile CyclicByteBuffer cyclic_name ={              				\
-	.write_ptr = 0,                   			   							\
-	.read_ptr = 0,         		  											\
-	.elements	= 0,	    			   									\
-	.length = QUEUE_LENGTH,								                  	\
-	.max_elements = 0,					                  					\
-	.buffer = (uint8_t *)cyclic_name##_buff,							    \
-	.overflow_allowed = OVERFLOW_ALLOWED,					          		\
+#define CYCLIC_BUFFER_BYTE_DEF(_cyclic_name, _overflow_allowed, _queue_length)	\
+static volatile uint8_t _cyclic_name##_buff[_queue_length];						\
+static volatile CyclicByteBuffer _cyclic_name ={              					\
+	.write_ptr = 0,                   			   								\
+	.read_ptr = 0,         		  												\
+	.elements	= 0,	    			   										\
+	.length = _queue_length,								                	\
+	.max_elements = 0,					                  						\
+	.buffer = (uint8_t *)_cyclic_name##_buff,							    	\
+	.overflow_allowed = _overflow_allowed,					          			\
 };
 
 void cyclic_byte_clear(CyclicByteBuffer *cyclic);

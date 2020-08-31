@@ -5,8 +5,8 @@
 #include "buzzer_timer.h"
 #include "buzzer_settings.h"
 
-#define BUZZER_GENERATE_ENUM(STR, SOUND) 			BUZZER_SOUND_##STR,
-#define BUZZER_GENERATE_DICTIONARY(STR, SOUND) 		{SOUND, sizeof(SOUND)/sizeof(BuzzerSoundStep)},
+#define BUZZER_GENERATE_ENUM(str, sound) 			BUZZER_SOUND_##str,
+#define BUZZER_GENERATE_DICTIONARY(str, sound) 		{sound, sizeof(sound)/sizeof(BuzzerSoundStep)},
 
 typedef struct {
 	uint16_t generation_time_ms;

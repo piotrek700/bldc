@@ -4,8 +4,8 @@
 #include <stdint.h>
 #include "debug_app.h"
 
-#define DEBUG_GENERATE_ENUM(STR) 							STR,
-#define DEBUG_GENERATE_CASE(STR) 							case STR:
+#define DEBUG_GENERATE_ENUM(str) 							str,
+#define DEBUG_GENERATE_CASE(str) 							case str:
 
 #define debug_error(error_code)								debug_error_handler(error_code, (uint8_t *)__FILE__, __LINE__)
 

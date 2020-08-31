@@ -8,6 +8,7 @@
 #include "../Cyclic/cyclic.h"
 #include "../Rybos/rybos.h"
 #include "../Atomic/atomic.h"
+#include "../Uart/uart.h"
 
 static bool init_status = false;
 
@@ -216,14 +217,14 @@ static void radio_frame_received(RadioFrame *frame, uint32_t frame_size, int32_t
 
 		if (RADIO_MASTER) {
 			if(params & FRAME_DESTINATION_MASTER_PC){
-				frame_call_received_cb(type, frame->tx_buff, params);
+				frame_call_received_cb(type, params, frame->tx_buff );
 			}
 
 			//Always send to PC
-			frame_uart_send(type, frame->tx_buff, params);
+			uart_send_frame(type, frame->tx_buff, params);
 
 		} else {
-			frame_call_received_cb(type, frame->tx_buff, params);
+			frame_call_received_cb(type, params, frame->tx_buff );
 		}
 	}
 
@@ -301,7 +302,7 @@ static bool radio_rx_sm(void) {
 	return false;
 }
 
-static void radio_send_frame(uint8_t ack_response, uint8_t ack_request, bool data) {
+static void radio_send_radio_frame(uint8_t ack_response, uint8_t ack_request, bool data) {
 	static volatile uint32_t tx_cnt = 0;	//TODO is really volatile required
 	RadioFrame *frame;
 
@@ -445,7 +446,7 @@ void radio_master_sm(void) {
 
 		if (radio_cyclic.elements > 0) {
 			retransmit_cnt = 0;
-			radio_send_frame(0, RADIO_PARAM_ACK_REQUESTE, true);	//DATA+AR
+			radio_send_radio_frame(0, RADIO_PARAM_ACK_REQUESTE, true);	//DATA+AR
 			//First cycle of SM
 			radio_tx_sm();
 			master_sm = RADIO_MASTER_SM_TRANSMITTING;
@@ -510,7 +511,7 @@ void radio_master_sm(void) {
 				if (radio_cyclic.elements > 0) {
 					retransmit_cnt = 0;
 					//ACK Response added- if the retransmission will be required ACK send i safe option
-					radio_send_frame(RADIO_PARAM_ACK_RESPONSE, RADIO_PARAM_ACK_REQUESTE, true);												//DATA+AR
+					radio_send_radio_frame(RADIO_PARAM_ACK_RESPONSE, RADIO_PARAM_ACK_REQUESTE, true);												//DATA+AR
 					//First cycle of SM
 					radio_tx_sm();
 					master_sm = RADIO_MASTER_SM_TRANSMITTING;
@@ -529,12 +530,12 @@ void radio_master_sm(void) {
 			} else if (rx_frame->rx_tx_parameters & RADIO_PARAM_ACK_REQUESTE) {																//1X
 				if (radio_cyclic.elements > 0) {
 					retransmit_cnt = 0;
-					radio_send_frame(RADIO_PARAM_ACK_RESPONSE, RADIO_PARAM_ACK_REQUESTE, true);												//A+DATA+AR
+					radio_send_radio_frame(RADIO_PARAM_ACK_RESPONSE, RADIO_PARAM_ACK_REQUESTE, true);												//A+DATA+AR
 					radio_tx_sm();	//First cycle of sm
 					master_sm = RADIO_MASTER_SM_TRANSMITTING;
 				} else {
 					retransmit_cnt = -1;
-					radio_send_frame(RADIO_PARAM_ACK_RESPONSE, 0, false);																	//A
+					radio_send_radio_frame(RADIO_PARAM_ACK_RESPONSE, 0, false);																	//A
 					radio_tx_sm();	//First cycle of sm
 					master_sm = RADIO_MASTER_SM_TRANSMITTING;
 
@@ -663,7 +664,7 @@ void radio_slave_sm(void) {
 					wait_for_ack = true;
 					retransmit_cnt = 0;
 					//ACK Response added- if the retransmission will be required ACK send i safe option
-					radio_send_frame(RADIO_PARAM_ACK_RESPONSE, RADIO_PARAM_ACK_REQUESTE, true);												//DATA+AR
+					radio_send_radio_frame(RADIO_PARAM_ACK_RESPONSE, RADIO_PARAM_ACK_REQUESTE, true);												//DATA+AR
 					//First cycle of SM
 					radio_tx_sm();
 					slave_sm = RADIO_SLAVE_SM_TRANSMITTING;
@@ -676,14 +677,14 @@ void radio_slave_sm(void) {
 				if (radio_cyclic.elements > 0) {
 					wait_for_ack = true;
 					retransmit_cnt = 0;
-					radio_send_frame(RADIO_PARAM_ACK_RESPONSE, RADIO_PARAM_ACK_REQUESTE, true);												//A+DATA+AR
+					radio_send_radio_frame(RADIO_PARAM_ACK_RESPONSE, RADIO_PARAM_ACK_REQUESTE, true);												//A+DATA+AR
 					//First cycle of SM
 					radio_tx_sm();
 					slave_sm = RADIO_SLAVE_SM_TRANSMITTING;
 				} else {
 					wait_for_ack = false;
 					retransmit_cnt = -1;
-					radio_send_frame(RADIO_PARAM_ACK_RESPONSE, 0, false);																	//A
+					radio_send_radio_frame(RADIO_PARAM_ACK_RESPONSE, 0, false);																	//A
 					//First cycle of SM
 					radio_tx_sm();
 					slave_sm = RADIO_SLAVE_SM_TRANSMITTING;
@@ -753,6 +754,32 @@ void radio_send_test_frame2(void) { 	//TODO remove
 	exit_critical();
 }
 
+void radio_send_frame(FrameType frame_type, uint8_t *frame, uint8_t params) {
+	RadioFrame *frame_buff;
+	enter_critical();
+
+	frame_buff = (RadioFrame *) cyclic_get_to_add((CyclicBuffer *) &radio_cyclic);
+
+	frame_buff->length = frame_get_type_length(frame_type);
+	frame_buff->frame_type = frame_type;
+
+	uint32_t i;
+	for (i = 0; i < frame_buff->length; i++) {
+		frame_buff->tx_buff[i] = frame[i];	//TODO memcopy
+	}
+
+	cyclic_move((CyclicBuffer *) &radio_cyclic);
+
+	rybos_task_enable(RYBOS_MARKER_TASK_RF, true);
+
+	exit_critical();
+
+	if(RADIO_MASTER == 0){
+		//Forward message via UART
+		uart_send_frame(frame_type, frame, params);
+	}
+}
+/*
 void radio_send(uint8_t frame_type, uint8_t *frame, uint32_t frame_len) {	//TODO remove frame length_ get in from frame dictionary
 	RadioFrame *frame_buff;
 	enter_critical();
@@ -774,7 +801,7 @@ void radio_send(uint8_t frame_type, uint8_t *frame, uint32_t frame_len) {	//TODO
 
 	exit_critical();
 }
-
+*/
 uint32_t radio_get_max_queue_depth(void) {
 	return cyclic_get_max_elements((CyclicBuffer *) &radio_cyclic);
 }

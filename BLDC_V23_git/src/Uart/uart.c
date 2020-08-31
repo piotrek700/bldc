@@ -208,11 +208,6 @@ static void uart_dma_start_next_transation(void) {
 	DMA1_Channel7->CNDTR = active_transaction->length;
 	DMA1_Channel7->CMAR = (uint32_t) active_transaction->tx_buff;
 
-	//TODO remove
-	//if(active_transaction->tx_buff < XXX || active_transaction->tx_buff > XXX){
-	//	while(1);
-	//}
-
 	tx_bytes_cnt += active_transaction->length;
 	transmitted_frame_cnt++;
 
@@ -223,53 +218,17 @@ static void uart_dma_start_next_transation(void) {
 	DMA1_Channel7->CCR |= DMA_CCR_EN;
 }
 
-void uart_send(uint8_t frame_type, uint8_t *frame, uint32_t frame_len) {
+void uart_send_frame(FrameType frame_type, uint8_t *frame, uint8_t params) {
 	UartFrame *frame_buff;
-	uint32_t len = 0;
-	uint8_t crc_tmp;
 
 	enter_critical();
 
 	frame_buff = (UartFrame *) cyclic_get_to_add((CyclicBuffer *) &uart_cyclic);
 
-	//Start symbol
-	frame_buff->tx_buff[len] = FRAME_START_SYMBOL;
-	len++;
-
-	//Type
-	if (frame_type == FRAME_START_SYMBOL) {
-		frame_buff->tx_buff[len] = frame_type;
-		len++;
-	}
-	frame_buff->tx_buff[len] = frame_type;
-	len++;
-	crc_tmp = (uint8_t) frame_type;
-
-	//Payload
-	uint32_t i;
-	for (i = 0; i < frame_len; i++) {
-		if (frame[i] == FRAME_START_SYMBOL) {
-			frame_buff->tx_buff[len] = frame[i];
-			len++;
-		}
-		frame_buff->tx_buff[len] = frame[i];
-		len++;
-		crc_tmp += (uint8_t) frame[i];
-	}
-
-	//CRC
-	if (crc_tmp == FRAME_START_SYMBOL) {
-		frame_buff->tx_buff[len] = crc_tmp;
-		len++;
-	}
-	frame_buff->tx_buff[len] = crc_tmp;
-	len++;
-
-	//Set length
-	frame_buff->length = len;
-
-	if (len >= UART_FRAME_TX_BUFF_SIZE) {
+	frame_buff->length = frame_send_coded(frame_type, params, frame, frame_buff->tx_buff, UART_FRAME_TX_BUFF_SIZE);
+	if(frame_buff->length == 0){
 		debug_error(UART_FRAME_MESSAGE_OVERLENGTH);
+		exit_critical();
 		return;
 	}
 
@@ -282,27 +241,9 @@ void uart_send(uint8_t frame_type, uint8_t *frame, uint32_t frame_len) {
 
 	exit_critical();
 }
-
-//UART TX
-void DMA1_Channel7_IRQHandler(void) {
-	rybos_task_start_marker(RYBOS_MARKER_IRQ_UART_DMA);
-
-	if (DMA_GetITStatus(DMA1_IT_TC7) != RESET) {
-		DMA_ClearITPendingBit(DMA1_IT_TC7);
-
-		if (uart_cyclic.elements == 0) {
-			//Disable DMA
-			DMA_Cmd(DMA1_Channel7, DISABLE);
-		} else {
-			uart_dma_start_next_transation();
-		}
-	}
-	rybos_task_stop_marker(RYBOS_MARKER_IRQ_UART_DMA);
-}
-
-
-volatile uint32_t len = 0;	//todo move to local
 void uart_send_scope_frame(uint8_t frame_type, uint32_t frame_len, uint8_t *frame){
+	volatile uint32_t len = 0;	//todo move to local
+
 	uint8_t tx_buff[UART_FRAME_TX_BUFF_SIZE];
 
 	UartFrame *frame_buff;
@@ -376,4 +317,21 @@ void uart_send_scope_frame(uint8_t frame_type, uint32_t frame_len, uint8_t *fram
 	}
 
 	exit_critical();
+}
+
+//UART TX
+void DMA1_Channel7_IRQHandler(void) {
+	rybos_task_start_marker(RYBOS_MARKER_IRQ_UART_DMA);
+
+	if (DMA_GetITStatus(DMA1_IT_TC7) != RESET) {
+		DMA_ClearITPendingBit(DMA1_IT_TC7);
+
+		if (uart_cyclic.elements == 0) {
+			//Disable DMA
+			DMA_Cmd(DMA1_Channel7, DISABLE);
+		} else {
+			uart_dma_start_next_transation();
+		}
+	}
+	rybos_task_stop_marker(RYBOS_MARKER_IRQ_UART_DMA);
 }

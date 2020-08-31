@@ -156,7 +156,7 @@ static void drv8301_timer_init(void) {
 
 	TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure;
 	TIM_TimeBaseStructure.TIM_Prescaler = 0;
-	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_CenterAligned1;		//No mether REF 565
+	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_CenterAligned1;		//No matter REF 565
 	TIM_TimeBaseStructure.TIM_Period = DRV8301_PWM_PERIOD;
 	TIM_TimeBaseStructure.TIM_ClockDivision = 0;
 	TIM_TimeBaseStructure.TIM_RepetitionCounter = 0;
@@ -179,7 +179,6 @@ static void drv8301_timer_init(void) {
 	//OC4
 	//TIM_OCInitStructure.TIM_Pulse = DRV8301_PWM_PERIOD-1;
 	//TIM_OC4Init(TIM1, &TIM_OCInitStructure);
-
 
 	TIM_OC1PreloadConfig(TIM1, TIM_OCPreload_Enable);
 	TIM_OC2PreloadConfig(TIM1, TIM_OCPreload_Enable);
@@ -204,7 +203,6 @@ static void drv8301_timer_init(void) {
 	TIM_SelectOutputTrigger(TIM1, TIM_TRGOSource_Update);
 	//TIM_SelectOutputTrigger(TIM1, TIM_TRGOSource_OC4Ref);
 
-
 	TIM_CCPreloadControl(TIM1, ENABLE);
 
 	//TIM_ARRPreloadConfig(TIM1, ENABLE);
@@ -213,7 +211,7 @@ static void drv8301_timer_init(void) {
 	TIM_CtrlPWMOutputs(TIM1, ENABLE);
 
 	//Very important to update at proper sequence, must be set after timer enable
-	//This shoudl go before stat counter
+	//This should go before start counter
 	TIM1->RCR = 1;
 }
 

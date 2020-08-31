@@ -1,192 +1,39 @@
 #include "frame.h"
-#include "frame_frames.h"
 #include "../Debug/debug.h"
-#include "../Uart/uart.h"
-#include "../Radio/radio.h"
 #include "../utils.h"
 
-static volatile uint8_t frame_buffer[FRAME_BUFFER_LENGTH + 1];	//TODO +2 not +1 = frame type + crc - add some buffer -mayby it will be good to have hera always 255
-static volatile FrameType frame_type;
-static volatile uint8_t frame_params;
+static uint8_t frame_buffer[sizeof(FrameRxBuffer) + 1];	//frame type + crc
+static FrameType frame_type;
+static FrameParams frame_params;
 
-static volatile uint32_t payload_ptr = 0;
-static volatile uint8_t crc_rx = 0;
-static volatile FrameDecoderStatus decoder_status = WAIT_FOR_START;
+static uint32_t payload_ptr = 0;
+static uint8_t crc_rx = 0;
+static FrameDecoderStatus decoder_status = WAIT_FOR_START;
 
-void __attribute__((weak)) frame_cb_frame_req_init_data(void *buff, uint8_t params) {
-	UNUSED(buff);
-	UNUSED(params);
+//Generate all weak definitions
+FRAME_DICTIONARY_DEFINITION(FRAME_GENERATE_WEAK_DECLARATION);
 
-	//TODO FrameReqInitData *frame = (FrameReqInitData *) buff;
-}
-
-void __attribute__((weak)) frame_cb_frame_resp_init_data(void *buff, uint8_t params) {
-	UNUSED(buff);
-	UNUSED(params);
-
-	//TODO FrameRespInitData *frame = (FrameRespInitData *) buff;
-}
-
-void __attribute__((weak)) frame_cb_frame_error_log(void *buff, uint8_t params) {
-	UNUSED(buff);
-	UNUSED(params);
-
-	//TODO FrameErrorLog *frame = (FrameErrorLog *) buff;
-}
-
-void __attribute__((weak)) frame_cb_frame_slow_param_slave(void *buff, uint8_t params) {
-	UNUSED(buff);
-	UNUSED(params);
-
-	//TODO FrameSlowParamSlave *frame = (FrameSlowParamSlave *) buff;
-}
-
-void __attribute__((weak)) frame_cb_frame_slow_param_master(void *buff, uint8_t params) {
-	UNUSED(buff);
-	UNUSED(params);
-
-	//TODO FrameSlowParamMaster *frame = (FrameSlowParamMaster *) buff;
-}
-
-void __attribute__((weak)) frame_cb_frame_fast_param_slave(void *buff, uint8_t params) {
-	UNUSED(buff);
-	UNUSED(params);
-
-	//TODO FrameFastParamsSlave *frame = (FrameFastParamsSlave *) buff;
-}
-
-void __attribute__((weak)) frame_cb_frame_fast_param_master(void *buff, uint8_t params) {
-	UNUSED(buff);
-	UNUSED(params);
-
-	//TODO FrameFastParamsMaster *frame = (FrameFastParamsMaster *) buff;
-}
-
-void __attribute__((weak)) frame_cb_frame_radio_stat(void *buff, uint8_t params) {
-	UNUSED(buff);
-	UNUSED(params);
-
-	//TODO FrameRadioStat *frame = (FrameRadioStat *) buff;
-}
-
-void __attribute__((weak)) frame_cb_frame_system_load_slave(void *buff, uint8_t params) {
-	UNUSED(buff);
-	UNUSED(params);
-
-	//TODO FrameSystemLoadSlave *frame = (FrameSystemLoadSlave *) buff;
-}
-
-void __attribute__((weak)) frame_cb_frame_system_load_master(void *buff, uint8_t params) {
-	UNUSED(buff);
-	UNUSED(params);
-
-	//TODO FrameSystemLoadMaster *frame = (FrameSystemLoadMaster *) buff;
-}
-
-void __attribute__((weak)) frame_cb_frame_system_param_slave(void *buff, uint8_t params) {
-	UNUSED(buff);
-	UNUSED(params);
-
-	//TODO FrameSystemParamSlave *frame = (FrameSystemParamSlave *) buff;
-}
-
-void __attribute__((weak)) frame_cb_frame_system_param_master(void *buff, uint8_t params) {
-	UNUSED(buff);
-	UNUSED(params);
-
-	//TODO FrameSystemParamMaster *frame = (FrameSystemParamMaster *) buff;
-}
-
-void __attribute__((weak)) frame_cb_frame_rc_control(void *buff, uint8_t params) {
-	UNUSED(buff);
-	UNUSED(params);
-
-	//TODO FrameRcControl *frame = (FrameRcControl *) buff;
-}
-
-void __attribute__((weak)) frame_cb_frame_get_pid_settings(void *buff, uint8_t params) {
-	UNUSED(buff);
-	UNUSED(params);
-
-	//TODO FrameGetPidSettings *frame = (FrameGetPidSettings *) buff;
-}
-
-void __attribute__((weak)) frame_cb_frame_set_pid_settings(void *buff, uint8_t params) {
-	UNUSED(buff);
-	UNUSED(params);
-
-	//TODO FrameSetPidSettings *frame = (FrameSetPidSettings *) buff;
-}
-
-void __attribute__((weak)) frame_cb_frame_req_display_channels(void *buff, uint8_t params) {
-	UNUSED(buff);
-	UNUSED(params);
-
-	//TODO FrameReqDisplayChannels *frame = (FrameReqDisplayChannels *) buff;
-}
-
-void __attribute__((weak)) frame_cb_frame_resp_display_channels(void *buff, uint8_t params) {
-	UNUSED(buff);
-	UNUSED(params);
-
-	//TODO FrameRespDisplayChannels *frame = (FrameRespDisplayChannels *) buff;
-}
-
-void __attribute__((weak)) frame_cb_frame_display_channels_data_2(void *buff, uint8_t params) {
-	UNUSED(buff);
-	UNUSED(params);
-
-	//TODO FrameDisplayChannelsData2 *frame = (FrameDisplayChannelsData2 *) buff;
-}
-
-void __attribute__((weak)) frame_cb_frame_display_channels_data_4(void *buff, uint8_t params) {
-	UNUSED(buff);
-	UNUSED(params);
-
-	//TODO FrameDisplayChannelsData4 *frame = (FrameDisplayChannelsData4 *) buff;
-}
-
-void __attribute__((weak)) frame_cb_frame_display_channels_data_8(void *buff, uint8_t params) {
-	UNUSED(buff);
-	UNUSED(params);
-
-	//TODO FrameDisplayChannelsData8 *frame = (FrameDisplayChannelsData8 *) buff;
-}
-
-void __attribute__((weak)) frame_cb_frame_uart_stat(void *buff, uint8_t params) {
-	UNUSED(buff);
-	UNUSED(params);
-
-	//TODO FrameUartStat *frame = (FrameUartStat *) buff;
-}
-
+//Define dictionary
 static const FrameDictonary frame_dictionary[] = {
-		{ frame_cb_frame_req_init_data, 			FRAME_TYPE_REQ_INIT_DATA, 				sizeof(FrameReqInitData) },
-		{ frame_cb_frame_resp_init_data, 			FRAME_TYPE_RESP_INIT_DATA, 				sizeof(FrameRespInitData) },
-		{ frame_cb_frame_error_log, 				FRAME_TYPE_ERROR_LOG, 					sizeof(FrameErrorLog) },
-		{ frame_cb_frame_slow_param_slave, 			FRAME_TYPE_SLOW_PARAMS_SLAVE, 			sizeof(FrameSlowParamSlave) },
-		{ frame_cb_frame_slow_param_master, 		FRAME_TYPE_SLOW_PARAMS_MASTER, 			sizeof(FrameSlowParamMaster) },
-		{ frame_cb_frame_fast_param_slave, 			FRAME_TYPE_FAST_PARAMS_SLAVE, 			sizeof(FrameFastParamsSlave) },
-		{ frame_cb_frame_fast_param_master, 		FRAME_TYPE_FAST_PARAMS_MASTER, 			sizeof(FrameFastParamsMaster) },
-		{ frame_cb_frame_radio_stat, 				FRAME_TYPE_RADIO_STAT, 					sizeof(FrameRadioStat) },
-		{ frame_cb_frame_system_load_slave, 		FRAME_TYPE_SYSTEM_LOAD_SLAVE, 			sizeof(FrameSystemLoadSlave) },
-		{ frame_cb_frame_system_load_master, 		FRAME_TYPE_SYSTEM_LOAD_MASTER, 			sizeof(FrameSystemLoadMaster) },
-		{ frame_cb_frame_system_param_slave,		FRAME_TYPE_SYSTEM_PARAMS_SLAVE, 		sizeof(FrameSystemParamSlave) },
-		{ frame_cb_frame_system_param_master, 		FRAME_TYPE_SYSTEM_PARAMS_MASTER,		sizeof(FrameSystemParamMaster) },
-		{ frame_cb_frame_rc_control, 				FRAME_TYPE_RC_CONTROL, 					sizeof(FrameRcControl) },
-		{ frame_cb_frame_get_pid_settings, 			FRAME_TYPE_GET_PID_SETTINGS, 			sizeof(FrameGetPidSettings) },
-		{ frame_cb_frame_set_pid_settings, 			FRAME_TYPE_SET_PID_SETTINGS, 			sizeof(FrameSetPidSettings) },
-		{ frame_cb_frame_req_display_channels, 		FRAME_TYPE_REQ_DISPLAY_CHANNELS, 		sizeof(FrameReqDisplayChannels) },
-		{ frame_cb_frame_resp_display_channels, 	FRAME_TYPE_RESP_DISPLAY_CHANNELS, 		sizeof(FrameRespDisplayChannels) },
-		{ frame_cb_frame_display_channels_data_2, 	FRAME_TYPE_DISPLAY_CHANNELS_DATA_2, 	sizeof(FrameDisplayChannelsData2) },
-		{ frame_cb_frame_display_channels_data_4, 	FRAME_TYPE_DISPLAY_CHANNELS_DATA_4, 	sizeof(FrameDisplayChannelsData4) },
-		{ frame_cb_frame_display_channels_data_8, 	FRAME_TYPE_DISPLAY_CHANNELS_DATA_8, 	sizeof(FrameDisplayChannelsData8) },
-		{ frame_cb_frame_uart_stat, 				FRAME_TYPE_UART_STAT, 					sizeof(FrameUartStat) },
+		FRAME_DICTIONARY_DEFINITION(FRAME_GENERATE_DITIONARY)
 };
+
+//Frame received complete
+void __attribute__((weak)) frame_received_complete(FrameType type, FrameParams params, uint8_t *buff, FrameCb cb) {
+	//Call original frame callback
+	cb((void *) (buff), params);
+
+	UNUSED(type);
+}
+
+//Frame received error
+void __attribute__((weak)) frame_received_error(void) {
+	debug_error(FRAME_CRC_ERROR);
+}
 
 static void frame_check_decoding(void) {
 	static uint8_t payload_length = 0;
-	static void (*cb_handler)(void *, uint8_t) = 0;
+	static FrameCb cb_handler = 0;
 
 	//Get frame type
 	if (payload_ptr == 1) {
@@ -202,12 +49,12 @@ static void frame_check_decoding(void) {
 		}
 
 		payload_length = frame_dictionary[frame_type].frame_size + 2; //+ frame type +crc
-		cb_handler = frame_dictionary[frame_type].cb;
+		cb_handler = frame_dictionary[frame_type].callback;
 		return;
 	}
 
 	//Buffer overflow protection
-	if (payload_ptr > FRAME_BUFFER_LENGTH) {
+	if (payload_ptr > sizeof(FrameRxBuffer)) {
 		debug_error(FRAME_BUFFER_OVERFLOW);
 		payload_ptr = 0;
 		decoder_status = WAIT_FOR_START;
@@ -216,24 +63,15 @@ static void frame_check_decoding(void) {
 
 	//Check receiving complete
 	if (payload_ptr == payload_length) {
-		if(decoder_status == START_DETECTED){
-			crc_rx-=frame_buffer[payload_ptr - 1];
+		if (decoder_status == START_DETECTED) {
+			crc_rx -= frame_buffer[payload_ptr - 1];
 		}
 
 		//Check CRC
 		if (frame_buffer[payload_ptr - 1] == crc_rx) {
-			uart_increment_reveived_frame_cnt();
-
-			if(frame_params & FRAME_DESTINATION_MASTER_PC){
-				//PC->Slave
-				cb_handler((void *) (frame_buffer + 1), frame_params);
-			}else{
-				//PC->Master->Slave
-				frame_radio_send(frame_type, (uint8_t *) (frame_buffer + 1), frame_params);
-			}
+			frame_received_complete(frame_type, frame_params, frame_buffer + 1, cb_handler);
 		} else {
-			uart_increment_received_error_frame_cnt();
-			debug_error(FRAME_CRC_ERROR);
+			frame_received_error();
 		}
 
 		payload_ptr = 0;
@@ -278,18 +116,63 @@ void frame_decoding_state_mashine(uint8_t data) {
 	}
 }
 
-void frame_call_received_cb(FrameType frame_type, uint8_t *frame, uint8_t params) {
-	frame_dictionary[frame_type].cb((void *) frame, params);
+void frame_call_received_cb(FrameType type, FrameParams params, uint8_t *buff) {
+	frame_dictionary[type].callback((void *) buff, params);
 }
 
-void frame_uart_send(FrameType frame_type, uint8_t *frame, uint32_t params) {
-	uart_send(frame_type | params, frame, frame_dictionary[frame_type].frame_size);
+uint32_t frame_get_type_length(FrameType type) {
+	return frame_dictionary[type].frame_size;
 }
 
-void frame_radio_send(FrameType frame_type, uint8_t *frame, uint32_t params) {
-	radio_send(frame_type | params, frame, frame_dictionary[frame_type].frame_size);
+static inline bool frame_code_symbol(uint8_t source, uint8_t *dest, uint32_t *len, uint8_t *crc, uint32_t dest_size_max) {
+	if (source == FRAME_START_SYMBOL) {
+		*(dest + *len) = source;
+		(*len)++;
 
-	frame_uart_send(frame_type, frame, params);
+		if ((*len) >= dest_size_max) {
+			debug_error(FRAME_TX_BUFFER_OVERFLOW);
+			return false;
+		}
+	}
+	*(dest + *len) = source;
+	(*len)++;
+	*crc += (uint8_t) source;
+
+	if ((*len) >= dest_size_max) {
+		debug_error(FRAME_TX_BUFFER_OVERFLOW);
+		return false;
+	}
+	return true;
+}
+
+uint32_t frame_send_coded(FrameType type, FrameParams params, uint8_t *source, uint8_t *dest, uint32_t dest_size_max) {
+	uint32_t len = 0;
+	uint8_t crc_tmp = 0;
+
+	//Start symbol
+	dest[len] = FRAME_START_SYMBOL;
+	len++;
+
+	//Type
+	if (!frame_code_symbol(type | params, dest, &len, &crc_tmp, dest_size_max)) {
+		return 0;
+	}
+
+	//Payload
+	uint32_t i;
+	for (i = 0; i < frame_dictionary[type].frame_size; i++) {
+		if (!frame_code_symbol(source[i], dest, &len, &crc_tmp, dest_size_max)) {
+			return 0;
+		}
+	}
+
+	//CRC
+	if (!frame_code_symbol(crc_tmp, dest, &len, &crc_tmp, dest_size_max)) {
+		return 0;
+	}
+
+	//Return length
+	return len;
 }
 
 void frame_test(void) {

@@ -18,11 +18,10 @@ static const SpiTransactionRecord record_who_am_i = {
 
 //2----------------------------------------------------------------------------
 static const uint8_t tx_ctrl1_init[2] = { LPS22HB_SPI_WRITE_MASK | LPS22HB_REG_CTRL_REG1, LPS22HB_CTRL_REG1_P_T_75HZ };
-static volatile uint8_t rx_ctrl1_init[2];
 
 static const SpiTransactionRecord record_ctrl1_init = {
 		.tx_buff = (uint8_t *) tx_ctrl1_init,
-		.rx_buff = (uint8_t *) rx_ctrl1_init,
+		.rx_buff = 0,
 		.slave = SPI_SLAVE_SELECT_PRESSURE,
 		.data_length = 2,
 		.cb = 0

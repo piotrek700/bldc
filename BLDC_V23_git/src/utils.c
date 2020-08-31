@@ -1,8 +1,6 @@
 #include "utils.h"
 
-
-
-float inv_sqrtf(float x) {
+float fast_inv_sqrtf(float x) {
 	//TODO replace by sqrt from arm
 	float halfx = 0.5f * x;
 	float y = x;
@@ -62,9 +60,6 @@ float fast_atan2f_sec(float y, float x) {
 		return (angle);
 	}
 }
-
-
-
 
 CCMRAM_FUCNTION float fast_log(float val) {
 	int32_t * const exp_ptr = (int32_t *) (&val);

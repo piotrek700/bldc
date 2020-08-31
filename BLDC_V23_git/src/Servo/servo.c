@@ -83,8 +83,12 @@ bool servo_get_init_status(void) {
 }
 
 void servo_set_position_angle(ServoPosition servo_position, float angle) {
-	if (angle < SERVO_MIN_ANGLE || angle > SERVO_MAX_ANGLE) {
-		debug_error(SERVO_ANGLE_OUT_OF_RANGE);
+	if (angle < SERVO_MIN_ANGLE) {
+		angle = SERVO_MIN_ANGLE;
+	}
+
+	if (angle > SERVO_MAX_ANGLE) {
+		angle = SERVO_MAX_ANGLE;
 	}
 
 	servo_angle[servo_position] = angle;

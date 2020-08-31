@@ -2,6 +2,7 @@
 #define UART_H_
 
 #include "platform.h"
+#include "../Frame/frame.h"
 
 #define UART_FRAME_QUEUE_SIZE			16
 #define UART_DMA_RX_BUFFER_LENGTH		256U
@@ -36,7 +37,7 @@ bool uart_get_init_status(void);
 
 bool uart_get_byte_dma(uint8_t *data);
 
-void uart_send(uint8_t frame_type, uint8_t *frame, uint32_t frame_len);
+void uart_send_frame(FrameType frame_type, uint8_t *frame, uint8_t params);
 
 uint32_t uart_get_max_queue_depth(void);
 

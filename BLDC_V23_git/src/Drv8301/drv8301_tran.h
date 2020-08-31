@@ -55,11 +55,10 @@ static const SpiTransactionRecord write_ctrl_reg2 = {
 
 //5----------------------------------------------------------------------------
 static const uint16_t tx_clear[1];
-static volatile uint16_t rx_clear[1];
 
 static const SpiTransactionRecord clear_trans = {
 		.tx_buff = (uint8_t *) tx_clear,
-		.rx_buff = (uint8_t *) rx_clear,
+		.rx_buff = 0,
 		.slave = SPI_SLAVE_SELECT_BLDC,
 		.data_length = 2,
 		.cb = 0

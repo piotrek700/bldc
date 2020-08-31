@@ -24,6 +24,7 @@
 #include "Bldc/bldc.h"
 #include "Frame/frame_frames.h"
 #include "utils.h"
+#include "Atomic/atomic.h"
 
 #define TASK_LED_PERIOD_MS							50
 #define TASK_LED_BLINK_PERIOD						1000/TASK_LED_PERIOD_MS
@@ -316,7 +317,7 @@ static void task_imu_read(void) {
 	bldc_scope_send_data((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
 }
 
-void frame_cb_frame_req_init_data(void *buff, uint8_t params) {
+void frame_cb_req_init_data(void *buff, uint8_t params) {
 	UNUSED(buff);
 	UNUSED(params);
 
@@ -331,7 +332,7 @@ void frame_cb_frame_req_init_data(void *buff, uint8_t params) {
 	frame.uuid[2] = STM32_UUID[2];
 
 	//Slave->Master->PC
-	frame_radio_send(FRAME_TYPE_RESP_INIT_DATA, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
+	radio_send_frame(FRAME_TYPE_RESP_INIT_DATA, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
 }
 
 static void print_fast_param(void) {
@@ -351,7 +352,7 @@ static void print_fast_param(void) {
 	frame.servo.angle[3] = SCALE_FLOAT_TO_INT16(angle[3], -180.0f, 180.0f);												//	-180 	-  	180		deg
 
 	//Slave->Master->PC
-	frame_radio_send(FRAME_TYPE_FAST_PARAMS_SLAVE, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
+	radio_send_frame(FRAME_TYPE_FAST_PARAMS_SLAVE, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
 }
 
 static void print_slow_param(void) {
@@ -381,7 +382,7 @@ static void print_slow_param(void) {
 	frame.pressure.temp = SCALE_FLOAT_TO_UINT16(pressure_get_temperature_c(), -128.0f, 256.0f);							//	-128 	- 	256		C
 
 	//Slave->Master->PC
-	frame_radio_send(FRAME_TYPE_SLOW_PARAMS_SLAVE, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
+	radio_send_frame(FRAME_TYPE_SLOW_PARAMS_SLAVE, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
 }
 
 static void undervoltage_protection(void) {
@@ -437,7 +438,7 @@ static void print_init(void) {
 	FrameReqDisplayChannels frame;
 
 	//Slave->Master->PC
-	frame_uart_send(FRAME_TYPE_REQ_DISPLAY_CHANNELS, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
+	uart_send_frame(FRAME_TYPE_REQ_DISPLAY_CHANNELS, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
 
 	//TODO send KP KI KD to master and PC
 }
@@ -485,7 +486,7 @@ static void print_cpu_load(void) {
 	printf("T\t%u\t%6.3f\t%8.1f\t%s\n", (unsigned int) i + 1, (double) task_load, (double) cnt, RYBOS_IRQ_TASK_NAMES[i]);
 
 	//Slave->Master->PC
-	frame_radio_send(FRAME_TYPE_SYSTEM_LOAD_SLAVE, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
+	radio_send_frame(FRAME_TYPE_SYSTEM_LOAD_SLAVE, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
 }
 
 static void print_radio_parameters(void) {
@@ -506,7 +507,7 @@ static void print_radio_parameters(void) {
 	radio_reset_statistics();
 
 	//Slave->Master->PC
-	frame_radio_send(FRAME_TYPE_RADIO_STAT, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
+	radio_send_frame(FRAME_TYPE_RADIO_STAT, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
 }
 
 static void print_system_param(void) {
@@ -517,7 +518,7 @@ static void print_system_param(void) {
 	frame.system_local_time = tick_get_time_ms();
 
 	//Slave->Master->PC
-	frame_radio_send(FRAME_TYPE_SYSTEM_PARAMS_SLAVE, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
+	radio_send_frame(FRAME_TYPE_SYSTEM_PARAMS_SLAVE, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
 }
 
 static void print_uart_param(void) {
@@ -533,7 +534,7 @@ static void print_uart_param(void) {
 	uart_reset_statistics();
 
 	//Slave->Master->PC
-	frame_radio_send(FRAME_TYPE_UART_STAT, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
+	radio_send_frame(FRAME_TYPE_UART_STAT, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
 }
 
 static void task_load_monitor(void) {
@@ -541,6 +542,25 @@ static void task_load_monitor(void) {
 	print_radio_parameters();
 	print_system_param();
 	print_uart_param();
+}
+
+void frame_received_complete(FrameType type, FrameParams params, uint8_t *buff, void (*cb_handler)(void *, uint8_t)){
+	uart_increment_reveived_frame_cnt();
+	if (params & FRAME_DESTINATION_MASTER_PC) {
+		//Call original frame VB
+		//PC->Slave
+		cb_handler((void *) (buff), params);
+	} else {
+		//Forward received frame to slave
+		//PC->Master->Slave
+		radio_send_frame(type, (uint8_t *) (buff), params);
+	}
+}
+
+//Frame received
+void frame_received_error(void) {
+	uart_increment_received_error_frame_cnt();
+	debug_error(FRAME_CRC_ERROR);
 }
 
 static void motor_start_stop_detection(uint16_t status) {
@@ -570,7 +590,7 @@ static void motor_start_stop_detection(uint16_t status) {
 	}
 }
 
-void frame_cb_frame_rc_control(void *buff, uint8_t params) {
+void frame_cb_rc_control(void *buff, uint8_t params) {
 	UNUSED(params);
 
 	FrameRcControl *frame = (FrameRcControl *) buff;
@@ -694,6 +714,8 @@ void frame_cb_frame_rc_control(void *buff, uint8_t params) {
  * TODO add wtd as a global
  * TODO add wtd as window comparator
  * TODO printf in foc measuremet limit number of decimal points
+ * TODO rename the sensors files
+ * TODO remove no callback buffers
  */
 
 
@@ -715,20 +737,20 @@ STATIC_ASSERT(sizeof(enum lsm6ds3tr_reg) == sizeof(uint8_t), Unsupported_enum_ls
  *  5 | Buzzer		| Yes
  *  6 | Cyclic		| Yes
  *  7 | Debug		| Yes
- *  8 | Drv8301		|
- *  9 | Frame		|
+ *  8 | Drv8301		| No
+ *  9 | Frame		| Yes
  * 10 | Imu			|
- * 11 | Led			|
+ * 11 | Led			| No
  * 12 | Log			| Yes
  * 13 | Pressure	|
  * 14 | Printf		| Yes
  * 15 | Radio		|
  * 16 | Rybos		| Yes
- * 17 | Servo		|
- * 18 | Si4468		|
- * 19 | Spi			|
+ * 17 | Servo		| No
+ * 18 | Si4468		| No
+ * 19 | Spi			| No
  * 20 | Tick		| Yes
- * 21 | Uart		|
+ * 21 | Uart		| No
  * 22 | Utils		| Yes
  */
 

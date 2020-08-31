@@ -3,8 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-
-#define RADIO_MASTER							0
+#include "../Frame/frame.h"
 
 #define RADIO_FRAME_TX_BUFF_SIZE				61
 #define RADIO_FRAME_QUEUE_SIZE					32
@@ -97,7 +96,9 @@ void radio_send_test_frame1(void);		//TODO remove
 
 void radio_send_test_frame2(void);		//TODO remove
 
-void radio_send(uint8_t frame_type, uint8_t *frame, uint32_t frame_len);
+void radio_send_frame(FrameType frame_type, uint8_t *frame, uint8_t params);
+
+//void radio_send(uint8_t frame_type, uint8_t *frame, uint32_t frame_len);
 
 uint32_t radio_get_max_queue_depth(void);
 

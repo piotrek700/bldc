@@ -31,7 +31,7 @@ CCMRAM_FUCNTION void ahrs_update(float gx, float gy, float gz, float ax, float a
 	if (!((ax == 0.0f) && (ay == 0.0f) && (az == 0.0f))) {
 
 		//Normalize accelerometer measurement
-		recipNorm = inv_sqrtf(ax * ax + ay * ay + az * az);
+		recipNorm = fast_inv_sqrtf(ax * ax + ay * ay + az * az);
 		ax *= recipNorm;
 		ay *= recipNorm;
 		az *= recipNorm;
@@ -56,7 +56,7 @@ CCMRAM_FUCNTION void ahrs_update(float gx, float gy, float gz, float ax, float a
 		s1 = _4q1 * q3q3 - _2q3 * ax + 4.0f * q0q0 * q1x - _2q0 * ay - _4q1 + _8q1 * q1q1 + _8q1 * q2q2 + _4q1 * az;
 		s2 = 4.0f * q0q0 * q1y + _2q0 * ax + _4q2 * q3q3 - _2q3 * ay - _4q2 + _8q2 * q1q1 + _8q2 * q2q2 + _4q2 * az;
 		s3 = 4.0f * q1q1 * q1z - _2q1 * ax + 4.0f * q2q2 * q1z - _2q2 * ay;
-		recipNorm = inv_sqrtf(s0 * s0 + s1 * s1 + s2 * s2 + s3 * s3); // normalize step magnitude
+		recipNorm = fast_inv_sqrtf(s0 * s0 + s1 * s1 + s2 * s2 + s3 * s3); // normalize step magnitude
 		s0 *= recipNorm;
 		s1 *= recipNorm;
 		s2 *= recipNorm;
@@ -76,7 +76,7 @@ CCMRAM_FUCNTION void ahrs_update(float gx, float gy, float gz, float ax, float a
 	q1z += qDot4 * sampling_t;
 
 	//Normalize quaternion //TODO it is not necessary to normalize, normalization once again in ahrs_rotate_45
-	recipNorm = inv_sqrtf(q1w * q1w + q1x * q1x + q1y * q1y + q1z * q1z);
+	recipNorm = fast_inv_sqrtf(q1w * q1w + q1x * q1x + q1y * q1y + q1z * q1z);
 	q1w *= recipNorm; //w
 	q1x *= recipNorm; //x
 	q1y *= recipNorm; //y
@@ -102,7 +102,7 @@ CCMRAM_FUCNTION void ahrs_rotate_45(void) {
 	q2y = AHRS_W_COS_45_2 * q1y - AHRS_Z_SIN_45_2 * q1x;
 	q2z = AHRS_W_COS_45_2 * q1z + AHRS_Z_SIN_45_2 * q1w;
 
-	float recipNorm = inv_sqrtf(q2w * q2w + q2x * q2x + q2y * q2y + q2z * q2z);
+	float recipNorm = fast_inv_sqrtf(q2w * q2w + q2x * q2x + q2y * q2y + q2z * q2z);
 	q2w *= recipNorm; //w
 	q2x *= recipNorm; //x
 	q2y *= recipNorm; //y

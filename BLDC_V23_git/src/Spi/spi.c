@@ -253,15 +253,13 @@ static void spi_dma_start_next_transation(void) {
 	//SPI DMA disable
 	SPI1->CR2 &= (uint16_t) (~(SPI_I2S_DMAReq_Rx | SPI_I2S_DMAReq_Tx));
 
-	DMA1_Channel2->CNDTR = active_transaction->data_length;
-	DMA1_Channel2->CMAR = (uint32_t) active_transaction->rx_buff;
+	//DMA1_Channel2->CNDTR = active_transaction->data_length;
+	//DMA1_Channel2->CMAR = (uint32_t) active_transaction->rx_buff;
 
 	DMA1_Channel3->CNDTR = active_transaction->data_length;
 	DMA1_Channel3->CMAR = (uint32_t) active_transaction->tx_buff;
 
-	//TODO chose one of the options
-
-	/* Option 1
+	//Handle null rx buffer
 	if(active_transaction->rx_buff == 0){
 		static uint8_t null[1];
 
@@ -278,54 +276,6 @@ static void spi_dma_start_next_transation(void) {
 		//memory increment on
 		DMA1_Channel2->CCR |= DMA_CCR_MINC;
 	}
-	*/
-
-	/* Option 2
-	if(active_transaction->rx_buff == 0){
-		//TX
-		DMA1_Channel3->CNDTR = active_transaction->data_length;
-		DMA1_Channel3->CMAR = (uint32_t) active_transaction->tx_buff;
-
-		//IRQ RX disable
-		DMA_ITConfig(DMA1_Channel2, DMA_IT_TC, DISABLE);
-		//IRq TX enable
-		DMA_ITConfig(DMA1_Channel3, DMA_IT_TC, ENABLE);
-
-		//Slave select
-		spi_slave_select(active_transaction->slave);
-
-		//SPI DMA enable
-		SPI1->CR2 |= SPI_I2S_DMAReq_Tx;
-
-		//DMA enable
-		DMA1_Channel3->CCR |= DMA_CCR_EN;
-
-	}else{
-		//RX and TX
-		DMA1_Channel2->CNDTR = active_transaction->data_length;
-		DMA1_Channel2->CMAR = (uint32_t) active_transaction->rx_buff;
-
-		DMA1_Channel3->CNDTR = active_transaction->data_length;
-		DMA1_Channel3->CMAR = (uint32_t) active_transaction->tx_buff;
-
-		//IRQ RX enable
-		DMA_ITConfig(DMA1_Channel2, DMA_IT_TC, ENABLE);
-
-		//IRq TX disable
-		DMA_ITConfig(DMA1_Channel3, DMA_IT_TC, DISABLE);
-
-
-		//Slave select
-		spi_slave_select(active_transaction->slave);
-
-		//SPI DMA enable
-		SPI1->CR2 |= SPI_I2S_DMAReq_Rx | SPI_I2S_DMAReq_Tx;
-
-		//DMA enable
-		DMA1_Channel2->CCR |= DMA_CCR_EN;
-		DMA1_Channel3->CCR |= DMA_CCR_EN;
-	}
-	*/
 
 	//Slave select
 	spi_slave_select(active_transaction->slave);
