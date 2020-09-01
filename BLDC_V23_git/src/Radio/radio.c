@@ -712,48 +712,6 @@ void radio_slave_sm(void) {
 	}
 }
 
-void radio_send_test_frame1(void) {		//TODO remove
-	RadioFrame *frame;
-	enter_critical();
-
-	frame = (RadioFrame *)cyclic_get_to_add((CyclicBuffer *) &radio_cyclic);
-
-	uint8_t tmp[] = "Piotrek700";
-	frame->length = sizeof(tmp);
-	frame->frame_type = 0x00;
-
-	memcpy(frame->tx_buff, (uint8_t *) tmp, sizeof(tmp));
-	cyclic_move((CyclicBuffer *) &radio_cyclic);
-
-	rybos_task_enable(RYBOS_MARKER_TASK_RF, true);
-
-	exit_critical();
-}
-
-void radio_send_test_frame2(void) { 	//TODO remove
-	RadioFrame *frame;
-	enter_critical();
-
-	frame = (RadioFrame *)cyclic_get_to_add((CyclicBuffer *) &radio_cyclic);
-
-	uint8_t tmp[] = "0 Ala ma kota a kot ma ale";
-	static uint8_t value = '0';
-	value++;
-	if (value > '9') {
-		value = '0';
-	}
-	tmp[0] = value;
-	frame->length = sizeof(tmp);
-	frame->frame_type = 0x09;
-
-	memcpy(frame->tx_buff, (uint8_t *) tmp, sizeof(tmp));
-	cyclic_move((CyclicBuffer *) &radio_cyclic);
-
-	rybos_task_enable(RYBOS_MARKER_TASK_RF, true);
-
-	exit_critical();
-}
-
 void radio_send_frame(FrameType frame_type, uint8_t *frame, uint8_t params) {
 	RadioFrame *frame_buff;
 	enter_critical();
@@ -779,29 +737,7 @@ void radio_send_frame(FrameType frame_type, uint8_t *frame, uint8_t params) {
 		uart_send_frame(frame_type, frame, params);
 	}
 }
-/*
-void radio_send(uint8_t frame_type, uint8_t *frame, uint32_t frame_len) {	//TODO remove frame length_ get in from frame dictionary
-	RadioFrame *frame_buff;
-	enter_critical();
 
-	frame_buff = (RadioFrame *)cyclic_get_to_add((CyclicBuffer *) &radio_cyclic);
-
-	frame_buff->length = frame_len;
-	frame_buff->frame_type = frame_type;
-
-	uint32_t i;
-	for (i = 0; i < frame_len; i++) {
-		frame_buff->tx_buff[i] = frame[i];	//TODO memcopy
-	}
-
-	//memcpy(frame_buff->tx_buff, frame, sizeof(frame_len));
-	cyclic_move((CyclicBuffer *) &radio_cyclic);
-
-	rybos_task_enable(RYBOS_MARKER_TASK_RF, true);
-
-	exit_critical();
-}
-*/
 uint32_t radio_get_max_queue_depth(void) {
 	return cyclic_get_max_elements((CyclicBuffer *) &radio_cyclic);
 }

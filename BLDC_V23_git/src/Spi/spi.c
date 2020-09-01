@@ -151,7 +151,8 @@ void spi_slave_select(SpiSlaveSelect slave) {
 	//BLDC,  CPOL L, 2Edge
 
 	//Disable all CS
-	SPI_ALL_NSS_SET_HIGH;
+	SPI_ALL_NSS_SET_HIGH
+	;
 
 	switch (slave) {
 	case SPI_SLAVE_SELECT_NONE:
@@ -260,7 +261,7 @@ static void spi_dma_start_next_transation(void) {
 	DMA1_Channel3->CMAR = (uint32_t) active_transaction->tx_buff;
 
 	//Handle null rx buffer
-	if(active_transaction->rx_buff == 0){
+	if (active_transaction->rx_buff == 0) {
 		static uint8_t null[1];
 
 		//Redirect received data to null
@@ -268,8 +269,8 @@ static void spi_dma_start_next_transation(void) {
 		DMA1_Channel2->CMAR = (uint32_t) null;
 
 		//memory increment off
-		DMA1_Channel2->CCR &=~ DMA_CCR_MINC;
-	}else{
+		DMA1_Channel2->CCR &= ~ DMA_CCR_MINC;
+	} else {
 		DMA1_Channel2->CNDTR = active_transaction->data_length;
 		DMA1_Channel2->CMAR = (uint32_t) active_transaction->rx_buff;
 

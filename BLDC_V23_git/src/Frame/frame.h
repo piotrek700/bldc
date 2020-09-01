@@ -17,7 +17,7 @@
 		}
 
 //Frame general structure
-typedef struct  __attribute__((__packed__)) {
+typedef struct __attribute__((__packed__)) {
 	uint8_t type_param;
 	union{
 		FRAME_DICTIONARY_DEFINITION(FRAME_GENERATE_UNION);
@@ -49,7 +49,6 @@ typedef struct {
 //Generate all declarations
 FRAME_DICTIONARY_DEFINITION(FRAME_GENERATE_DEFINITION);
 
-//TODO typedef function ptr
 void frame_received_complete(FrameType type, FrameParams params, uint8_t *buff, FrameCb cb);
 
 void frame_received_error(void);

@@ -1,7 +1,7 @@
-#ifndef PRESSURE_TRAN_H_
-#define PRESSURE_TRAN_H_
+#ifndef LPS22HB_TRAN_H_
+#define LPS22HB_TRAN_H_
 
-#include "pressure_reg.h"
+#include <Pressure/lps22hb_reg.h>
 #include "../Spi/spi.h"
 
 //1----------------------------------------------------------------------------
@@ -13,7 +13,7 @@ static const SpiTransactionRecord record_who_am_i = {
 		.rx_buff = (uint8_t *) rx_who_am_i,
 		.slave = SPI_SLAVE_SELECT_PRESSURE,
 		.data_length = 2,
-		.cb = pressure_check_who_am_i_cb
+		.cb = lps22hb_check_who_am_i_cb
 };
 
 //2----------------------------------------------------------------------------
@@ -36,7 +36,7 @@ static const SpiTransactionRecord record_read_sensor = {
 		.rx_buff = (uint8_t *) rx_read_sensor,
 		.slave = SPI_SLAVE_SELECT_PRESSURE,
 		.data_length = 6,
-		.cb = pressure_read_sensor_cb
+		.cb = lps22hb_read_sensor_cb
 };
 //-----------------------------------------------------------------------------
 

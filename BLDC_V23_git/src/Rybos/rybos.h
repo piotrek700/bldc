@@ -46,7 +46,7 @@ static const uint8_t RYBOS_IRQ_TASK_NAMES[][RYBOS_TASK_IRQ_NAME_MAX_SIZE] = {
 typedef enum {
 	//Roll-out to all IRQs
 	RYBOS_IRQ_LIST(RYBOS_GENERATE_IRQ_UNIQUE_MASK_ENUM)
-}RybosIrqUniqueMask;
+	}RybosIrqUniqueMask;
 
 typedef struct {
 	uint32_t period;

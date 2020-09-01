@@ -443,11 +443,11 @@ static void bldc_state_calibrate_v(void) {
 				v3 *= v_bemf_offset_ldo / ADC_MAX_VALUE;
 
 				//GND floor measurement
-				printf("Calibration BEMF L V1[V]:   %f\n", (double) v1);
-				printf("Calibration BEMF L V2[V]:   %f\n", (double) v2);
-				printf("Calibration BEMF L V3[V]:   %f\n", (double) v3);
-				printf("Calibration BEMF L VLDO[V]: %f\n", (double) v_bemf_offset_ldo);
-				printf("Calibration BEMF L VCC[V]:  %f\n", (double) v_bemf_offset_vcc);
+				printf("Calibration BEMF L V1[V]:   %.3f\n", (double) v1);
+				printf("Calibration BEMF L V2[V]:   %.3f\n", (double) v2);
+				printf("Calibration BEMF L V3[V]:   %.3f\n", (double) v3);
+				printf("Calibration BEMF L VLDO[V]: %.3f\n", (double) v_bemf_offset_ldo);
+				printf("Calibration BEMF L VCC[V]:  %.3f\n", (double) v_bemf_offset_vcc);
 
 				bldc_set_active_state(BLDC_STATE_CALIBRATE_FINISH);
 			}
@@ -477,11 +477,11 @@ static void bldc_state_calibrate_v(void) {
 				v3 *= v_bemf_h_ldo / ADC_MAX_VALUE;
 
 				//VCC measurement
-				printf("Calibration BEMF H V1[V]:   %f\n", (double) v1);
-				printf("Calibration BEMF H V2[V]:   %f\n", (double) v2);
-				printf("Calibration BEMF H V3[V]:   %f\n", (double) v3);
-				printf("Calibration BEMF H VLDO[V]: %f\n", (double) v_bemf_h_ldo);
-				printf("Calibration BEMF H VCC[V]:  %f\n", (double) v_bemf_h_vcc);
+				printf("Calibration BEMF H V1[V]:   %.3f\n", (double) v1);
+				printf("Calibration BEMF H V2[V]:   %.3f\n", (double) v2);
+				printf("Calibration BEMF H V3[V]:   %.3f\n", (double) v3);
+				printf("Calibration BEMF H VLDO[V]: %.3f\n", (double) v_bemf_h_ldo);
+				printf("Calibration BEMF H VCC[V]:  %.3f\n", (double) v_bemf_h_vcc);
 
 				time = 0;
 				h_complete = true;
@@ -522,9 +522,9 @@ static void bldc_state_calibrate_i(void) {
 		float p3 = ((float) p3_i_offset - ADC_MAX_VALUE / 2) / ADC_I_GAIN;
 		p3 *= i_offset_ldo / ADC_MAX_VALUE / ADC_I_R_OHM;
 
-		printf("Calibration I1[A]:     %f\n", (double) p1);
-		printf("Calibration I3[A]:     %f\n", (double) p3);
-		printf("Calibration I VLDO[V]: %f\n", (double) i_offset_ldo);
+		printf("Calibration I1[A]:     %.6f\n", (double) p1);
+		printf("Calibration I3[A]:     %.6f\n", (double) p3);
+		printf("Calibration I VLDO[V]: %.6f\n", (double) i_offset_ldo);
 
 		drv8301_i_calibration_disable();
 		bldc_set_active_state(BLDC_STATE_CALIBRATE_V);
@@ -738,10 +738,10 @@ static void bldc_state_measure_r(void) {
 		measure_r_cnt++;
 
 		if (measure_r_cnt == BLDC_MEASURE_R_SAMPLES) {
-			printf("Measured R AVR Vdq[V]:  %f\n", (double) (measure_r_voltage_avr / (float) measure_r_cnt));
-			printf("Measured R AVR Idq[A]:  %f\n", (double) (measure_r_current_avr / (float) measure_r_cnt));
-			printf("Measured R AVR R1[Ohm]: %f\n", (double) (measure_r_voltage_avr / measure_r_current_avr));
-			printf("Measured R AVR R2[Ohm]: %f\n", (double) (p2_v_avr / (p1_i_avr + p3_i_avr)));
+			printf("Measured R AVR Vdq[V]:  %.6f\n", (double) (measure_r_voltage_avr / (float) measure_r_cnt));
+			printf("Measured R AVR Idq[A]:  %.6f\n", (double) (measure_r_current_avr / (float) measure_r_cnt));
+			printf("Measured R AVR R1[Ohm]: %.6f\n", (double) (measure_r_voltage_avr / measure_r_current_avr));
+			printf("Measured R AVR R2[Ohm]: %.6f\n", (double) (p2_v_avr / (p1_i_avr + p3_i_avr)));
 
 			bldc_set_active_state(BLDC_STATE_STOP);
 		}
@@ -805,13 +805,13 @@ static void bldc_state_measure_l(void) {
 		if (measure_l_cnt == BLDC_MEASURE_L_SAMPLES) {
 			float duty_time = BLDC_MEASURE_L_DUTY * BLDC_DT;
 			measure_l_cnt /= BLDC_MEASURE_L_WAIT_CYCLES;
-			printf("Measured L AVR1 VCC[V]: %f\n", (double) (measure_l_vcc_avr_1 / (float) measure_l_cnt));
-			printf("Measured L AVR1 I1[A]:  %f\n", (double) (measure_l_i1_avr_1 / (float) measure_l_cnt));
-			printf("Measured L AVR1 I3[A]:  %f\n", (double) (measure_l_i3_avr_1 / (float) measure_l_cnt));
+			printf("Measured L AVR1 VCC[V]: %.3f\n", (double) (measure_l_vcc_avr_1 / (float) measure_l_cnt));
+			printf("Measured L AVR1 I1[A]:  %.3f\n", (double) (measure_l_i1_avr_1 / (float) measure_l_cnt));
+			printf("Measured L AVR1 I3[A]:  %.3f\n", (double) (measure_l_i3_avr_1 / (float) measure_l_cnt));
 
-			printf("Measured L AVR2 VCC[V]: %f\n", (double) (measure_l_vcc_avr_2 / (float) measure_l_cnt));
-			printf("Measured L AVR2 I1[A]:  %f\n", (double) (measure_l_i1_avr_2 / (float) measure_l_cnt));
-			printf("Measured L AVR2 I3[A]:  %f\n", (double) (measure_l_i3_avr_2 / (float) measure_l_cnt));
+			printf("Measured L AVR2 VCC[V]: %.3f\n", (double) (measure_l_vcc_avr_2 / (float) measure_l_cnt));
+			printf("Measured L AVR2 I1[A]:  %.3f\n", (double) (measure_l_i1_avr_2 / (float) measure_l_cnt));
+			printf("Measured L AVR2 I3[A]:  %.3f\n", (double) (measure_l_i3_avr_2 / (float) measure_l_cnt));
 
 			float i1 = (measure_l_i1_avr_1 + measure_l_i3_avr_1) / (float) measure_l_cnt;
 			float i2 = (measure_l_i1_avr_2 + measure_l_i3_avr_2) / (float) measure_l_cnt;
@@ -819,7 +819,7 @@ static void bldc_state_measure_l(void) {
 			float v2 = measure_l_vcc_avr_2 / (float) measure_l_cnt;
 			float l = -(i1 * v2 + (-i2 - i1) * v1) * duty_time / (2.0f * i1 * i1) * 2.0f / 3.0f * 1e6f;
 
-			printf("Measured L AVR L[uH]:   %f\n", (double) l);
+			printf("Measured L AVR L[uH]:   %.3f\n", (double) l);
 
 			bldc_set_active_state(BLDC_STATE_DO_NOTHING);
 		}
@@ -1854,9 +1854,9 @@ static void bldc_flux_linkage_measurement(float v_d, float v_q, float i_d, float
 		linkage_bemf_c = vc_bemf_max / add_min_speed;
 
 		//TODO replace to generate this info from main
-		//printf("Flux linkage VBMF/Speed A: %f\n", (double) linkage_bemf_a);
-		//printf("Flux linkage VBMF/Speed B: %f\n", (double) linkage_bemf_b);
-		//printf("Flux linkage VBMF/Speed C: %f\n", (double) linkage_bemf_c);
+		//printf("Flux linkage VBMF/Speed A: %.6f\n", (double) linkage_bemf_a);
+		//printf("Flux linkage VBMF/Speed B: %.6f\n", (double) linkage_bemf_b);
+		//printf("Flux linkage VBMF/Speed C: %.6f\n", (double) linkage_bemf_c);
 	}
 
 	if (tick_get_time_ms() == (measurement_start_time_ms + measurement_time_ms) && finished == false) {
@@ -1878,7 +1878,7 @@ static void bldc_flux_linkage_measurement(float v_d, float v_q, float i_d, float
 		bldc_off = true;
 
 		//TODO replace to generate this info from main
-		//printf("Flux linkage V/I: %f\n", (double) linkage);
+		//printf("Flux linkage V/I: %.6f\n", (double) linkage);
 
 	} else if (tick_get_time_ms() > measurement_start_time_ms && finished == false) {
 		vq_avg += v_q;

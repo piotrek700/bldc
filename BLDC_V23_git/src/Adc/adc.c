@@ -261,13 +261,12 @@ static void adc_nvic_init(void) {
 	NVIC_Init(&NVIC_InitStructure);
 
 	NVIC_SetPriority(ADC1_2_IRQn, 3);
-	/*
-	NVIC_InitStructure.NVIC_IRQChannel = ADC4_IRQn;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 2;
-	NVIC_Init(&NVIC_InitStructure);
 
-	NVIC_SetPriority(ADC4_IRQn, 2);
-	 */
+//	NVIC_InitStructure.NVIC_IRQChannel = ADC4_IRQn;
+//	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 2;
+//	NVIC_Init(&NVIC_InitStructure);
+//
+//	NVIC_SetPriority(ADC4_IRQn, 2);
 }
 
 CCMRAM_FUCNTION void ADC1_2_IRQHandler(void) {
@@ -279,31 +278,29 @@ CCMRAM_FUCNTION void ADC1_2_IRQHandler(void) {
 	ADC3->ISR = (uint32_t) 0x7FF;	//ADC_IT_JEOS;
 	ADC4->ISR = (uint32_t) 0x7FF;	//ADC_IT_JEOS;
 
-	/*
-	//Check if ADC1 IRQ complete
-	if (ADC_GetITStatus(ADC1, ADC_IT_JEOS)) {
-		ADC_ClearITPendingBit(ADC1, ADC_IT_JEOS);
-	}else{
-		//debug_error_handler(ADC1_OVERRUN_ERROR);
-	}
-
-	//Check if ADC4 IRQ complete
-	if (ADC_GetITStatus(ADC4, ADC_IT_JEOS)) {
-		ADC_ClearITPendingBit(ADC4, ADC_IT_JEOS);
-	}else{
-		//debug_error_handler(ADC234_OVERRUN_ERROR);
-	}
-
-	//ADC1 overrun protection
-	if (ADC_GetITStatus(ADC1, ADC_IT_OVR)) {
-		//debug_error_handler(ADC1_OVERRUN_ERROR);
-	}
-
-	//ADC4 overrun protection
-	if (ADC_GetITStatus(ADC4, ADC_IT_OVR)) {
-		//debug_error_handler(ADC234_OVERRUN_ERROR);
-	}
-	 */
+//	 //Check if ADC1 IRQ complete
+//	if (ADC_GetITStatus(ADC1, ADC_IT_JEOS)) {
+//		ADC_ClearITPendingBit(ADC1, ADC_IT_JEOS);
+//	} else {
+//		debug_error_handler(ADC1_OVERRUN_ERROR);
+//	}
+//
+//	//Check if ADC4 IRQ complete
+//	if (ADC_GetITStatus(ADC4, ADC_IT_JEOS)) {
+//		ADC_ClearITPendingBit(ADC4, ADC_IT_JEOS);
+//	} else {
+//		debug_error_handler(ADC234_OVERRUN_ERROR);
+//	}
+//
+//	//ADC1 overrun protection
+//	if (ADC_GetITStatus(ADC1, ADC_IT_OVR)) {
+//		debug_error_handler(ADC1_OVERRUN_ERROR);
+//	}
+//
+//	//ADC4 overrun protection
+//	if (ADC_GetITStatus(ADC4, ADC_IT_OVR)) {
+//		debug_error_handler(ADC234_OVERRUN_ERROR);
+//	}
 
 	//FOC
 	bldc_adc_irq_hanlder();
@@ -322,10 +319,10 @@ void adc_init(void) {
 	ADC3->ISR = (uint32_t) 0x7FF;	//ADC_IT_JEOS;
 	ADC4->ISR = (uint32_t) 0x7FF;	//ADC_IT_JEOS;
 
-	//ADC_StartInjectedConversion(ADC1);
-	//ADC_StartInjectedConversion(ADC2);
-	//ADC_StartInjectedConversion(ADC3);
-	//ADC_StartInjectedConversion(ADC4);
+//	ADC_StartInjectedConversion(ADC1);
+//	ADC_StartInjectedConversion(ADC2);
+//	ADC_StartInjectedConversion(ADC3);
+//	ADC_StartInjectedConversion(ADC4);
 
 	ADC1->CR |= ADC_CR_JADSTART;
 	ADC2->CR |= ADC_CR_JADSTART;

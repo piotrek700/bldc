@@ -25,7 +25,7 @@ void tick_clear_clock_tick(void);
 
 bool tick_get_init_status(void);
 
-static inline uint32_t tick_get_clock_tick(void){
+static inline uint32_t tick_get_clock_tick(void) {
 	return *DWT_CYCCNT;
 }
 

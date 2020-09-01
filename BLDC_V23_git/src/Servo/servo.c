@@ -3,7 +3,7 @@
 
 static bool init_status = false;
 
-static float servo_angle[4] = {0, 0, 0, 0};
+static float servo_angle[4] = { 0, 0, 0, 0 };
 
 void servo_test(void) {
 	if (!DEBUG_TEST_ENABLE) {
@@ -114,7 +114,7 @@ void servo_set_position_angle(ServoPosition servo_position, float angle) {
 	}
 }
 
-float *servo_get_angle(void){
+float *servo_get_angle(void) {
 	return servo_angle;
 }
 

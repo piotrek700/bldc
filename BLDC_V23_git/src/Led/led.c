@@ -19,7 +19,7 @@ void led_init(void) {
 	led_gpio_init();
 
 	LED_RED_OFF;
-	//LED_BLUE_OFF; //TODO ENABLE
+	//LED_BLUE_OFF;
 
 	led_test();
 

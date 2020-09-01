@@ -93,7 +93,7 @@ void si4468_read_frr_bcd_cb(uint8_t *rx) {
 		cmd_error = true;
 		debug_error(SI4468_PACKET_CRC_ERROR_IRQ);
 		rybos_task_enable(RYBOS_MARKER_TASK_RF, true);
-			return;
+		return;
 	}
 
 	if (ph_pend & SI446X_CMD_GET_INT_STATUS_REP_PH_PEND_PACKET_RX_PEND_BIT) {

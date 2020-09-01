@@ -132,7 +132,7 @@ static void drv8301_fault_irq(void) {
 	drv8301_read_status();
 
 	//TODO read registers from drv8301
-	//send massgae about staus to pc
+	//send message about status to PC
 	//frame_send_message_string(MSG_ERROR, (uint8_t *)"DRF8301 FAULT fault");
 	//LED_RED_ON;
 }

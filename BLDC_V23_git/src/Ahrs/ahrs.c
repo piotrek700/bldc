@@ -75,7 +75,8 @@ CCMRAM_FUCNTION void ahrs_update(float gx, float gy, float gz, float ax, float a
 	q1y += qDot3 * sampling_t;
 	q1z += qDot4 * sampling_t;
 
-	//Normalize quaternion //TODO it is not necessary to normalize, normalization once again in ahrs_rotate_45
+	//Normalize quaternion
+	//TODO it is not necessary to normalize, normalization once again in ahrs_rotate_45
 	recipNorm = fast_inv_sqrtf(q1w * q1w + q1x * q1x + q1y * q1y + q1z * q1z);
 	q1w *= recipNorm; //w
 	q1x *= recipNorm; //x
@@ -118,15 +119,15 @@ void ahrs_rotate_0(void) {
 
 //Tait-bryan http://www.chrobotics.com/library/understanding-quaternions
 CCMRAM_FUCNTION float ahrs_get_yaw(void) {
-	return fast_atan2f(2.0f * (q2y * q2z + q2w * q2x), q2w * q2w - q2x * q2x - q2y * q2y + q2z * q2z) * 180.0f * (float)M_1_PI;
+	return fast_atan2f(2.0f * (q2y * q2z + q2w * q2x), q2w * q2w - q2x * q2x - q2y * q2y + q2z * q2z) * 180.0f * (float) M_1_PI;
 }
 
 CCMRAM_FUCNTION float ahrs_get_pitch(void) {
-	return asinf(2.0f * (q2x * q2z - q2w * q2y)) * 180.0f * (float)M_1_PI;
+	return asinf(2.0f * (q2x * q2z - q2w * q2y)) * 180.0f * (float) M_1_PI;
 }
 
 CCMRAM_FUCNTION float ahrs_get_roll(void) {
-	return -fast_atan2f(2.0f * (q2x * q2y + q2w * q2z), q2w * q2w + q2x * q2x - q2y * q2y - q2z * q2z) * 180.0f * (float)M_1_PI;
+	return -fast_atan2f(2.0f * (q2x * q2y + q2w * q2z), q2w * q2w + q2x * q2x - q2y * q2y - q2z * q2z) * 180.0f * (float) M_1_PI;
 }
 
 float *ahrs_get_q1(void) {

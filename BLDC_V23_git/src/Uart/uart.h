@@ -37,10 +37,10 @@ bool uart_get_init_status(void);
 
 bool uart_get_byte_dma(uint8_t *data);
 
-void uart_send_frame(FrameType frame_type, uint8_t *frame, uint8_t params);
+void uart_send_frame(FrameType type, uint8_t *frame, FrameParams params);
 
 uint32_t uart_get_max_queue_depth(void);
 
-void uart_send_scope_frame(uint8_t frame_type, uint32_t frame_len, uint8_t *frame);
+void uart_send_scope_frame(FrameType type, uint8_t *frame, FrameParams params);
 
 #endif

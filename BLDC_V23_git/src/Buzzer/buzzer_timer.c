@@ -79,9 +79,9 @@ void buzzer_timer_set_frequency(uint16_t freq) {
 		TIM2->CCR1 = period / 2;
 		TIM2->EGR = TIM_PSCReloadMode_Immediate;
 
-		//uint32_t period = TICK_CPU_FREQUENCY_HZ / freq;
-		//TIM2->ARR = period;
-		//TIM2->CCR1 = period / 2;
-		//TIM2->EGR = TIM_PSCReloadMode_Immediate;
+//		uint32_t period = TICK_CPU_FREQUENCY_HZ / freq;
+//		TIM2->ARR = period;
+//		TIM2->CCR1 = period / 2;
+//		TIM2->EGR = TIM_PSCReloadMode_Immediate;
 	}
 }

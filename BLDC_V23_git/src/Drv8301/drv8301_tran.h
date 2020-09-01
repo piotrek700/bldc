@@ -65,7 +65,8 @@ static const SpiTransactionRecord clear_trans = {
 };
 
 //6----------------------------------------------------------------------------
-static const uint16_t tx_calib_enable[1] = { SWAP_UINT16(DRV8301_SPI_WRITE|DRV8301_ADDR3_CR2| DRV8301_CR2_SETTINGS | DRV8301_CR2_DC_CAL_CH1_DISCONNECT|DRV8301_CR2_DC_CAL_CH2_DISCONNECT) };
+static const uint16_t tx_calib_enable[1] = { SWAP_UINT16(
+		DRV8301_SPI_WRITE|DRV8301_ADDR3_CR2| DRV8301_CR2_SETTINGS | DRV8301_CR2_DC_CAL_CH1_DISCONNECT|DRV8301_CR2_DC_CAL_CH2_DISCONNECT) };
 static volatile uint16_t rx_calib_enable[1];
 
 static const SpiTransactionRecord write_calib_enable = {

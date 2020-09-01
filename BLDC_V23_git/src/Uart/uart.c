@@ -218,15 +218,15 @@ static void uart_dma_start_next_transation(void) {
 	DMA1_Channel7->CCR |= DMA_CCR_EN;
 }
 
-void uart_send_frame(FrameType frame_type, uint8_t *frame, uint8_t params) {
+void uart_send_frame(FrameType type, uint8_t *frame, FrameParams params) {
 	UartFrame *frame_buff;
 
 	enter_critical();
 
 	frame_buff = (UartFrame *) cyclic_get_to_add((CyclicBuffer *) &uart_cyclic);
 
-	frame_buff->length = frame_send_coded(frame_type, params, frame, frame_buff->tx_buff, UART_FRAME_TX_BUFF_SIZE);
-	if(frame_buff->length == 0){
+	frame_buff->length = frame_send_coded(type, params, frame, frame_buff->tx_buff, UART_FRAME_TX_BUFF_SIZE);
+	if (frame_buff->length == 0) {
 		debug_error(UART_FRAME_MESSAGE_OVERLENGTH);
 		exit_critical();
 		return;
@@ -241,69 +241,18 @@ void uart_send_frame(FrameType frame_type, uint8_t *frame, uint8_t params) {
 
 	exit_critical();
 }
-void uart_send_scope_frame(uint8_t frame_type, uint32_t frame_len, uint8_t *frame){
-	volatile uint32_t len = 0;	//todo move to local
-
+void uart_send_scope_frame(FrameType type, uint8_t *frame, FrameParams params) {
 	uint8_t tx_buff[UART_FRAME_TX_BUFF_SIZE];
 
-	UartFrame *frame_buff;
-	len = 0;
-	uint8_t crc_tmp;
-
-	//Start symbol
-	tx_buff[len] = FRAME_START_SYMBOL;
-	len++;
-
-	//Type
-	if (frame_type == FRAME_START_SYMBOL) {
-		tx_buff[len] = frame_type;
-		len++;
-	}
-	tx_buff[len] = frame_type;
-	len++;
-	crc_tmp = (uint8_t) frame_type;
-
-	//Payload
-	uint32_t i;
-	for (i = 0; i < frame_len; i++) {
-		if (frame[i] == FRAME_START_SYMBOL) {
-			tx_buff[len] = frame[i];
-			len++;
-			if(len == UART_FRAME_TX_BUFF_SIZE){
-				return;
-			}
-		}
-		tx_buff[len] = frame[i];
-		len++;
-		if(len == UART_FRAME_TX_BUFF_SIZE){
-						return;
-					}
-		crc_tmp += (uint8_t) frame[i];
-	}
-
-	//CRC
-	if (crc_tmp == FRAME_START_SYMBOL) {
-		tx_buff[len] = crc_tmp;
-		len++;
-		if(len == UART_FRAME_TX_BUFF_SIZE){
-						return;
-					}
-	}
-	tx_buff[len] = crc_tmp;
-	len++;
-	if(len == UART_FRAME_TX_BUFF_SIZE){
-					return;
-				}
-
-	if (len >= UART_FRAME_TX_BUFF_SIZE) {
-		return;//TODO it is not critical error
+	uint32_t len = frame_send_coded(type, params, frame, tx_buff, UART_FRAME_TX_BUFF_SIZE);
+	if (len == 0) {
 		debug_error(UART_FRAME_MESSAGE_OVERLENGTH);
 		return;
 	}
 
 	enter_critical();
 
-	frame_buff = (UartFrame *) cyclic_get_to_add((CyclicBuffer *) &uart_cyclic);
+	UartFrame *frame_buff = (UartFrame *) cyclic_get_to_add((CyclicBuffer *) &uart_cyclic);
 
 	//Set length
 	frame_buff->length = len;

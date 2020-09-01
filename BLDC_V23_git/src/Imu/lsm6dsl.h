@@ -1,5 +1,5 @@
-#ifndef IMU_H_
-#define IMU_H_
+#ifndef LSM6DSL_H_
+#define LSM6DSL_H_
 
 #include "platform.h"
 
@@ -15,24 +15,24 @@ typedef struct __attribute__((__packed__)){
 	int16_t temperature;
 	int16_t gyroscope[3];
 	int16_t accelerometer[3];
-}ImuDataOutput;
+}Lsm6dslDataOutput;
 
-void imu_init(void);
+void lsm6dsl_init(void);
 
-float * imu_get_imu_acceleration(void);
+float * lsm6dsl_get_imu_acceleration(void);
 
-float * imu_get_angular_velocity(void);
+float * lsm6dsl_get_angular_velocity(void);
 
-float imu_get_temperature_c(void);
+float lsm6dsl_get_temperature_c(void);
 
-void imu_read_sensor(void);
+void lsm6dsl_read_sensor(void);
 
-void imu_test(void);
+void lsm6dsl_test(void);
 
-bool imu_get_init_status(void);
+bool lsm6dsl_get_init_status(void);
 
-void imu_check_who_am_i_cb(uint8_t *rx);
+void lsm6dsl_check_who_am_i_cb(uint8_t *rx);
 
-void imu_read_sensor_cb(uint8_t *rx);
+void lsm6dsl_read_sensor_cb(uint8_t *rx);
 
 #endif

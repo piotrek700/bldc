@@ -21,7 +21,8 @@ void rybos_add_task(uint32_t period, uint32_t priority, uint8_t *description, vo
 
 	task_list[task_cnt].period = period;
 	task_list[task_cnt].priority = priority;
-	task_list[task_cnt].timer = period;	//TODO rand
+	//TODO random start time generation
+	task_list[task_cnt].timer = period;
 	task_list[task_cnt].description = description;
 	task_list[task_cnt].cb = cb;
 	task_list[task_cnt].marker = marker;
@@ -33,7 +34,8 @@ void rybos_add_task(uint32_t period, uint32_t priority, uint8_t *description, vo
 }
 
 CCMRAM_FUCNTION void rybos_scheduler_run(void) {
-	//TODO iwdg_kick();
+	//TODO Watchdog enable
+	//iwdg_kick();
 
 	//Find the highest priority task
 	static uint32_t active_task_ptr = 0;
@@ -56,7 +58,6 @@ CCMRAM_FUCNTION void rybos_scheduler_run(void) {
 				}
 			}
 		}
-	//TODO Check if cyclic task, Check if refresh required
 	} while (last_task != active_task_ptr);
 
 	//Update timer and execute task

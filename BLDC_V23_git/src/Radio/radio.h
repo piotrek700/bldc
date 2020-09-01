@@ -92,13 +92,7 @@ void radio_master_sm(void);
 
 void radio_slave_sm(void);
 
-void radio_send_test_frame1(void);		//TODO remove
-
-void radio_send_test_frame2(void);		//TODO remove
-
 void radio_send_frame(FrameType frame_type, uint8_t *frame, uint8_t params);
-
-//void radio_send(uint8_t frame_type, uint8_t *frame, uint32_t frame_len);
 
 uint32_t radio_get_max_queue_depth(void);
 

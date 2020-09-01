@@ -1,3 +1,5 @@
+#include <Imu/lsm6dsl.h>
+#include <Pressure/lps22hb.h>
 #include "main.h"
 #include "Tick/tick.h"
 #include "Debug/debug.h"
@@ -7,9 +9,7 @@
 #include "math.h"
 #include "Drv8301/drv8301.h"
 #include "Buzzer/buzzer.h"
-#include "Pressure/pressure.h"
 #include "Servo/servo.h"
-#include "Imu/imu.h"
 #include "Ahrs/ahrs.h"
 #include "Rybos/rybos.h"
 #include "Adc/adc.h"
@@ -64,7 +64,7 @@ static uint32_t ii_uart_send = 0;
 static void uart_send_scope_data(void) {
 	//TODO refactor this
 	while (bldc_get_frame_ready(ii_uart_send)) {
-		uart_send_scope_frame(FRAME_TYPE_DISPLAY_CHANNELS_DATA_4, sizeof(FrameDisplayChannelsData4), (uint8_t *) bldc_get_scope_4ch_frame(ii_uart_send));
+		uart_send_scope_frame(FRAME_TYPE_DISPLAY_CHANNELS_DATA_4, (uint8_t *) bldc_get_scope_4ch_frame(ii_uart_send), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
 		bldc_get_frame_ready_clear(ii_uart_send);
 
 		ii_uart_send++;
@@ -223,18 +223,18 @@ static void task_read_pressure(void) {
 	static float height_tmp = 0;
 	static uint32_t offset_cnt = 0;
 
-	pressure_read_sensor();
+	lps22hb_read_sensor();
 
 	//Offset compensation
-	if (offset_cnt < PRESSURE_OFFSET_COUNTER) {
-		height_tmp += pressure_get_height_m();
+	if (offset_cnt < LPS22HB_OFFSET_COUNTER) {
+		height_tmp += lps22hb_get_height_m();
 		offset_cnt++;
-	} else if (offset_cnt == PRESSURE_OFFSET_COUNTER) {
+	} else if (offset_cnt == LPS22HB_OFFSET_COUNTER) {
 		height_offset = height_tmp / (float) offset_cnt;
 		offset_cnt++;
 	}
 
-	height_compensated = pressure_get_height_m() - height_offset;
+	height_compensated = lps22hb_get_height_m() - height_offset;
 }
 
 static void control_drone(void) {
@@ -274,8 +274,8 @@ static void task_imu_read(void) {
 	static float vel_offset_tmp[3] = { 0, 0, 0 };
 	static uint32_t offset_cnt = 0;
 
-	float *acc = imu_get_imu_acceleration();
-	float *vel = imu_get_angular_velocity();
+	float *acc = lsm6dsl_get_imu_acceleration();
+	float *vel = lsm6dsl_get_angular_velocity();
 
 	//Offset compensation
 	if (offset_cnt < IMU_OFFSET_COUNTER) {
@@ -304,7 +304,7 @@ static void task_imu_read(void) {
 	pitch = ahrs_get_pitch();
 	roll = ahrs_get_roll();
 
-	imu_read_sensor();
+	lsm6dsl_read_sensor();
 
 	control_drone();
 
@@ -365,7 +365,7 @@ static void print_slow_param(void) {
 	frame.adc.ldo_v = SCALE_FLOAT_TO_UINT16(bldc_get_v_ldo_v(), 0.0f, 4.0f);											//	   0 	-     4		V
 
 	//IMU
-	float *acc = imu_get_imu_acceleration();
+	float *acc = lsm6dsl_get_imu_acceleration();
 
 	frame.imu.acc[0] = SCALE_FLOAT_TO_INT16(acc[0], -80.0f, 80.0f);														//	 -80 	-    80		m/s2
 	frame.imu.acc[1] = SCALE_FLOAT_TO_INT16(acc[1], -80.0f, 80.0f);														//	 -80 	-    80		m/s2
@@ -375,11 +375,11 @@ static void print_slow_param(void) {
 	frame.imu.vel[1] = SCALE_FLOAT_TO_INT16(vel_compensated[1], -2000.0f, 2000.0f);										//   -2k 	-  	 2k		deg/s
 	frame.imu.vel[2] = SCALE_FLOAT_TO_INT16(vel_compensated[2], -2000.0f, 2000.0f);										//   -2k 	-  	 2k		deg/s
 
-	frame.imu.temp = SCALE_FLOAT_TO_UINT16(imu_get_temperature_c(), -128.0f, 256.0f);									//	-128 	- 	256		C
+	frame.imu.temp = SCALE_FLOAT_TO_UINT16(lsm6dsl_get_temperature_c(), -128.0f, 256.0f);									//	-128 	- 	256		C
 
 	frame.pressure.height = SCALE_FLOAT_TO_INT16(height_compensated, -1000.0f, 1000.0f);								//	 -1000 	-  1000		m
-	frame.pressure.press = SCALE_FLOAT_TO_UINT16(pressure_get_pressure_pa(), 90000.0f, 110000.0f);						//	 90k	-  110k 	Pa
-	frame.pressure.temp = SCALE_FLOAT_TO_UINT16(pressure_get_temperature_c(), -128.0f, 256.0f);							//	-128 	- 	256		C
+	frame.pressure.press = SCALE_FLOAT_TO_UINT16(lps22hb_get_pressure_pa(), 90000.0f, 110000.0f);						//	 90k	-  110k 	Pa
+	frame.pressure.temp = SCALE_FLOAT_TO_UINT16(lps22hb_get_temperature_c(), -128.0f, 256.0f);							//	-128 	- 	256		C
 
 	//Slave->Master->PC
 	radio_send_frame(FRAME_TYPE_SLOW_PARAMS_SLAVE, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
@@ -642,7 +642,7 @@ void frame_cb_rc_control(void *buff, uint8_t params) {
  * --------------------------------------------------------------------------------------------------------------------
  * Printf	| -			| -	| -	| -				|	+		| -
  * --------------------------------------------------------------------------------------------------------------------
- * Radio	| -			| -	| -	| -				|	-		| TODO
+ * Radio	| -			| -	| -	| -				|	-		| TODO Refactor
  * --------------------------------------------------------------------------------------------------------------------
  * Rybos	| -			| -	| -	| -				|	+		| Minimise critical section
  * --------------------------------------------------------------------------------------------------------------------
@@ -708,80 +708,12 @@ void frame_cb_rc_control(void *buff, uint8_t params) {
  * TODO use ADC interrupt to measure time
  * TODO after disconnect disable all control
  * TODO update RAD_TO_DEG and DEG_TO_RAD
- * TODO update to binary form 0b10
  * TODO BOD add
  * TODO add a init info about what generate a reset
  * TODO add wtd as a global
  * TODO add wtd as window comparator
- * TODO printf in foc measuremet limit number of decimal points
- * TODO rename the sensors files
- * TODO remove no callback buffers
+ * TODO add task PROTECTION
  */
-
-
-/*
-STATIC_ASSERT(sizeof(enum lsm6ds3tr_reg) == sizeof(uint8_t), Unsupported_enum_lsm6ds3tr_reg);
-
-#ifdef CONFIG_BIG_ENDIAN
-#error "This module is not ready to work with BIG Endiannes"
-#endif
-*/
-//TODO check if enum is uint8_t
-
-
-/*
- *  1 | ADC			| No
- *  2 | AHRS		| Yes
- *  3 | Atomic		| Yes
- *  4 | BLDC		| No
- *  5 | Buzzer		| Yes
- *  6 | Cyclic		| Yes
- *  7 | Debug		| Yes
- *  8 | Drv8301		| No
- *  9 | Frame		| Yes
- * 10 | Imu			|
- * 11 | Led			| No
- * 12 | Log			| Yes
- * 13 | Pressure	|
- * 14 | Printf		| Yes
- * 15 | Radio		|
- * 16 | Rybos		| Yes
- * 17 | Servo		| No
- * 18 | Si4468		| No
- * 19 | Spi			| No
- * 20 | Tick		| Yes
- * 21 | Uart		| No
- * 22 | Utils		| Yes
- */
-
-
-
-union lsm6ds3tr_reg {
-	struct  {
-	    uint8_t raw;
-	}whoami_reg;
-
-	struct {
-		uint8_t ODR_XL :4;
-		uint8_t FS_XL :2;
-		uint8_t BW_XL :2;
-	} ctrl1_xl;
-
-	struct {
-		uint8_t ODR_G :4;
-		uint8_t FS_G :2;
-		uint8_t FS_125 :1;
-		uint8_t :1;
-	} ctrl2_g;
-	uint8_t raw;
-};
-
-union lsm6ds3tr_reg xxx[2] = {
-		{.ctrl1_xl.ODR_XL = 5},
-		{.ctrl1_xl.ODR_XL = 5},
-};
-
-//xxx[0].whoami_reg.raw = 7;
 
 int main(void) {
 	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_4);
@@ -790,8 +722,8 @@ int main(void) {
 	led_init();
 	buzzer_init();
 	uart_init();
-	imu_init();
-	pressure_init();
+	lsm6dsl_init();
+	lps22hb_init();
 	servo_init();
 	bldc_init();
 	adc_init();

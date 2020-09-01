@@ -100,7 +100,8 @@ typedef enum {
 //Frame structures definition
 //0
 typedef struct __attribute__((__packed__)){
-	uint8_t none;				//TODO remove
+	//Necessary for QT, no zero size structure possible at QT side
+	uint8_t none;
 }FrameReqInitData;
 
 //1
@@ -253,7 +254,8 @@ typedef struct __attribute__((__packed__)){
 
 //15
 typedef struct __attribute__((__packed__)){
-	uint8_t none;										//TODO remove
+	//Necessary for QT, no zero size structure possible at QT side
+	uint8_t none;
 }FrameReqDisplayChannels;
 
 //16

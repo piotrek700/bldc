@@ -55,9 +55,9 @@ static SpiTransactionRecord record_read_rx_fifo = {
 
 //5----------------------------------------------------------------------------
 static const uint8_t tx_start_rx[8] = { SI446X_CMD_ID_START_RX, RADIO_CONFIGURATION_DATA_CHANNEL_NUMBER, 0, 0, 0,
-		SI446X_CMD_START_RX_ARG_NEXT_STATE1_RXTIMEOUT_STATE_ENUM_NOCHANGE,
-		SI446X_CMD_START_RX_ARG_NEXT_STATE2_RXVALID_STATE_ENUM_READY,
-		SI446X_CMD_START_RX_ARG_NEXT_STATE3_RXINVALID_STATE_ENUM_RX };
+SI446X_CMD_START_RX_ARG_NEXT_STATE1_RXTIMEOUT_STATE_ENUM_NOCHANGE,
+SI446X_CMD_START_RX_ARG_NEXT_STATE2_RXVALID_STATE_ENUM_READY,
+SI446X_CMD_START_RX_ARG_NEXT_STATE3_RXINVALID_STATE_ENUM_RX };
 
 static const SpiTransactionRecord record_start_rx = {
 		.tx_buff = (uint8_t *) tx_start_rx,
@@ -91,8 +91,8 @@ static volatile SpiTransactionRecord record_fill_fifo = {
 
 //8----------------------------------------------------------------------------
 static volatile uint8_t tx_start_tx[7] = {
-		SI446X_CMD_ID_START_TX,
-		RADIO_CONFIGURATION_DATA_CHANNEL_NUMBER,
+SI446X_CMD_ID_START_TX,
+RADIO_CONFIGURATION_DATA_CHANNEL_NUMBER,
 		(SI446X_CMD_START_TX_ARG_CONDITION_TXCOMPLETE_STATE_ENUM_RX << 4),
 		0x00, //Data_length >> 8
 		0x01, //Data_length
@@ -110,8 +110,8 @@ static const SpiTransactionRecord record_start_tx = {
 
 //9----------------------------------------------------------------------------
 static volatile uint8_t tx_start_retransmit[7] = {
-		SI446X_CMD_ID_START_TX,
-		RADIO_CONFIGURATION_DATA_CHANNEL_NUMBER,
+SI446X_CMD_ID_START_TX,
+RADIO_CONFIGURATION_DATA_CHANNEL_NUMBER,
 		(SI446X_CMD_START_TX_ARG_CONDITION_TXCOMPLETE_STATE_ENUM_RX << 4) | SI446X_CMD_START_TX_ARG_CONDITION_RETRANSMIT_BIT,
 		0x00, //Data_length >> 8
 		0x01, //Data_length

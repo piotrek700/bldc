@@ -1,7 +1,7 @@
-#ifndef IMU_TRANS_H_
-#define IMU_TRANS_H_
+#ifndef LSM6DSL_TRANS_H_
+#define LSM6DSL_TRANS_H_
 
-#include "imu_reg.h"
+#include <Imu/lsm6dsl_reg.h>
 #include "../Spi/spi.h"
 
 //1----------------------------------------------------------------------------
@@ -13,7 +13,7 @@ static const SpiTransactionRecord record_who_am_i = {
 		.rx_buff = (uint8_t *) rx_who_am_i,
 		.slave = SPI_SLAVE_SELECT_IMU,
 		.data_length = 2,
-		.cb = imu_check_who_am_i_cb
+		.cb = lsm6dsl_check_who_am_i_cb
 };
 
 //2----------------------------------------------------------------------------
@@ -47,7 +47,7 @@ static const SpiTransactionRecord record_read_sensor = {
 		.rx_buff = (uint8_t *) rx_read_sensor,
 		.slave = SPI_SLAVE_SELECT_IMU,
 		.data_length = 15,
-		.cb = imu_read_sensor_cb
+		.cb = lsm6dsl_read_sensor_cb
 };
 
 #endif

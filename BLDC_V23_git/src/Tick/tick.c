@@ -42,10 +42,6 @@ void tick_init(void) {
 
 	init_status = true;
 }
-/*
-uint32_t tick_get_clock_tick(void) {
-	return *DWT_CYCCNT;
-}*/
 
 CCMRAM_FUCNTION void SysTick_Handler(void) {
 	rybos_task_start_marker(RYBOS_MARKER_IRQ_TICK);
