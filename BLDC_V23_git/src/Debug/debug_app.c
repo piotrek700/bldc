@@ -23,6 +23,7 @@ void debug_message_error(DebugError error, uint8_t *file, int32_t line) {
 
 	//printf("Error: %u, %s, file: %s, line: %d\n", (unsigned int) error, debug_get_error_string(error), file, (int) line);
 
+	UNUSED(error);
 	UNUSED(file);
 	UNUSED(line);
 }

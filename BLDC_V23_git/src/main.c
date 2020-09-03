@@ -42,6 +42,7 @@
 #define TASK_PARAM_FAST_UPDATE_PERIOD_MS			1000/TASK_PARAM_FAST_UPDATE_PERIOD_HZ
 #define TASK_LOGGER_PERIOD_MS						0
 #define TASK_RF_TIMEOUT_MS							0
+#define TASK_PROTECTION_TIMEOUT_MS					10
 
 #define UNDEVOLTAGE_SOUND_PERIOD_MS					1000
 #define OVERTEMPERATURE_SOUND_PERIOD_MS				1000
@@ -177,6 +178,9 @@ static void rc_disconnected(void) {
 	rc_roll = 0;
 	rc_throttle = 0;
 
+	//Stop motor
+	bldc_stop_sig();
+
 	//TODO implement auto landing
 }
 
@@ -309,12 +313,12 @@ static void task_imu_read(void) {
 	control_drone();
 
 	//Send to scope
-	float ch1 = vel_compensated[0] * 1000.0f;
-	float ch2 = vel_compensated[1] * 1000.0f;
-	float ch3 = vel_compensated[2] * 1000.0f;
-	float ch4 = vel[0] * 1000.0f;
+	//float ch1 = vel_compensated[0] * 1000.0f;
+	//float ch2 = vel_compensated[1] * 1000.0f;
+	//float ch3 = vel_compensated[2] * 1000.0f;
+	//float ch4 = vel[0] * 1000.0f;
 
-	bldc_scope_send_data((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
+	//bldc_scope_send_data((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
 }
 
 void frame_cb_req_init_data(void *buff, uint8_t params) {
@@ -422,9 +426,9 @@ static void task_param_update(void) {
 	if (cnt == TASK_PARAM_FAST_UPDATE_PERIOD_HZ / TASK_PARAM_SLOW_UPDATE_PERIOD_HZ) {
 		cnt = 0;
 	}
+}
 
-	//Protection
-	//TODO separate thread
+static void task_protection(void){
 	undervoltage_protection();
 	overtemperature_protection();
 }
@@ -570,7 +574,8 @@ static void motor_start_stop_detection(uint16_t status) {
 		static uint32_t rb_press_timmer = 0;
 
 		if (status & FRAME_STATUS_BUTTON_RB) {
-
+			bldc_start_sig();
+			/*
 			if (rb_press_timmer == 0) {
 				rb_press_timmer = tick_get_time_ms();
 			} else {
@@ -578,14 +583,14 @@ static void motor_start_stop_detection(uint16_t status) {
 					rb_press_timmer = 0;
 					bldc_start_sig();
 				}
-			}
+			}*/
 		} else {
 			rb_press_timmer = 0;
 		}
 
 		//Preventive stop
 		if (status & FRAME_STATUS_BUTTON_LB) {
-			bldc_set_active_state(BLDC_STATE_STOP);
+			bldc_stop_sig();
 		}
 	}
 }
@@ -610,6 +615,39 @@ void frame_cb_rc_control(void *buff, uint8_t params) {
 	} else {
 		rc_disconnected();
 	}
+}
+
+void print_reset_status(void){
+	if(RCC_GetFlagStatus(RCC_FLAG_LPWRRST)){
+		printf("Start: \n");
+	}
+
+	if(RCC_GetFlagStatus(RCC_FLAG_WWDGRST)){
+		printf("Start: Low Power reset\n");
+	}
+
+	if(RCC_GetFlagStatus(RCC_FLAG_IWDGRST)){
+		printf("Start: Window Watchdog reset\n");
+	}
+
+	if(RCC_GetFlagStatus(RCC_FLAG_SFTRST)){
+		printf("Start: Independent Watchdog reset\n");
+	}
+
+	if(RCC_GetFlagStatus(RCC_FLAG_PORRST)){
+		printf("Start: Software reset\n");
+	}
+
+	if(RCC_GetFlagStatus(RCC_FLAG_PINRST)){
+		printf("Start: POR/PDR reset\n");
+	}
+
+	if(RCC_GetFlagStatus(RCC_FLAG_OBLRST)){
+		printf("Start: Pin reset\n");
+	}
+
+	//Clear all flags
+	RCC_ClearFlag();
 }
 
 /*
@@ -644,7 +682,7 @@ void frame_cb_rc_control(void *buff, uint8_t params) {
  * --------------------------------------------------------------------------------------------------------------------
  * Radio	| -			| -	| -	| -				|	-		| TODO Refactor
  * --------------------------------------------------------------------------------------------------------------------
- * Rybos	| -			| -	| -	| -				|	+		| Minimise critical section
+ * Rybos	| -			| -	| -	| -				|	+		| -
  * --------------------------------------------------------------------------------------------------------------------
  * Servo	| -			| -	| -	| TIM4			|	+		| -
  * --------------------------------------------------------------------------------------------------------------------
@@ -654,29 +692,19 @@ void frame_cb_rc_control(void *buff, uint8_t params) {
  * Spi		| DMA1_CH2 	| 5	| -	| DMA1_CH2		|	+		| Unlock GPIO comment RF NSS
  * 			| 			| -	| -	| DMA1_CH3		|			| Check if asm not is really needed
  * --------------------------------------------------------------------------------------------------------------------
- * Tick		| SysTick	| 4	| -	| SystTick		|	+		| Replace by 32 bit timer - tim2 - not possible in this hardware(PA0<->PA1)
+ * Tick		| SysTick	| 4	| -	| SystTick		|	+		| -
  * --------------------------------------------------------------------------------------------------------------------
- * Uart		| DMA1_CH7	| 8	| -	| USART2		|	-		| Optimization of frame generation
+ * Uart		| DMA1_CH7	| 8	| -	| USART2		|	-		| -
  * --------------------------------------------------------------------------------------------------------------------
  * ####################################################################################################################
  * TODO add transaction complete flag to transaction record
- * TODO after test remove all protection code
  * TODO PKT_LEN - rx packet len put into the fifo IN_FIFO
  * TODO AN626 PKT_LEN_ADJUST - way to reach 64 byte fifo rx
  * TODO PKT_FIELD_2_LENGTH_7_0 - max expected rx frame - now 64
  * TODO when Master send last ack it now wait for the last frame from slave
- * TODO CCMRAM for speed up the FOC implementation
- * TODO implement fast ahrs init based at acc measurements
- * TODO remove bldc status task and replace by IRQ
- * TODO integrate pressure scan with IMU
- * TODO check task priotities
- * TODO overrun enable in adc - remove or optimize flag clearing
- * TODO PWM_PERIOD_MAX = PWM_PERIOD +DEAT_TIME_CYCLES - max i kompensacja Dead time
- * TODO consider diffirent way of measurements bldc rs 2/3R
  * TODO prriority for adc shuld be low - glitches visible at L measurement
  * TODO servo preload register enable
  * TODO add crc to radio frames- risk of receiving large fifo with random data
- * TODO wolno stabilizuje sie Quaternion
  * TODO cleare only flag which was read in the Radio
  * TODO si4468 adc and temperature sensor
  * TODO RSSI hopping
@@ -707,17 +735,12 @@ void frame_cb_rc_control(void *buff, uint8_t params) {
  * TODO add preload for ARR and CCR for all signals
  * TODO use ADC interrupt to measure time
  * TODO after disconnect disable all control
- * TODO update RAD_TO_DEG and DEG_TO_RAD
- * TODO BOD add
- * TODO add a init info about what generate a reset
- * TODO add wtd as a global
- * TODO add wtd as window comparator
- * TODO add task PROTECTION
  */
 
 int main(void) {
 	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_4);
 	log_init();
+	print_reset_status();
 	tick_init();
 	led_init();
 	buzzer_init();
@@ -732,7 +755,8 @@ int main(void) {
 
 	rybos_add_task(TASK_IMU_READ_PERIOD_MS, 8, (uint8_t *) "Task IMU read", task_imu_read, RYBOS_MARKER_TASK_IMU_READ, true);
 	rybos_add_task(TASK_BLDC_STATUS_PERIOD_MS, 63, (uint8_t *) "Task BLDC status", task_bldc_status, RYBOS_MARKER_TASK_BLDC_STATUS, true);
-	rybos_add_task(TASK_PRESSURE_READ_PERIOD_MS, 64, (uint8_t *) "Task pressure read", task_read_pressure, RYBOS_MARKER_TASK_PRESSURE_READ, true);
+	rybos_add_task(TASK_PROTECTION_TIMEOUT_MS, 65, (uint8_t *) "Task protection", task_protection, RYBOS_MARKER_TASK_PROTECTION, true);
+	rybos_add_task(TASK_PRESSURE_READ_PERIOD_MS, 65, (uint8_t *) "Task pressure read", task_read_pressure, RYBOS_MARKER_TASK_PRESSURE_READ, true);
 	rybos_add_task(TASK_RF_TIMEOUT_MS, 124, (uint8_t *) "Task RF timeout", task_rf_timeout, RYBOS_MARKER_TASK_RF_TIMEOUT, false);
 	rybos_add_task(TASK_FRAME_DECODER_PERIOD_MS, 126, (uint8_t *) "Task frame decoder", task_frame_decoder, RYBOS_MARKER_TASK_FRAME_DECODER, true);
 	rybos_add_task(TASK_BUZZER_PERIOD_MS, 127, (uint8_t *) "Task buzzer", task_buzzer, RYBOS_MARKER_TASK_BUZZER, false);

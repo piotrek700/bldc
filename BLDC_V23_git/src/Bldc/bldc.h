@@ -67,6 +67,8 @@ bool bldc_get_frame_ready(uint32_t index);
 
 void bldc_get_frame_ready_clear(uint32_t index);
 
+void bldc_stop_sig(void);
+
 void bldc_start_sig(void);
 
 void bldc_increase_motor_speed_rps(float speed_rps);

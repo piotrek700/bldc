@@ -24,6 +24,7 @@
 		task(RF)				\
 		task(PARAM_UPDATE)		\
 		task(LOGGER)			\
-		task(RF_TIMEOUT)
+		task(RF_TIMEOUT)		\
+		task(PROTECTION)
 
 #endif

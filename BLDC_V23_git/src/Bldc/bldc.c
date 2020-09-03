@@ -151,6 +151,7 @@ static void bldc_state_foc(void);
 static void bldc_state_do_nothing(void);
 static void bldc_gimbal_mode(void);
 static void bldc_flux_linkage_measurement(float v_d, float v_q, float i_d, float i_q);
+static void bldc_bemf_mode(void);
 
 
 static BldcStateDictionaryRow state_dictionary[] = {
@@ -162,6 +163,7 @@ static BldcStateDictionaryRow state_dictionary[] = {
 		{ BLDC_STATE_STOP, bldc_state_stop },
 		{ BLDC_STATE_FOC, bldc_state_foc },
 		//{ BLDC_STATE_FOC, bldc_gimbal_mode},
+		//{ BLDC_STATE_FOC, bldc_bemf_mode},
 		{ BLDC_STATE_DO_NOTHING, bldc_state_do_nothing }
 };
 
@@ -443,9 +445,9 @@ static void bldc_state_calibrate_v(void) {
 				v3 *= v_bemf_offset_ldo / ADC_MAX_VALUE;
 
 				//GND floor measurement
-				printf("Calibration BEMF L V1[V]:   %.3f\n", (double) v1);
-				printf("Calibration BEMF L V2[V]:   %.3f\n", (double) v2);
-				printf("Calibration BEMF L V3[V]:   %.3f\n", (double) v3);
+				printf("Calibration BEMF L V1[V]:   %.6f\n", (double) v1);
+				printf("Calibration BEMF L V2[V]:   %.6f\n", (double) v2);
+				printf("Calibration BEMF L V3[V]:   %.6f\n", (double) v3);
 				printf("Calibration BEMF L VLDO[V]: %.3f\n", (double) v_bemf_offset_ldo);
 				printf("Calibration BEMF L VCC[V]:  %.3f\n", (double) v_bemf_offset_vcc);
 
@@ -522,9 +524,9 @@ static void bldc_state_calibrate_i(void) {
 		float p3 = ((float) p3_i_offset - ADC_MAX_VALUE / 2) / ADC_I_GAIN;
 		p3 *= i_offset_ldo / ADC_MAX_VALUE / ADC_I_R_OHM;
 
-		printf("Calibration I1[A]:     %.6f\n", (double) p1);
-		printf("Calibration I3[A]:     %.6f\n", (double) p3);
-		printf("Calibration I VLDO[V]: %.6f\n", (double) i_offset_ldo);
+		printf("Calibration I1[A]:     %.3f\n", (double) p1);
+		printf("Calibration I3[A]:     %.3f\n", (double) p3);
+		printf("Calibration I VLDO[V]: %.3f\n", (double) i_offset_ldo);
 
 		drv8301_i_calibration_disable();
 		bldc_set_active_state(BLDC_STATE_CALIBRATE_V);
@@ -1224,6 +1226,8 @@ static void bldc_bemf_tracking(void){
 			//PLL
 			pll_run(tetha_deg, BLDC_DT, &pll_phase_rad, &pll_speed_rad);
 			tetha_deg = tetha_deg * (180.0f / (float) M_PI);
+
+			//tetha_deg = RAD_TO_DEG(tetha_deg);
 }
 
 #include "../Led/led.h"
@@ -1592,7 +1596,7 @@ static void bldc_hfi(void) {
 			if (was_running && fft_ready) {
 				fft_ready = false;
 
-				diff_rad = utils_angle_difference_rad(fft_pure_angle_rad, theta2 * ((float) M_PI / 180.0f));
+				diff_rad = utils_angle_difference_rad(fft_pure_angle_rad, DEG_TO_RAD(theta2));
 				if (fabsf(diff_rad) > (float) M_PI / 2.0f) {
 					direction++;
 				} else {
@@ -1667,6 +1671,11 @@ void bldc_increase_motor_speed_rps(float speed_rps){
 	}
 }
 
+void bldc_stop_sig(void) {
+	if (bldc_active_state == BLDC_STATE_FOC) {
+		bldc_set_active_state(BLDC_STATE_STOP);
+	}
+}
 
 void bldc_start_sig(void) {
 	if (bldc_active_state == BLDC_STATE_DO_NOTHING) {
@@ -1887,4 +1896,368 @@ static void bldc_flux_linkage_measurement(float v_d, float v_q, float i_d, float
 		id_avg += i_d;
 		samples2 += 1.0f;
 	}
+}
+///////////////////////////////////////////////////////////////////////////////////////
+
+
+void bldc_phase_step(uint32_t next_step) {
+	//-----------------------------------------------------------
+	//|----------| Step1 | Step2 | Step3 | Step4 | Step5 | Step6 |
+	//-----------------------------------------------------------
+	//|Channel1  |   1   |   0   |   0   |   0   |   0   |   1   |
+	//-----------------------------------------------------------
+	//|Channel1N |   0   |   0   |   1   |   1   |   0   |   0   |
+	//-----------------------------------------------------------
+	//|Channel2  |   0   |   0   |   0   |   1   |   1   |   0   |
+	//-----------------------------------------------------------
+	//|Channel2N |   1   |   1   |   0   |   0   |   0   |   0   |
+	//-----------------------------------------------------------
+	//|Channel3  |   0   |   1   |   1   |   0   |   0   |   0   |
+	//-----------------------------------------------------------
+	//|Channel3N |   0   |   0   |   0   |   0   |   1   |   1   |
+	//-----------------------------------------------------------
+
+	uint16_t positive_oc_mode = TIM_OCMode_PWM1;
+	uint16_t negative_oc_mode = TIM_OCMode_Inactive;
+
+	uint16_t positive_highside = TIM_CCx_Enable;
+	uint16_t positive_lowside = TIM_CCxN_Enable;
+
+	uint16_t negative_highside = TIM_CCx_Enable;
+	uint16_t negative_lowside = TIM_CCxN_Enable;
+
+
+	uint16_t direction = 1;
+
+	if (next_step == 0) {
+		if (direction) {
+			// 0
+			TIM_SelectOCxM(TIM1, TIM_Channel_1, TIM_OCMode_Inactive);
+			TIM_CCxCmd(TIM1, TIM_Channel_1, TIM_CCx_Enable);
+			TIM_CCxNCmd(TIM1, TIM_Channel_1, TIM_CCxN_Disable);
+
+			// +
+			TIM_SelectOCxM(TIM1, TIM_Channel_2, positive_oc_mode);
+			TIM_CCxCmd(TIM1, TIM_Channel_2, positive_highside);
+			TIM_CCxNCmd(TIM1, TIM_Channel_2, positive_lowside);
+
+			// -
+			TIM_SelectOCxM(TIM1, TIM_Channel_3, negative_oc_mode);
+			TIM_CCxCmd(TIM1, TIM_Channel_3, negative_highside);
+			TIM_CCxNCmd(TIM1, TIM_Channel_3, negative_lowside);
+		} else {
+			// 0
+			TIM_SelectOCxM(TIM1, TIM_Channel_1, TIM_OCMode_Inactive);
+			TIM_CCxCmd(TIM1, TIM_Channel_1, TIM_CCx_Enable);
+			TIM_CCxNCmd(TIM1, TIM_Channel_1, TIM_CCxN_Disable);
+
+			// +
+			TIM_SelectOCxM(TIM1, TIM_Channel_3, positive_oc_mode);
+			TIM_CCxCmd(TIM1, TIM_Channel_3, positive_highside);
+			TIM_CCxNCmd(TIM1, TIM_Channel_3, positive_lowside);
+
+			// -
+			TIM_SelectOCxM(TIM1, TIM_Channel_2, negative_oc_mode);
+			TIM_CCxCmd(TIM1, TIM_Channel_2, negative_highside);
+			TIM_CCxNCmd(TIM1, TIM_Channel_2, negative_lowside);
+		}
+	} else if (next_step == 1) {
+		if (direction) {
+			// 0
+			TIM_SelectOCxM(TIM1, TIM_Channel_2, TIM_OCMode_Inactive);
+			TIM_CCxCmd(TIM1, TIM_Channel_2, TIM_CCx_Enable);
+			TIM_CCxNCmd(TIM1, TIM_Channel_2, TIM_CCxN_Disable);
+
+			// +
+			TIM_SelectOCxM(TIM1, TIM_Channel_1, positive_oc_mode);
+			TIM_CCxCmd(TIM1, TIM_Channel_1, positive_highside);
+			TIM_CCxNCmd(TIM1, TIM_Channel_1, positive_lowside);
+
+			// -
+			TIM_SelectOCxM(TIM1, TIM_Channel_3, negative_oc_mode);
+			TIM_CCxCmd(TIM1, TIM_Channel_3, negative_highside);
+			TIM_CCxNCmd(TIM1, TIM_Channel_3, negative_lowside);
+		} else {
+			// 0
+			TIM_SelectOCxM(TIM1, TIM_Channel_3, TIM_OCMode_Inactive);
+			TIM_CCxCmd(TIM1, TIM_Channel_3, TIM_CCx_Enable);
+			TIM_CCxNCmd(TIM1, TIM_Channel_3, TIM_CCxN_Disable);
+
+			// +
+			TIM_SelectOCxM(TIM1, TIM_Channel_1, positive_oc_mode);
+			TIM_CCxCmd(TIM1, TIM_Channel_1, positive_highside);
+			TIM_CCxNCmd(TIM1, TIM_Channel_1, positive_lowside);
+
+			// -
+			TIM_SelectOCxM(TIM1, TIM_Channel_2, negative_oc_mode);
+			TIM_CCxCmd(TIM1, TIM_Channel_2, negative_highside);
+			TIM_CCxNCmd(TIM1, TIM_Channel_2, negative_lowside);
+		}
+	} else if (next_step == 2) {
+		if (direction) {
+			// 0
+			TIM_SelectOCxM(TIM1, TIM_Channel_3, TIM_OCMode_Inactive);
+			TIM_CCxCmd(TIM1, TIM_Channel_3, TIM_CCx_Enable);
+			TIM_CCxNCmd(TIM1, TIM_Channel_3, TIM_CCxN_Disable);
+
+			// +
+			TIM_SelectOCxM(TIM1, TIM_Channel_1, positive_oc_mode);
+			TIM_CCxCmd(TIM1, TIM_Channel_1, positive_highside);
+			TIM_CCxNCmd(TIM1, TIM_Channel_1, positive_lowside);
+
+			// -
+			TIM_SelectOCxM(TIM1, TIM_Channel_2, negative_oc_mode);
+			TIM_CCxCmd(TIM1, TIM_Channel_2, negative_highside);
+			TIM_CCxNCmd(TIM1, TIM_Channel_2, negative_lowside);
+		} else {
+			// 0
+			TIM_SelectOCxM(TIM1, TIM_Channel_2, TIM_OCMode_Inactive);
+			TIM_CCxCmd(TIM1, TIM_Channel_2, TIM_CCx_Enable);
+			TIM_CCxNCmd(TIM1, TIM_Channel_2, TIM_CCxN_Disable);
+
+			// +
+			TIM_SelectOCxM(TIM1, TIM_Channel_1, positive_oc_mode);
+			TIM_CCxCmd(TIM1, TIM_Channel_1, positive_highside);
+			TIM_CCxNCmd(TIM1, TIM_Channel_1, positive_lowside);
+
+			// -
+			TIM_SelectOCxM(TIM1, TIM_Channel_3, negative_oc_mode);
+			TIM_CCxCmd(TIM1, TIM_Channel_3, negative_highside);
+			TIM_CCxNCmd(TIM1, TIM_Channel_3, negative_lowside);
+		}
+	} else if (next_step == 3) {
+		if (direction) {
+			// 0
+			TIM_SelectOCxM(TIM1, TIM_Channel_1, TIM_OCMode_Inactive);
+			TIM_CCxCmd(TIM1, TIM_Channel_1, TIM_CCx_Enable);
+			TIM_CCxNCmd(TIM1, TIM_Channel_1, TIM_CCxN_Disable);
+
+			// +
+			TIM_SelectOCxM(TIM1, TIM_Channel_3, positive_oc_mode);
+			TIM_CCxCmd(TIM1, TIM_Channel_3, positive_highside);
+			TIM_CCxNCmd(TIM1, TIM_Channel_3, positive_lowside);
+
+			// -
+			TIM_SelectOCxM(TIM1, TIM_Channel_2, negative_oc_mode);
+			TIM_CCxCmd(TIM1, TIM_Channel_2, negative_highside);
+			TIM_CCxNCmd(TIM1, TIM_Channel_2, negative_lowside);
+		} else {
+			// 0
+			TIM_SelectOCxM(TIM1, TIM_Channel_1, TIM_OCMode_Inactive);
+			TIM_CCxCmd(TIM1, TIM_Channel_1, TIM_CCx_Enable);
+			TIM_CCxNCmd(TIM1, TIM_Channel_1, TIM_CCxN_Disable);
+
+			// +
+			TIM_SelectOCxM(TIM1, TIM_Channel_2, positive_oc_mode);
+			TIM_CCxCmd(TIM1, TIM_Channel_2, positive_highside);
+			TIM_CCxNCmd(TIM1, TIM_Channel_2, positive_lowside);
+
+			// -
+			TIM_SelectOCxM(TIM1, TIM_Channel_3, negative_oc_mode);
+			TIM_CCxCmd(TIM1, TIM_Channel_3, negative_highside);
+			TIM_CCxNCmd(TIM1, TIM_Channel_3, negative_lowside);
+		}
+	} else if (next_step == 4) {
+		if (direction) {
+			// 0
+			TIM_SelectOCxM(TIM1, TIM_Channel_2, TIM_OCMode_Inactive);
+			TIM_CCxCmd(TIM1, TIM_Channel_2, TIM_CCx_Enable);
+			TIM_CCxNCmd(TIM1, TIM_Channel_2, TIM_CCxN_Disable);
+
+			// +
+			TIM_SelectOCxM(TIM1, TIM_Channel_3, positive_oc_mode);
+			TIM_CCxCmd(TIM1, TIM_Channel_3, positive_highside);
+			TIM_CCxNCmd(TIM1, TIM_Channel_3, positive_lowside);
+
+			// -
+			TIM_SelectOCxM(TIM1, TIM_Channel_1, negative_oc_mode);
+			TIM_CCxCmd(TIM1, TIM_Channel_1, negative_highside);
+			TIM_CCxNCmd(TIM1, TIM_Channel_1, negative_lowside);
+		} else {
+			// 0
+			TIM_SelectOCxM(TIM1, TIM_Channel_3, TIM_OCMode_Inactive);
+			TIM_CCxCmd(TIM1, TIM_Channel_3, TIM_CCx_Enable);
+			TIM_CCxNCmd(TIM1, TIM_Channel_3, TIM_CCxN_Disable);
+
+			// +
+			TIM_SelectOCxM(TIM1, TIM_Channel_2, positive_oc_mode);
+			TIM_CCxCmd(TIM1, TIM_Channel_2, positive_highside);
+			TIM_CCxNCmd(TIM1, TIM_Channel_2, positive_lowside);
+
+			// -
+			TIM_SelectOCxM(TIM1, TIM_Channel_1, negative_oc_mode);
+			TIM_CCxCmd(TIM1, TIM_Channel_1, negative_highside);
+			TIM_CCxNCmd(TIM1, TIM_Channel_1, negative_lowside);
+		}
+	} else if (next_step == 5) {
+		if (direction) {
+			// 0
+			TIM_SelectOCxM(TIM1, TIM_Channel_3, TIM_OCMode_Inactive);
+			TIM_CCxCmd(TIM1, TIM_Channel_3, TIM_CCx_Enable);
+			TIM_CCxNCmd(TIM1, TIM_Channel_3, TIM_CCxN_Disable);
+
+			// +
+			TIM_SelectOCxM(TIM1, TIM_Channel_2, positive_oc_mode);
+			TIM_CCxCmd(TIM1, TIM_Channel_2, positive_highside);
+			TIM_CCxNCmd(TIM1, TIM_Channel_2, positive_lowside);
+
+			// -
+			TIM_SelectOCxM(TIM1, TIM_Channel_1, negative_oc_mode);
+			TIM_CCxCmd(TIM1, TIM_Channel_1, negative_highside);
+			TIM_CCxNCmd(TIM1, TIM_Channel_1, negative_lowside);
+		} else {
+			// 0
+			TIM_SelectOCxM(TIM1, TIM_Channel_2, TIM_OCMode_Inactive);
+			TIM_CCxCmd(TIM1, TIM_Channel_2, TIM_CCx_Enable);
+			TIM_CCxNCmd(TIM1, TIM_Channel_2, TIM_CCxN_Disable);
+
+			// +
+			TIM_SelectOCxM(TIM1, TIM_Channel_3, positive_oc_mode);
+			TIM_CCxCmd(TIM1, TIM_Channel_3, positive_highside);
+			TIM_CCxNCmd(TIM1, TIM_Channel_3, positive_lowside);
+
+			// -
+			TIM_SelectOCxM(TIM1, TIM_Channel_1, negative_oc_mode);
+			TIM_CCxCmd(TIM1, TIM_Channel_1, negative_highside);
+			TIM_CCxNCmd(TIM1, TIM_Channel_1, negative_lowside);
+		}
+	}
+}
+volatile uint32_t bldc_step = 0;
+volatile float integral = 0;
+volatile float int_treshold = 0.05f;
+static uint32_t no_comutation_cnt = 0;
+volatile float final_int = 0;
+volatile float vdiff = 0;
+volatile float vdiff2 = 0;
+
+
+static void bldc_bemf_mode(void){
+	//Observe BEMF
+
+	//V1
+	float p1_bemf = ((float) ADC_INJ_P1_BEMF - ADC_MAX_VALUE / 2.0f) * ADC_V_GAIN;
+	p1_bemf *= v_ldo_v / ADC_MAX_VALUE;
+
+	//V2
+	float p2_bemf = ((float) ADC_INJ_P2_BEMF - ADC_MAX_VALUE / 2.0f) * ADC_V_GAIN;
+	p2_bemf *= v_ldo_v / ADC_MAX_VALUE;
+
+	//V3
+	float p3_bemf = ((float) ADC_INJ_P3_BEMF - ADC_MAX_VALUE / 2.0f) * ADC_V_GAIN;
+	p3_bemf *= v_ldo_v / ADC_MAX_VALUE;
+
+	float bemf_a = p1_bemf;
+	float bemf_b = p2_bemf;
+	float bemf_c = p3_bemf;
+
+	float vcc_half = (bemf_a + bemf_b + bemf_c) / 3.0f;
+
+	//Compensate BEMF DC
+	bemf_a -= vcc_half;
+	bemf_b -= vcc_half;
+	bemf_c -= vcc_half;
+
+
+	static uint32_t dead_counter = 0;
+	static uint32_t last_step = 0;
+
+	if (last_step != bldc_step) {
+		last_step = bldc_step;
+		dead_counter = 0;
+		no_comutation_cnt = 0;
+	}else{
+
+		no_comutation_cnt++;
+		//Prevent lock
+		if(no_comutation_cnt >= DRV8301_PWM_3F_SWITCHING_FREQ_HZ / 10){
+			//step +2
+			bldc_step++;
+			bldc_step++;
+
+			bldc_step %= 6;
+			last_step = bldc_step;
+			dead_counter = 0;
+			no_comutation_cnt = 0;
+		}
+	}
+
+
+	static float a = 0;
+	static float b = 0;
+	static float c = 0;
+
+
+	dead_counter++;
+	if (dead_counter > 1) {
+		dead_counter--;
+		switch (bldc_step) {
+		case 0:
+			integral += bemf_a * +1;
+			vdiff = bemf_a * +1;
+			a = vdiff;
+			break;
+		case 1:
+			integral += bemf_b * -1;
+			vdiff = bemf_b * -1;
+			b = vdiff;
+			break;
+		case 2:
+			integral += bemf_c * +1;
+			vdiff = bemf_c * +1;
+			c = vdiff;
+			break;
+		case 3:
+			integral += bemf_a * -1;
+			vdiff = bemf_a * -1;
+			a = vdiff;
+			break;
+		case 4:
+			integral += bemf_b * +1;
+			vdiff = bemf_b * +1;
+			b = vdiff;
+			break;
+		case 5:
+			integral += bemf_c * -1;
+			vdiff = bemf_c * -1;
+			c = vdiff;
+			break;
+		}
+
+		if (integral < 0) {
+			integral = 0;
+		}
+	} else {
+		integral = 0;
+	}
+
+	if (integral <0){
+		integral = 0;
+	}
+	if (integral / 100.0f > (float) int_treshold / 2.0f) {
+		vdiff2 = vdiff;
+		bldc_step++;
+		bldc_step %= 6;
+		final_int = integral;
+	}
+
+	bldc_phase_step(bldc_step);
+
+	drv8301_set_pwm(DRV8301_PWM_3F_PWM_MAX / 40, DRV8301_PWM_3F_PWM_MAX / 40, DRV8301_PWM_3F_PWM_MAX / 40);
+	DRV8301_PWM_UPDATE_EVENT;
+
+
+
+	//aa = aa * 0.95f + bemf_a * 0.05f;
+	//bb = bb * 0.95f + bemf_b * 0.05f;
+	//cc = cc * 0.95f + bemf_c * 0.05f;
+
+
+	//Send to scope
+	float ch1 = bemf_a * 1000.0f;
+	float ch2 = bemf_b * 1000.0f;
+	float ch3 = bemf_c * 1000.0f;
+	float ch4 = integral * 1000.0f;
+
+	bldc_scope_send_data((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
 }

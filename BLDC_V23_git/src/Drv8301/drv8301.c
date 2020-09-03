@@ -159,6 +159,7 @@ static void drv8301_timer_init(void) {
 	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_CenterAligned1;		//No matter REF 565
 	TIM_TimeBaseStructure.TIM_Period = DRV8301_PWM_PERIOD;
 	TIM_TimeBaseStructure.TIM_ClockDivision = 0;
+	//1 for BLDC mode
 	TIM_TimeBaseStructure.TIM_RepetitionCounter = 0;
 	TIM_TimeBaseInit(TIM1, &TIM_TimeBaseStructure);
 
@@ -212,6 +213,7 @@ static void drv8301_timer_init(void) {
 
 	//Very important to update at proper sequence, must be set after timer enable
 	//This should go before start counter
+	//Not use it for BLDC mode
 	TIM1->RCR = 1;
 }
 
