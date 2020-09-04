@@ -60,17 +60,18 @@ static int16_t rc_pitch = 0;
 static int16_t rc_roll = 0;
 static int16_t rc_throttle = 0;
 static uint16_t rc_status = 0;
-static uint32_t ii_uart_send = 0;
 
 static void uart_send_scope_data(void) {
-	//TODO refactor this
-	while (bldc_get_frame_ready(ii_uart_send)) {
-		uart_send_scope_frame(FRAME_TYPE_DISPLAY_CHANNELS_DATA_4, (uint8_t *) bldc_get_scope_4ch_frame(ii_uart_send), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
-		bldc_get_frame_ready_clear(ii_uart_send);
+	static uint32_t index = 0;
 
-		ii_uart_send++;
-		if (ii_uart_send == BLDC_FRAME_SCOPE_BUFF_SIZE) {
-			ii_uart_send = 0;
+	while (bldc_get_frame_ready(index)) {
+		uart_send_scope_frame(FRAME_TYPE_DISPLAY_CHANNELS_DATA_4, (uint8_t *) bldc_get_scope_4ch_frame(index),
+				FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
+		bldc_get_frame_ready_clear(index);
+
+		index++;
+		if (index == BLDC_FRAME_SCOPE_BUFF_SIZE) {
+			index = 0;
 		}
 	}
 }
@@ -83,10 +84,10 @@ static void task_sleep(void) {
 	//TODO implement all sleep functions
 
 	//Prevent running scheduler after BLDC IRQ
-	do{
+	do {
 		rybos_clear_irq_execution_mask();
 		__WFI();
-	}while(rybos_get_irq_execution_mask() == RYBOS_IRQ_UNIQUE_MASK_ADC_BLDC);
+	} while (rybos_get_irq_execution_mask() == RYBOS_IRQ_UNIQUE_MASK_ADC_BLDC);
 
 }
 
@@ -260,16 +261,16 @@ static void control_drone(void) {
 	 */
 
 	float tmp = 0;
-	tmp = (float)rc_pitch * 45.0f/2048.0f;
+	tmp = (float) rc_pitch * 45.0f / 2048.0f;
 	servo_set_position_angle(SERVO_POSITION_2_TOP, tmp);
 
-	tmp = (float)rc_pitch * 45.0f/2048.0f;
+	tmp = (float) rc_pitch * 45.0f / 2048.0f;
 	servo_set_position_angle(SERVO_POSITION_4_BOTTOM, tmp);
 
-	tmp = (float)rc_pitch * 45.0f/2048.0f;
+	tmp = (float) rc_pitch * 45.0f / 2048.0f;
 	servo_set_position_angle(SERVO_POSITION_1_LEFT, tmp);
 
-	tmp = (float)rc_pitch * 45.0f/2048.0f;
+	tmp = (float) rc_pitch * 45.0f / 2048.0f;
 	servo_set_position_angle(SERVO_POSITION_3_RIGHT, tmp);
 }
 
@@ -379,7 +380,7 @@ static void print_slow_param(void) {
 	frame.imu.vel[1] = SCALE_FLOAT_TO_INT16(vel_compensated[1], -2000.0f, 2000.0f);										//   -2k 	-  	 2k		deg/s
 	frame.imu.vel[2] = SCALE_FLOAT_TO_INT16(vel_compensated[2], -2000.0f, 2000.0f);										//   -2k 	-  	 2k		deg/s
 
-	frame.imu.temp = SCALE_FLOAT_TO_UINT16(lsm6dsl_get_temperature_c(), -128.0f, 256.0f);									//	-128 	- 	256		C
+	frame.imu.temp = SCALE_FLOAT_TO_UINT16(lsm6dsl_get_temperature_c(), -128.0f, 256.0f);								//	-128 	- 	256		C
 
 	frame.pressure.height = SCALE_FLOAT_TO_INT16(height_compensated, -1000.0f, 1000.0f);								//	 -1000 	-  1000		m
 	frame.pressure.press = SCALE_FLOAT_TO_UINT16(lps22hb_get_pressure_pa(), 90000.0f, 110000.0f);						//	 90k	-  110k 	Pa
@@ -428,7 +429,7 @@ static void task_param_update(void) {
 	}
 }
 
-static void task_protection(void){
+static void task_protection(void) {
 	undervoltage_protection();
 	overtemperature_protection();
 }
@@ -473,12 +474,12 @@ static void print_cpu_load(void) {
 		rybos_clear_task_execution_cnt(i);
 
 		uint8_t symbol;
-		if(i < RYBOS_MARKER_IRQ_SIZE){
+		if (i < RYBOS_MARKER_IRQ_SIZE) {
 			symbol = 'I';
-		}else{
+		} else {
 			symbol = 'T';
 		}
-		printf("%c\t%u\t%6.3f\t%8.1f\t%s\n", (char)symbol, (unsigned int) i + 1, (double) task_load,  (double) cnt, RYBOS_IRQ_TASK_NAMES[i]);
+		printf("%c\t%u\t%6.3f\t%8.1f\t%s\n", (char) symbol, (unsigned int) i + 1, (double) task_load, (double) cnt, RYBOS_IRQ_TASK_NAMES[i]);
 	}
 
 	task_load = 100.0f - accumulate;
@@ -548,7 +549,7 @@ static void task_load_monitor(void) {
 	print_uart_param();
 }
 
-void frame_received_complete(FrameType type, FrameParams params, uint8_t *buff, void (*cb_handler)(void *, uint8_t)){
+void frame_received_complete(FrameType type, FrameParams params, uint8_t *buff, void (*cb_handler)(void *, uint8_t)) {
 	uart_increment_reveived_frame_cnt();
 	if (params & FRAME_DESTINATION_MASTER_PC) {
 		//Call original frame VB
@@ -570,26 +571,13 @@ void frame_received_error(void) {
 static void motor_start_stop_detection(uint16_t status) {
 	//Check if unlocked
 	if (!(status & FRAME_STATUS_LOCK)) {
-		//RB long press detection
-		static uint32_t rb_press_timmer = 0;
-
+		//Start motor
 		if (status & FRAME_STATUS_BUTTON_RB) {
 			bldc_start_sig();
-			/*
-			if (rb_press_timmer == 0) {
-				rb_press_timmer = tick_get_time_ms();
-			} else {
-				if (tick_get_time_ms() - rb_press_timmer > START_BUTTON_LONG_PRESS_PERIOD_MS) {
-					rb_press_timmer = 0;
-					bldc_start_sig();
-				}
-			}*/
-		} else {
-			rb_press_timmer = 0;
 		}
 
 		//Preventive stop
-		if (status & FRAME_STATUS_BUTTON_LB) {
+		if (status & (FRAME_STATUS_BUTTON_LB | FRAME_STATUS_BUTTON_JOYL)) {
 			bldc_stop_sig();
 		}
 	}
@@ -617,32 +605,32 @@ void frame_cb_rc_control(void *buff, uint8_t params) {
 	}
 }
 
-void print_reset_status(void){
-	if(RCC_GetFlagStatus(RCC_FLAG_LPWRRST)){
+static void print_reset_status(void) {
+	if (RCC_GetFlagStatus(RCC_FLAG_LPWRRST)) {
 		printf("Start: \n");
 	}
 
-	if(RCC_GetFlagStatus(RCC_FLAG_WWDGRST)){
+	if (RCC_GetFlagStatus(RCC_FLAG_WWDGRST)) {
 		printf("Start: Low Power reset\n");
 	}
 
-	if(RCC_GetFlagStatus(RCC_FLAG_IWDGRST)){
+	if (RCC_GetFlagStatus(RCC_FLAG_IWDGRST)) {
 		printf("Start: Window Watchdog reset\n");
 	}
 
-	if(RCC_GetFlagStatus(RCC_FLAG_SFTRST)){
+	if (RCC_GetFlagStatus(RCC_FLAG_SFTRST)) {
 		printf("Start: Independent Watchdog reset\n");
 	}
 
-	if(RCC_GetFlagStatus(RCC_FLAG_PORRST)){
+	if (RCC_GetFlagStatus(RCC_FLAG_PORRST)) {
 		printf("Start: Software reset\n");
 	}
 
-	if(RCC_GetFlagStatus(RCC_FLAG_PINRST)){
+	if (RCC_GetFlagStatus(RCC_FLAG_PINRST)) {
 		printf("Start: POR/PDR reset\n");
 	}
 
-	if(RCC_GetFlagStatus(RCC_FLAG_OBLRST)){
+	if (RCC_GetFlagStatus(RCC_FLAG_OBLRST)) {
 		printf("Start: Pin reset\n");
 	}
 
@@ -675,6 +663,8 @@ void print_reset_status(void){
  * Led		| -			| -	| -	| -				|	+		| Led blue uncomment, add PWM to LEDS
  * --------------------------------------------------------------------------------------------------------------------
  * Log		| -			| -	| -	| ITM			|	+		| -
+ * --------------------------------------------------------------------------------------------------------------------
+ * PID		| -			| -	| -	| -				|	+		| -
  * --------------------------------------------------------------------------------------------------------------------
  * Pressure | -			| -	| -	| -				|	+		| -
  * --------------------------------------------------------------------------------------------------------------------
@@ -734,7 +724,7 @@ void print_reset_status(void){
  * TODO 10x mniejsze wmocnienie dla nizszysch predkosci
  * TODO add preload for ARR and CCR for all signals
  * TODO use ADC interrupt to measure time
- * TODO after disconnect disable all control
+ * TODO BLDC refactor to static inline functions
  */
 
 int main(void) {
@@ -753,19 +743,19 @@ int main(void) {
 	drv8301_init();
 	radio_init();
 
-	rybos_add_task(TASK_IMU_READ_PERIOD_MS, 8, (uint8_t *) "Task IMU read", task_imu_read, RYBOS_MARKER_TASK_IMU_READ, true);
-	rybos_add_task(TASK_BLDC_STATUS_PERIOD_MS, 63, (uint8_t *) "Task BLDC status", task_bldc_status, RYBOS_MARKER_TASK_BLDC_STATUS, true);
-	rybos_add_task(TASK_PROTECTION_TIMEOUT_MS, 65, (uint8_t *) "Task protection", task_protection, RYBOS_MARKER_TASK_PROTECTION, true);
-	rybos_add_task(TASK_PRESSURE_READ_PERIOD_MS, 65, (uint8_t *) "Task pressure read", task_read_pressure, RYBOS_MARKER_TASK_PRESSURE_READ, true);
-	rybos_add_task(TASK_RF_TIMEOUT_MS, 124, (uint8_t *) "Task RF timeout", task_rf_timeout, RYBOS_MARKER_TASK_RF_TIMEOUT, false);
-	rybos_add_task(TASK_FRAME_DECODER_PERIOD_MS, 126, (uint8_t *) "Task frame decoder", task_frame_decoder, RYBOS_MARKER_TASK_FRAME_DECODER, true);
-	rybos_add_task(TASK_BUZZER_PERIOD_MS, 127, (uint8_t *) "Task buzzer", task_buzzer, RYBOS_MARKER_TASK_BUZZER, false);
-	rybos_add_task(TASK_LED_PERIOD_MS, 245, (uint8_t *) "Task LED status", task_led, RYBOS_MARKER_TASK_LED, true);
-	rybos_add_task(TASK_LOAD_MONITOR_PERIOD_MS, 230, (uint8_t *) "Task load monitor", task_load_monitor, RYBOS_MARKER_TASK_LOAD_MONITOR, true);
-	rybos_add_task(TASK_SLEEP_PERIOD_MS, 250, (uint8_t *) "Task sleep", task_sleep, RYBOS_MARKER_TASK_SLEEP, true);
-	rybos_add_task(TASK_RF_PERIOD_MS, 125, (uint8_t *) "Task RF", task_rf, RYBOS_MARKER_TASK_RF, true);
-	rybos_add_task(TASK_PARAM_FAST_UPDATE_PERIOD_MS, 220, (uint8_t *) "Task parameter update", task_param_update, RYBOS_MARKER_TASK_PARAM_UPDATE, true);
-	rybos_add_task(TASK_LOGGER_PERIOD_MS, 240, (uint8_t *) "Task Logger", task_logger, RYBOS_MARKER_TASK_LOGGER, false);
+	rybos_add_task(TASK_IMU_READ_PERIOD_MS, 			8,   (uint8_t *) "Task IMU read", 			task_imu_read, 		RYBOS_MARKER_TASK_IMU_READ, 		true);
+	rybos_add_task(TASK_BLDC_STATUS_PERIOD_MS, 			63,  (uint8_t *) "Task BLDC status", 		task_bldc_status, 	RYBOS_MARKER_TASK_BLDC_STATUS, 		true);
+	rybos_add_task(TASK_PROTECTION_TIMEOUT_MS, 			65,  (uint8_t *) "Task protection", 		task_protection, 	RYBOS_MARKER_TASK_PROTECTION, 		true);
+	rybos_add_task(TASK_PRESSURE_READ_PERIOD_MS, 		65,  (uint8_t *) "Task pressure read", 		task_read_pressure, RYBOS_MARKER_TASK_PRESSURE_READ, 	true);
+	rybos_add_task(TASK_RF_TIMEOUT_MS, 					124, (uint8_t *) "Task RF timeout", 		task_rf_timeout, 	RYBOS_MARKER_TASK_RF_TIMEOUT, 		false);
+	rybos_add_task(TASK_FRAME_DECODER_PERIOD_MS, 		126, (uint8_t *) "Task frame decoder", 		task_frame_decoder, RYBOS_MARKER_TASK_FRAME_DECODER, 	true);
+	rybos_add_task(TASK_BUZZER_PERIOD_MS, 				127, (uint8_t *) "Task buzzer", 			task_buzzer, 		RYBOS_MARKER_TASK_BUZZER, 			false);
+	rybos_add_task(TASK_LED_PERIOD_MS, 					245, (uint8_t *) "Task LED status", 		task_led, 			RYBOS_MARKER_TASK_LED, 				true);
+	rybos_add_task(TASK_LOAD_MONITOR_PERIOD_MS, 		230, (uint8_t *) "Task load monitor", 		task_load_monitor, 	RYBOS_MARKER_TASK_LOAD_MONITOR, 	true);
+	rybos_add_task(TASK_SLEEP_PERIOD_MS, 				250, (uint8_t *) "Task sleep", 				task_sleep, 		RYBOS_MARKER_TASK_SLEEP, 			true);
+	rybos_add_task(TASK_RF_PERIOD_MS, 					125, (uint8_t *) "Task RF", 				task_rf, 			RYBOS_MARKER_TASK_RF, 				true);
+	rybos_add_task(TASK_PARAM_FAST_UPDATE_PERIOD_MS, 	220, (uint8_t *) "Task parameter update", 	task_param_update, 	RYBOS_MARKER_TASK_PARAM_UPDATE, 	true);
+	rybos_add_task(TASK_LOGGER_PERIOD_MS, 				240, (uint8_t *) "Task Logger", 			task_logger, 		RYBOS_MARKER_TASK_LOGGER, 			false);
 
 	print_init();
 	buzzer_generate_sound(BUZZER_SOUND_START);

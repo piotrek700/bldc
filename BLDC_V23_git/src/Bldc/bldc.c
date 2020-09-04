@@ -2,9 +2,8 @@
 #include "../Frame/frame_frames.h"
 #include "utils.h"
 #include <stdio.h>
+#include "../Pid/pid.h"
 
-//Macros
-#define SIGN(x)									((x < 0) ? -1 : 1)
 
 //Constant
 #define ONE_BY_SQRT3							0.57735026919f
@@ -152,6 +151,7 @@ static void bldc_state_do_nothing(void);
 static void bldc_gimbal_mode(void);
 static void bldc_flux_linkage_measurement(float v_d, float v_q, float i_d, float i_q);
 static void bldc_bemf_mode(void);
+
 
 
 static BldcStateDictionaryRow state_dictionary[] = {
@@ -976,58 +976,50 @@ float speed_controller_err_last = 0;
 
 float speed_direction = -1.0f;
 
+PID_STATIC_INIT(pid_speed, 1.8f, 0.0f, 0.09f, 5.0f, 0.0f);
+
+
 static void bldc_state_speed_controller(float speed_rps) {
 
-	float p;
-	float d;
-	float err;
-	float dt = BLDC_DT;
-
-	static float speed_rps_lpf = 0;
-	speed_rps_lpf = speed_rps_lpf * 0.0f + 1.0f * speed_rps;
-
-	err = speed_direction*motor_speed_target_rps - speed_rps_lpf;
-
-	p = kp_speed * err;
-	speed_controller_i = ki_speed * err * dt + speed_controller_i;
-	d = kd_speed * (err - speed_controller_err_last) / dt;
-
-	//static float d_lpf = 0;
-	//d_lpf = d_lpf * 0.8f + 0.2f * d;
-
-//	float i_max = iq_speed_max - fabsf(p+d_lpf);
+//	float p;
+//	float d;
+//	float err;
+//	float dt = BLDC_DT;
 //
-//	if (i_max > 0) {
-//		if (i > i_max) {
-//			i = i_max;
-//		}
+//	static float speed_rps_lpf = 0;
+//	speed_rps_lpf = speed_rps_lpf * 0.0f + 1.0f * speed_rps;
 //
-//		if (i < -i_max) {
-//			i = -i_max;
-//		}
+//	err = speed_direction*motor_speed_target_rps - speed_rps_lpf;
 //
+//	p = kp_speed * err;
+//	speed_controller_i = ki_speed * err * dt + speed_controller_i;
+//	d = kd_speed * (err - speed_controller_err_last) / dt;
+//
+//
+//	if (speed_controller_i > iq_speed_max * i_max_div) {
+//		speed_controller_i = iq_speed_max * i_max_div;
 //	}
+//
+//	if (speed_controller_i < -iq_speed_max * i_max_div) {
+//		speed_controller_i = -iq_speed_max * i_max_div;
+//	}
+//
+//	float pid = p+speed_controller_i+d;
+//
+//	if (pid > iq_speed_max) {
+//		pid = iq_speed_max;
+//	}
+//
+//	if (pid < -iq_speed_max) {
+//		pid = -iq_speed_max;
+//	}
+//
+//	i_q_ref_rc = pid;
+//	speed_controller_err_last = err;
 
-	if (speed_controller_i > iq_speed_max * i_max_div) {
-		speed_controller_i = iq_speed_max * i_max_div;
-	}
 
-	if (speed_controller_i < -iq_speed_max * i_max_div) {
-		speed_controller_i = -iq_speed_max * i_max_div;
-	}
+	i_q_ref_rc = pid_control_pid(&pid_speed, speed_rps, speed_direction*motor_speed_target_rps, BLDC_DT);
 
-	float pid = p+speed_controller_i+d;
-
-	if (pid > iq_speed_max) {
-		pid = iq_speed_max;
-	}
-
-	if (pid < -iq_speed_max) {
-		pid = -iq_speed_max;
-	}
-
-	i_q_ref_rc = pid;
-	speed_controller_err_last = err;
 
 	//bldc_scope_send_data((int16_t) (p * 1000.0f), (int16_t) (i * 1000.0f), (int16_t) (pid * 1000.0f), (int16_t) (speed_rps * 1000.0f));
 }
@@ -1225,9 +1217,9 @@ static void bldc_bemf_tracking(void){
 
 			//PLL
 			pll_run(tetha_deg, BLDC_DT, &pll_phase_rad, &pll_speed_rad);
-			tetha_deg = tetha_deg * (180.0f / (float) M_PI);
+			//tetha_deg = tetha_deg * (180.0f / (float) M_PI);
 
-			//tetha_deg = RAD_TO_DEG(tetha_deg);
+			tetha_deg = RAD_TO_DEG(tetha_deg);
 }
 
 #include "../Led/led.h"
@@ -1372,6 +1364,10 @@ static void bldc_hfi(void) {
 	}
 }
 
+PID_STATIC_INIT(pid_d, BLDC_PID_KP, BLDC_PID_KI, 0.0f, BLDC_PID_I_LIMIT * BLDC_MAX_DUTY, 0);
+PID_STATIC_INIT(pid_q, BLDC_PID_KP, BLDC_PID_KI, 0.0f, BLDC_PID_I_LIMIT * BLDC_MAX_DUTY, 0);
+
+float theta_over_deg = 0;
 /*CCMRAM_FUCNTION*/ static void bldc_state_foc(void) {
 	//TODO add window comparator
 	hfi_enable = false;
@@ -1462,6 +1458,17 @@ static void bldc_hfi(void) {
 		iq_speed_max = BLDC_IQ_MAX_FOR_RUN;
 	}
 
+	//Startup
+	//TODO add parameters
+	if(tick_get_time_ms() - foc_start_time<200){
+
+		//TODO add speed independent of the frequency
+		theta_over_deg = theta_over_deg - 0.1f * SIGN(motor_speed_target_rps);
+		while (theta_over_deg < -180.0f) theta_over_deg += 2.0f * 180.0f;
+		while (theta_over_deg > 180.0f) theta_over_deg -= 2.0f * 180.0f;
+		tetha_deg = theta_over_deg;
+	}
+
 	//Park Transform
 	float sin_tetha;
 	float cos_tetha;
@@ -1479,16 +1486,14 @@ static void bldc_hfi(void) {
 	//i_d = i_d_lpf;
 	//i_q = i_q_lpf;
 
-	//PID P error
-	float i_d_err = i_d_ref - i_d;
-	float i_q_err = i_q_ref - i_q;
 
-	float v_d = i_d_err * BLDC_PID_KP + i_d_err_acc;
-	float v_q = i_q_err * BLDC_PID_KP + i_q_err_acc;
+	pid_d.out_limit= BLDC_PID_I_LIMIT * v_vcc_v * BLDC_MAX_DUTY;
+	pid_q.out_limit= BLDC_PID_I_LIMIT * v_vcc_v * BLDC_MAX_DUTY;
 
-	//PID I error
-	i_d_err_acc += i_d_err * BLDC_DT * BLDC_PID_KI;
-	i_q_err_acc += i_q_err * BLDC_DT * BLDC_PID_KI;
+
+	float v_d = pid_control_pi(&pid_d, i_d, i_d_ref, BLDC_DT);
+	float v_q = pid_control_pi(&pid_q, i_q, i_q_ref, BLDC_DT);
+
 
 	//Maximum limitation
 	bldc_2d_saturation_limit(&v_d, &v_q, BLDC_VDQ_MAX_LIMIT * v_vcc_v * BLDC_MAX_DUTY);
@@ -1499,19 +1504,7 @@ static void bldc_hfi(void) {
 	float mod_d = v_d * v_mod_inv;
 	float mod_q = v_q * v_mod_inv;
 
-	//PID I limit
-	float i_lim_mul_vcc = BLDC_PID_I_LIMIT * v_vcc_v * BLDC_MAX_DUTY;
-	if (i_d_err_acc > i_lim_mul_vcc) {
-		i_d_err_acc = i_lim_mul_vcc;
-	} else if (i_d_err_acc < -i_lim_mul_vcc) {
-		i_d_err_acc = -i_lim_mul_vcc;
-	}
 
-	if (i_q_err_acc > i_lim_mul_vcc) {
-		i_q_err_acc = i_lim_mul_vcc;
-	} else if (i_q_err_acc < -i_lim_mul_vcc) {
-		i_q_err_acc = -i_lim_mul_vcc;
-	}
 
 	//TODO check I_bus current calculation
 	//i_bus = mod_d * i_d + mod_q * i_q;
@@ -1572,7 +1565,7 @@ static void bldc_hfi(void) {
 	float ch3 = motor_speed_target_rps * 10.0f;
 	float ch4 = p3_i * 1000.0f;
 
-	//bldc_scope_send_data((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
+	bldc_scope_send_data((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
 
 
 	//Detecting HFI polarity during ramp speed down
@@ -1709,6 +1702,9 @@ void bldc_start_sig(void) {
 		//Observer
 		x1 = 0;
 		x2 = 0;
+
+		//Theta
+		theta_over_deg = 0;
 
 		//Set this to run FOC
 		bldc_enable_all_pwm_output();
