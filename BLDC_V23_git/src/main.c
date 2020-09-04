@@ -61,21 +61,6 @@ static int16_t rc_roll = 0;
 static int16_t rc_throttle = 0;
 static uint16_t rc_status = 0;
 
-static void uart_send_scope_data(void) {
-	static uint32_t index = 0;
-
-	while (bldc_get_frame_ready(index)) {
-		uart_send_scope_frame(FRAME_TYPE_DISPLAY_CHANNELS_DATA_4, (uint8_t *) bldc_get_scope_4ch_frame(index),
-				FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
-		bldc_get_frame_ready_clear(index);
-
-		index++;
-		if (index == BLDC_FRAME_SCOPE_BUFF_SIZE) {
-			index = 0;
-		}
-	}
-}
-
 static void task_rf_timeout(void) {
 	radio_timeout();
 }
@@ -101,6 +86,21 @@ static void task_logger(void) {
 
 static void task_rf(void) {
 	radio_slave_sm();
+}
+
+static void uart_send_scope_data(void) {
+	static uint32_t index = 0;
+
+	while (bldc_get_frame_ready(index)) {
+		uart_send_scope_frame(FRAME_TYPE_DISPLAY_CHANNELS_DATA_4, (uint8_t *) bldc_get_scope_4ch_frame(index),
+				FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
+		bldc_get_frame_ready_clear(index);
+
+		index++;
+		if (index == BLDC_FRAME_SCOPE_BUFF_SIZE) {
+			index = 0;
+		}
+	}
 }
 
 static void task_frame_decoder(void) {
@@ -243,6 +243,14 @@ static void task_read_pressure(void) {
 }
 
 static void control_drone(void) {
+	//Send to scope
+	//float ch1 = vel_compensated[0] * 1000.0f;
+	//float ch2 = vel_compensated[1] * 1000.0f;
+	//float ch3 = vel_compensated[2] * 1000.0f;
+	//float ch4 = vel[0] * 1000.0f;
+
+	//bldc_scope_send_data((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
+
 	//TODO implement control_drone flight function
 	//TODO implement control_drone for balance, rotation and height
 
@@ -312,14 +320,6 @@ static void task_imu_read(void) {
 	lsm6dsl_read_sensor();
 
 	control_drone();
-
-	//Send to scope
-	//float ch1 = vel_compensated[0] * 1000.0f;
-	//float ch2 = vel_compensated[1] * 1000.0f;
-	//float ch3 = vel_compensated[2] * 1000.0f;
-	//float ch4 = vel[0] * 1000.0f;
-
-	//bldc_scope_send_data((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
 }
 
 void frame_cb_req_init_data(void *buff, uint8_t params) {
@@ -597,9 +597,6 @@ void frame_cb_rc_control(void *buff, uint8_t params) {
 
 		motor_start_stop_detection(rc_status);
 		bldc_increase_motor_speed_rps(rc_throttle / 2048.0f * 1.0f);
-		//angle_offset = (float) rc_roll / 2048.0f * (float)M_PI;
-		//bldc_set_i_q_ref((float) rc_throttle / 2048.0f * 10.0f);
-
 	} else {
 		rc_disconnected();
 	}
@@ -687,6 +684,9 @@ static void print_reset_status(void) {
  * Uart		| DMA1_CH7	| 8	| -	| USART2		|	-		| -
  * --------------------------------------------------------------------------------------------------------------------
  * ####################################################################################################################
+ * PID speed, d, q
+ *
+ *
  * TODO add transaction complete flag to transaction record
  * TODO PKT_LEN - rx packet len put into the fifo IN_FIFO
  * TODO AN626 PKT_LEN_ADJUST - way to reach 64 byte fifo rx
