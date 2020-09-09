@@ -5,32 +5,27 @@
 #include "../Atomic/atomic.h"
 
 CCMRAM_VARIABLE static volatile RybosTask task_list[RYBOS_MARKER_TASK_SIZE - 1];
-CCMRAM_VARIABLE static volatile TaskLoadStack stack[RYBOS_TASK_MARKER_STACK_SIZE];
+CCMRAM_VARIABLE static volatile RybosLoadStack stack[RYBOS_TASK_MARKER_STACK_SIZE];
 CCMRAM_VARIABLE static volatile uint32_t exec_time[RYBOS_TASK_AND_IRQ_SIZE - 1];
+//RYBOS_TASK_AND_IRQ_SIZE + System task
 CCMRAM_VARIABLE static volatile uint32_t exec_cnt[RYBOS_TASK_AND_IRQ_SIZE];
 CCMRAM_VARIABLE static volatile uint32_t stack_ptr = 0;
-CCMRAM_VARIABLE static volatile uint32_t marker_to_id[RYBOS_TASK_AND_IRQ_SIZE - 1];
 CCMRAM_VARIABLE static volatile uint32_t iqr_execution_mask = 0;
 
-void rybos_add_task(uint32_t period, uint32_t priority, uint8_t *description, void (*cb)(void), RybosIrqTaskMarker marker, bool enable) {
-	static uint32_t task_cnt = 0;
+void rybos_add_task(uint32_t period, uint32_t priority, void (*cb)(void), RybosIrqTaskMarker marker, bool enable) {
+	//Cancel enum IRQ offset
+	uint32_t i = marker - RYBOS_MARKER_IRQ_SIZE;
 
-	if (task_cnt == (RYBOS_MARKER_TASK_SIZE - 1)) {
-		debug_error(DEBUG_RYBOS_TASK_LIST_LENGTH_ERROR);
+	if (i == (RYBOS_MARKER_TASK_SIZE - 1)) {
+		debug_error(RYBOS_TASK_LIST_OUT_OF_RANGE);
 	}
 
-	task_list[task_cnt].period = period;
-	task_list[task_cnt].priority = priority;
+	task_list[i].period = period;
+	task_list[i].priority = priority;
 	//TODO random start time generation
-	task_list[task_cnt].timer = period;
-	task_list[task_cnt].description = description;
-	task_list[task_cnt].cb = cb;
-	task_list[task_cnt].marker = marker;
-	task_list[task_cnt].enable = enable;
-
-	marker_to_id[marker] = task_cnt;
-
-	task_cnt++;
+	task_list[i].timer = period;
+	task_list[i].cb = cb;
+	task_list[i].enable = enable;
 }
 
 CCMRAM_FUCNTION void rybos_scheduler_run(void) {
@@ -64,9 +59,9 @@ CCMRAM_FUCNTION void rybos_scheduler_run(void) {
 	active_task_ptr = max_priority_ptr;
 	task_list[active_task_ptr].timer += task_list[active_task_ptr].period;
 
-	rybos_task_start_marker(task_list[active_task_ptr].marker);
+	rybos_task_start_marker(active_task_ptr + RYBOS_MARKER_IRQ_SIZE);
 	task_list[active_task_ptr].cb();
-	rybos_task_stop_marker(task_list[active_task_ptr].marker);
+	rybos_task_stop_marker(active_task_ptr + RYBOS_MARKER_IRQ_SIZE);
 
 	//Execution counter
 	exec_cnt[RYBOS_TASK_AND_IRQ_SIZE - 1]++;
@@ -97,11 +92,6 @@ CCMRAM_FUCNTION void rybos_task_stop_marker(RybosIrqTaskMarker marker) {
 	enter_critical();
 
 	stack_ptr--;
-
-	//Debug only
-	//if (stack[stack_ptr].marker != marker) {
-	//	debug_error_handler(RYBOS_TASK_MARKER_ERROR);
-	//}
 
 	//IRQ section
 	if (marker < RYBOS_MARKER_IRQ_SIZE) {
@@ -167,27 +157,29 @@ CCMRAM_FUCNTION void rybos_clear_irq_execution_mask(void) {
 }
 
 CCMRAM_FUCNTION void rybos_task_enable(RybosIrqTaskMarker marker, bool enable) {
+	//Cancel enum IRQ offset
+	marker -= RYBOS_MARKER_IRQ_SIZE;
+
 	enter_critical();
 
-	uint32_t i = marker_to_id[marker];
-
-	task_list[i].enable = enable;
-	if (task_list[i].period == 0) {
-		task_list[i].timer = 0;
+	task_list[marker].enable = enable;
+	if (task_list[marker].period == 0) {
+		task_list[marker].timer = 0;
 	} else {
-		task_list[i].timer = tick_get_time_ms();
+		task_list[marker].timer = tick_get_time_ms();
 	}
 
 	exit_critical();
 }
 
 CCMRAM_FUCNTION void rybos_task_enable_time(RybosIrqTaskMarker marker, uint32_t timer, bool enable) {
+	//Cancel enum IRQ offset
+	marker -= RYBOS_MARKER_IRQ_SIZE;
+
 	enter_critical();
 
-	uint32_t i = marker_to_id[marker];
-
-	task_list[i].enable = enable;
-	task_list[i].timer = timer;
+	task_list[marker].enable = enable;
+	task_list[marker].timer = timer;
 
 	exit_critical();
 }

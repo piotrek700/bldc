@@ -929,19 +929,19 @@ int main(void) {
 	drv8301_init();
 	radio_init();
 
-	rybos_add_task(TASK_IMU_READ_PERIOD_MS, 			8,   (uint8_t *) "Task IMU read", 			task_imu_read, 		RYBOS_MARKER_TASK_IMU_READ, 		true);
-	rybos_add_task(TASK_BLDC_STATUS_PERIOD_MS, 			63,  (uint8_t *) "Task BLDC status", 		task_bldc_status, 	RYBOS_MARKER_TASK_BLDC_STATUS, 		true);
-	rybos_add_task(TASK_PROTECTION_TIMEOUT_MS, 			65,  (uint8_t *) "Task protection", 		task_protection, 	RYBOS_MARKER_TASK_PROTECTION, 		true);
-	rybos_add_task(TASK_PRESSURE_READ_PERIOD_MS, 		65,  (uint8_t *) "Task pressure read", 		task_read_pressure, RYBOS_MARKER_TASK_PRESSURE_READ, 	true);
-	rybos_add_task(TASK_RF_TIMEOUT_MS, 					124, (uint8_t *) "Task RF timeout", 		task_rf_timeout, 	RYBOS_MARKER_TASK_RF_TIMEOUT, 		false);
-	rybos_add_task(TASK_FRAME_DECODER_PERIOD_MS, 		126, (uint8_t *) "Task frame decoder", 		task_frame_decoder, RYBOS_MARKER_TASK_FRAME_DECODER, 	true);
-	rybos_add_task(TASK_BUZZER_PERIOD_MS, 				127, (uint8_t *) "Task buzzer", 			task_buzzer, 		RYBOS_MARKER_TASK_BUZZER, 			false);
-	rybos_add_task(TASK_LED_PERIOD_MS, 					245, (uint8_t *) "Task LED status", 		task_led, 			RYBOS_MARKER_TASK_LED, 				true);
-	rybos_add_task(TASK_LOAD_MONITOR_PERIOD_MS, 		230, (uint8_t *) "Task load monitor", 		task_load_monitor, 	RYBOS_MARKER_TASK_LOAD_MONITOR, 	true);
-	rybos_add_task(TASK_SLEEP_PERIOD_MS, 				250, (uint8_t *) "Task sleep", 				task_sleep, 		RYBOS_MARKER_TASK_SLEEP, 			true);
-	rybos_add_task(TASK_RF_PERIOD_MS, 					125, (uint8_t *) "Task RF", 				task_rf, 			RYBOS_MARKER_TASK_RF, 				true);
-	rybos_add_task(TASK_PARAM_FAST_UPDATE_PERIOD_MS, 	220, (uint8_t *) "Task parameter update", 	task_param_update, 	RYBOS_MARKER_TASK_PARAM_UPDATE, 	true);
-	rybos_add_task(TASK_LOGGER_PERIOD_MS, 				240, (uint8_t *) "Task Logger", 			task_logger, 		RYBOS_MARKER_TASK_LOGGER, 			false);
+	rybos_add_task(TASK_IMU_READ_PERIOD_MS, 		 8,   task_imu_read, 		RYBOS_MARKER_TASK_IMU_READ, 		true);
+	rybos_add_task(TASK_BLDC_STATUS_PERIOD_MS, 		 63,  task_bldc_status, 	RYBOS_MARKER_TASK_BLDC_STATUS, 		true);
+	rybos_add_task(TASK_PROTECTION_TIMEOUT_MS, 		 65,  task_protection, 		RYBOS_MARKER_TASK_PROTECTION, 		true);
+	rybos_add_task(TASK_PRESSURE_READ_PERIOD_MS, 	 65,  task_read_pressure,	RYBOS_MARKER_TASK_PRESSURE_READ, 	true);
+	rybos_add_task(TASK_RF_TIMEOUT_MS, 				 124, task_rf_timeout, 		RYBOS_MARKER_TASK_RF_TIMEOUT, 		false);
+	rybos_add_task(TASK_FRAME_DECODER_PERIOD_MS, 	 126, task_frame_decoder, 	RYBOS_MARKER_TASK_FRAME_DECODER, 	true);
+	rybos_add_task(TASK_BUZZER_PERIOD_MS, 			 127, task_buzzer, 			RYBOS_MARKER_TASK_BUZZER, 			false);
+	rybos_add_task(TASK_LED_PERIOD_MS, 				 245, task_led, 			RYBOS_MARKER_TASK_LED, 				true);
+	rybos_add_task(TASK_LOAD_MONITOR_PERIOD_MS, 	 230, task_load_monitor, 	RYBOS_MARKER_TASK_LOAD_MONITOR, 	true);
+	rybos_add_task(TASK_SLEEP_PERIOD_MS, 			 250, task_sleep, 			RYBOS_MARKER_TASK_SLEEP, 			true);
+	rybos_add_task(TASK_RF_PERIOD_MS, 				 125, task_rf, 				RYBOS_MARKER_TASK_RF, 				true);
+	rybos_add_task(TASK_PARAM_FAST_UPDATE_PERIOD_MS, 220, task_param_update, 	RYBOS_MARKER_TASK_PARAM_UPDATE, 	true);
+	rybos_add_task(TASK_LOGGER_PERIOD_MS, 			 240, task_logger, 			RYBOS_MARKER_TASK_LOGGER, 			false);
 
 	print_init();
 	buzzer_generate_sound(BUZZER_SOUND_START);

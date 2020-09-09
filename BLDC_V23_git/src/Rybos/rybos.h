@@ -52,9 +52,7 @@ typedef struct {
 	uint32_t period;
 	uint32_t priority;
 	uint32_t timer;
-	uint8_t *description;
 	void (*cb)(void);
-	RybosIrqTaskMarker marker;
 	bool enable;
 } RybosTask;
 
@@ -62,9 +60,9 @@ typedef struct {
 	uint32_t start_cnt;
 	uint32_t preemption_time;
 	RybosIrqTaskMarker marker;
-} TaskLoadStack;
+} RybosLoadStack;
 
-void rybos_add_task(uint32_t period, uint32_t priority, uint8_t *description, void (*cb)(void), RybosIrqTaskMarker marker, bool enable);
+void rybos_add_task(uint32_t period, uint32_t priority, void (*cb)(void), RybosIrqTaskMarker marker, bool enable);
 
 void rybos_scheduler_run(void);
 
