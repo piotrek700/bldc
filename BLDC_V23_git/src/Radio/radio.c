@@ -719,7 +719,7 @@ void radio_send_frame(FrameType frame_type, uint8_t *frame, uint8_t params) {
 	frame_buff = (RadioFrame *) cyclic_get_to_add((CyclicBuffer *) &radio_cyclic);
 
 	frame_buff->length = frame_get_type_length(frame_type);
-	frame_buff->frame_type = frame_type;
+	frame_buff->frame_type = frame_type | params;
 
 	uint32_t i;
 	for (i = 0; i < frame_buff->length; i++) {

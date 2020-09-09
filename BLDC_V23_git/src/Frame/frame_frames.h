@@ -75,14 +75,16 @@ typedef enum{
 	FRAME_SOURCE_SLAVE				= 0x00,
 	//Destination
 	FRAME_DESTINATION_MASTER_PC		= 0x40,
-	FRAME_DESTINATION_SLAVE			= 0x80
+	FRAME_DESTINATION_SLAVE			= 0x00
 }FrameParams;
 
 //PID type
 typedef enum{
 	FRAME_PID_TYPE_PITCH_ROLL,
 	FRAME_PID_TYPE_YAW,
-	FRAME_PID_TYPE_HEIGHT
+	FRAME_PID_TYPE_HEIGHT,
+	FRAME_PID_TYPE_BLDC_SPEED,
+	FRAME_PID_TYPE_BLDC_DQ
 }FramePidType;
 
 typedef enum {
@@ -249,7 +251,8 @@ typedef struct __attribute__((__packed__)){
 	float kp;
 	float ki;
 	float kd;
-	float i_max;
+	float out_limit;
+	float d_filter_coeff;
 }FrameSetPidSettings;
 
 //15

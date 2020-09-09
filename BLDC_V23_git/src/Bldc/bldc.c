@@ -1,8 +1,13 @@
 #include "bldc.h"
 #include "utils.h"
+#include "math.h"
+#include "arm_math.h"
 #include <stdio.h>
-#include "../Frame/frame_frames.h"
-#include "../Pid/pid.h"
+#include "../Debug/debug.h"
+#include "../Tick/tick.h"
+#include "../Rybos/rybos.h"
+#include "../Drv8301/drv8301.h"
+#include "../Adc/adc.h"
 
 //Constant
 #define ONE_BY_SQRT3							0.57735026919f
@@ -24,20 +29,20 @@
 #define BLDC_MEASURE_L_WAIT_CYCLES				64
 #define BLDC_MEASURE_L_DUTY						0.4f
 #define BLDC_MEASURE_L_SAMPLES					1024*BLDC_MEASURE_L_WAIT_CYCLES
-#define BLDC_MAX_DUTY							0.8f									//TODO can be increased
+#define BLDC_MAX_DUTY							0.8f									//Can be increased
 #define BLDC_MAX_DQ_STEP  						0.01f
 
 //Silver-blue
-#define MOTOR_R									(0.093f*0.85f)							//Single arm value, compensation 0.85 - why? - i dont know
-#define MOTOR_L									9.86e-6f								//Single arm value
-#define MOTOR_LAMBDA							0.0006f
-#define MOTOR_PID_TIME_CONSTANT					0.001f
+//#define MOTOR_R								(0.093f*0.85f)							//Single arm value, compensation 0.85 - why? - i dont know
+//#define MOTOR_L								9.86e-6f								//Single arm value
+//#define MOTOR_LAMBDA							0.0006f
+//#define MOTOR_PID_TIME_CONSTANT				0.001f
 
 //MT2266II MAX
-//#define MOTOR_R								0.0622f
-//#define MOTOR_L								12.30e-6f
-//#define MOTOR_LAMBDA							0.0009f
-//#define MOTOR_PID_TIME_CONSTANT				0.001f
+#define MOTOR_R									0.0622f
+#define MOTOR_L									12.30e-6f
+#define MOTOR_LAMBDA							0.0009f
+#define MOTOR_PID_TIME_CONSTANT					0.001f
 
 //FOC
 #define BLDC_DT									(1.0f/(float)DRV8301_PWM_3F_SWITCHING_FREQ_HZ)
@@ -53,7 +58,7 @@
 #define BLDC_SPEED_PID_KP						1.8f	// 2.5
 #define BLDC_SPEED_PID_KI						0.0f	//10.0
 #define BLDC_SPEED_PID_KD						0.09f	//0.15
-#define BLDC_SPEED_PID_I_LIMIT					5.0f
+#define BLDC_SPEED_PID_I_LIMIT					10.0f
 
 #define BLDC_PID_I_LIMIT						BLDC_VDQ_MAX_LIMIT
 #define BLDC_PID_OUT_LIMIT 						BLDC_VDQ_MAX_LIMIT
@@ -207,6 +212,30 @@ CCMRAM_VARIABLE static BldcStateDictionaryRow state_dictionary[] = {
 //BLDC state
 CCMRAM_VARIABLE static void (*bldc_active_state_cb)(void) = bldc_state_do_nothing;
 CCMRAM_VARIABLE static BldcStateMachine bldc_active_state = BLDC_STATE_DO_NOTHING;
+
+BldcStateMachine bldc_get_active_state(void){
+	return bldc_active_state;
+}
+
+Pid *bldc_get_pid(FramePidType type) {
+	if (type == FRAME_PID_TYPE_BLDC_SPEED) {
+		return &pid_speed;
+	} else if (type == FRAME_PID_TYPE_BLDC_DQ) {
+		return &pid_d;
+	}
+
+	return 0;
+}
+
+void bldc_set_pid(FramePidType type, float kp, float ki, float kd, float out_limit, float d_filter_coeff) {
+	if (type == FRAME_PID_TYPE_BLDC_SPEED) {
+		pid_set_param(&pid_speed, kp, ki, kd, out_limit, d_filter_coeff);
+
+	} else if (type == FRAME_PID_TYPE_BLDC_DQ) {
+		pid_set_param(&pid_d, kp, ki, kd, out_limit, d_filter_coeff);
+		pid_set_param(&pid_q, kp, ki, kd, out_limit, d_filter_coeff);
+	}
+}
 
 void bldc_set_i_d(float i_d) {
 	i_q_ref = i_d;
@@ -530,7 +559,6 @@ static void bldc_state_calibrate_i(void) {
 }
 
 static void bldc_state_stop(void) {
-	//TODO optimize and verify - stop should open all keys or close?
 	drv8301_set_pwm(0, 0, 0);
 
 	bldc_stop_pwm();
@@ -1064,7 +1092,7 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 	float ch3 = motor_speed_target_rps * 10.0f;
 	float ch4 = p3_i * 1000.0f;
 
-	bldc_scope_send_data((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
+	//bldc_scope_send_data((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
 }
 
 CCMRAM_FUCNTION void bldc_adc_irq_hanlder(void) {
@@ -1117,7 +1145,7 @@ void bldc_start_sig(void) {
 		//Startup timeout
 		foc_start_time = tick_get_time_ms();
 
-		//Set HFI current limit
+		//Set current limit
 		i_q_max = BLDC_IQ_MAX_FOR_RUN;
 
 		//Set target IQ

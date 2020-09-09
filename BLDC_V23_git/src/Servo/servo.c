@@ -4,6 +4,7 @@
 static bool init_status = false;
 
 static float servo_angle[4] = { 0, 0, 0, 0 };
+static float servo_angle_offset[4] = { 11.0f, 2.0f, 12.0f, 9.0f };
 
 void servo_test(void) {
 	if (!DEBUG_TEST_ENABLE) {
@@ -83,6 +84,9 @@ bool servo_get_init_status(void) {
 }
 
 void servo_set_position_angle(ServoPosition servo_position, float angle) {
+
+	angle += servo_angle_offset[servo_position];
+
 	if (angle < SERVO_MIN_ANGLE) {
 		angle = SERVO_MIN_ANGLE;
 	}

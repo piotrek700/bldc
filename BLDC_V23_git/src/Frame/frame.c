@@ -124,7 +124,7 @@ uint32_t frame_get_type_length(FrameType type) {
 	return frame_dictionary[type].frame_size;
 }
 
-static inline bool frame_code_symbol(uint8_t source, uint8_t *dest, uint32_t *len, uint8_t *crc, uint32_t dest_size_max) {
+CCMRAM_FUCNTION static inline bool frame_code_symbol(uint8_t source, uint8_t *dest, uint32_t *len, uint8_t *crc, uint32_t dest_size_max) {
 	if (source == FRAME_START_SYMBOL) {
 		*(dest + *len) = source;
 		(*len)++;
@@ -145,7 +145,7 @@ static inline bool frame_code_symbol(uint8_t source, uint8_t *dest, uint32_t *le
 	return true;
 }
 
-uint32_t frame_send_coded(FrameType type, FrameParams params, uint8_t *source, uint8_t *dest, uint32_t dest_size_max) {
+CCMRAM_FUCNTION uint32_t frame_send_coded(FrameType type, FrameParams params, uint8_t *source, uint8_t *dest, uint32_t dest_size_max) {
 	uint32_t len = 0;
 	uint8_t crc_tmp = 0;
 

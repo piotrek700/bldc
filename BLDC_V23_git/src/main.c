@@ -25,6 +25,7 @@
 #include "Frame/frame_frames.h"
 #include "utils.h"
 #include "Atomic/atomic.h"
+#include "Pid/pid.h"
 
 #define TASK_LED_PERIOD_MS							50
 #define TASK_LED_BLINK_PERIOD						1000/TASK_LED_PERIOD_MS
@@ -50,16 +51,42 @@
 
 static float height_compensated = 0;
 static float vel_compensated[3];
-static float yaw = 0;
-static float pitch = 0;
-static float roll = 0;
+static float yaw_deg = 0;
+static float pitch_deg = 0;
+static float roll_deg = 0;
 static bool rc_connected = false;
+static float z_integrated_vel = 0;
+
+static float yaw_start_ref_deg = 0;
+static float height_start_ref = 0;
 
 static int16_t rc_yaw = 0;
 static int16_t rc_pitch = 0;
 static int16_t rc_roll = 0;
 static int16_t rc_throttle = 0;
 static uint16_t rc_status = 0;
+
+#define PID_PITCH_ROLL_KP						0.0f
+#define PID_PITCH_ROLL_KI						0.0f
+#define PID_PITCH_ROLL_KD						0.0f
+#define PID_PITCH_ROLL_OUT_LIMIT				0.0f
+#define PID_PITCH_ROLL_D_FILTER					0.0f
+
+#define PID_YAW_KP								1.0f
+#define PID_YAW_KI								0.0f
+#define PID_YAW_KD								50.0f
+#define PID_YAW_OUT_LIMIT						15.0f
+#define PID_YAW_D_FILTER						0.0f
+
+#define PID_HEIGHT_KP							0.0f
+#define PID_HEIGHT_KI							0.0f
+#define PID_HEIGHT_KD							0.0f
+#define PID_HEIGHT_OUT_LIMIT					0.0f
+#define PID_HEIGHT_D_FILTER						0.0f
+
+CCMRAM_VARIABLE PID_STATIC_INIT(pid_pitch_roll, PID_PITCH_ROLL_KP, PID_PITCH_ROLL_KI, PID_PITCH_ROLL_KD, PID_PITCH_ROLL_OUT_LIMIT, PID_PITCH_ROLL_D_FILTER);
+CCMRAM_VARIABLE PID_STATIC_INIT(pid_yaw, PID_YAW_KP, PID_YAW_KI,PID_YAW_KD, PID_YAW_OUT_LIMIT, PID_YAW_D_FILTER);
+CCMRAM_VARIABLE PID_STATIC_INIT(pid_height, PID_HEIGHT_KP, PID_HEIGHT_KI, PID_HEIGHT_KD, PID_HEIGHT_OUT_LIMIT, PID_HEIGHT_D_FILTER);
 
 static void task_rf_timeout(void) {
 	radio_timeout();
@@ -243,6 +270,60 @@ static void task_read_pressure(void) {
 }
 
 static void control_drone(void) {
+	if(bldc_get_active_state() == BLDC_STATE_FOC){
+		//Control YAW
+		/*
+		float diff = yaw_start_ref_deg - yaw_deg;
+
+		float multipler = 0;
+
+		while (diff < -180.0f) {
+			diff += 2.0f * 180.0f;
+			multipler+=1.0f;
+		}
+		while (diff > 180.0f) {
+			diff -= 2.0f * 180.0f;
+			multipler-=1.0f;
+		}
+
+
+		float yaw_control = -pid_control_pid(&pid_yaw, yaw_deg - multipler * 360.0f, yaw_start_ref_deg, 1.0f/((float)TASK_IMU_READ_PERIOD_MS));
+	*/
+
+		z_integrated_vel += vel_compensated[2] * (float)TASK_IMU_READ_PERIOD_MS / 1000.0f;
+
+
+		while (z_integrated_vel < -180.0f - PID_YAW_OUT_LIMIT) {
+			z_integrated_vel += 2.0f * 180.0f;
+		}
+		while (z_integrated_vel > 180.0f + PID_YAW_OUT_LIMIT) {
+			z_integrated_vel -= 2.0f * 180.0f;
+		}
+
+		float yaw_control = -pid_control_pid(&pid_yaw, z_integrated_vel, 0, 1.0f/((float)TASK_IMU_READ_PERIOD_MS));
+		yaw_control -=pid_yaw.out_limit;
+
+		servo_set_position_angle(SERVO_POSITION_2_TOP, yaw_control);
+		servo_set_position_angle(SERVO_POSITION_4_BOTTOM, yaw_control);
+		servo_set_position_angle(SERVO_POSITION_1_LEFT, yaw_control);
+		servo_set_position_angle(SERVO_POSITION_3_RIGHT, yaw_control);
+
+		float ch1=z_integrated_vel*10.0f;
+		float ch2=0;
+		float ch3=0;
+		float ch4=0;
+
+		bldc_scope_send_data((int16_t)ch1, (int16_t)ch2, (int16_t)ch3, (int16_t)ch4);
+
+	}else{
+		pid_reset(&pid_yaw);
+
+		servo_set_position_angle(SERVO_POSITION_2_TOP, 0);
+		servo_set_position_angle(SERVO_POSITION_4_BOTTOM, 0);
+		servo_set_position_angle(SERVO_POSITION_1_LEFT, 0);
+		servo_set_position_angle(SERVO_POSITION_3_RIGHT, 0);
+	}
+
 	//Send to scope
 	//float ch1 = vel_compensated[0] * 1000.0f;
 	//float ch2 = vel_compensated[1] * 1000.0f;
@@ -268,6 +349,7 @@ static void control_drone(void) {
 	 servo_set_position_angle(SERVO_POSITION_3_RIGHT,-drone_parameters.roll);
 	 */
 
+	/*
 	float tmp = 0;
 	tmp = (float) rc_pitch * 45.0f / 2048.0f;
 	servo_set_position_angle(SERVO_POSITION_2_TOP, tmp);
@@ -280,6 +362,7 @@ static void control_drone(void) {
 
 	tmp = (float) rc_pitch * 45.0f / 2048.0f;
 	servo_set_position_angle(SERVO_POSITION_3_RIGHT, tmp);
+	*/
 }
 
 static void task_imu_read(void) {
@@ -313,9 +396,10 @@ static void task_imu_read(void) {
 
 	ahrs_rotate_45();
 
-	yaw = ahrs_get_yaw();
-	pitch = ahrs_get_pitch();
-	roll = ahrs_get_roll();
+	//toll <--> yaw
+	roll_deg = ahrs_get_yaw();
+	pitch_deg = ahrs_get_pitch();
+	yaw_deg = ahrs_get_roll();
 
 	lsm6dsl_read_sensor();
 
@@ -552,14 +636,16 @@ static void task_load_monitor(void) {
 void frame_received_complete(FrameType type, FrameParams params, uint8_t *buff, void (*cb_handler)(void *, uint8_t)) {
 	uart_increment_reveived_frame_cnt();
 	if (params & FRAME_DESTINATION_MASTER_PC) {
+		//Forward received frame to slave not allowed
+		//PC->Master->Slave
+		//radio_send_frame(type, (uint8_t *) (buff), params);
+	}else{
 		//Call original frame VB
 		//PC->Slave
 		cb_handler((void *) (buff), params);
-	} else {
-		//Forward received frame to slave
-		//PC->Master->Slave
-		radio_send_frame(type, (uint8_t *) (buff), params);
 	}
+
+	UNUSED(type);
 }
 
 //Frame received
@@ -574,6 +660,13 @@ static void motor_start_stop_detection(uint16_t status) {
 		//Start motor
 		if (status & FRAME_STATUS_BUTTON_RB) {
 			bldc_start_sig();
+
+			//Take reference YAW angle
+			yaw_start_ref_deg = yaw_deg;
+			z_integrated_vel = 0;
+
+			//Take reference of height
+			height_start_ref = height_compensated;
 		}
 
 		//Preventive stop
@@ -600,6 +693,98 @@ void frame_cb_rc_control(void *buff, uint8_t params) {
 	} else {
 		rc_disconnected();
 	}
+}
+
+void pid_to_frame_setting(Pid *pid, FrameSetPidSettings *frame) {
+	frame->kp = pid->kp;
+	frame->ki = pid->ki;
+	frame->kd = pid->kd;
+	frame->out_limit = pid->out_limit;
+	frame->d_filter_coeff = pid->d_filter_coeff;
+}
+
+void reponse_pid_settings(FramePidType type) {
+	//Response frame
+	FrameSetPidSettings response = {
+			.pid_type = type,
+			.kp = 0,
+			.ki = 0,
+			.kd = 0,
+			.out_limit = 0,
+			.d_filter_coeff = 0,
+	};
+
+	switch (type) {
+	case FRAME_PID_TYPE_PITCH_ROLL:
+		pid_to_frame_setting(&pid_pitch_roll, &response);
+		break;
+
+	case FRAME_PID_TYPE_YAW:
+		pid_to_frame_setting(&pid_yaw, &response);
+		break;
+
+	case FRAME_PID_TYPE_HEIGHT:
+		pid_to_frame_setting(&pid_height, &response);
+		break;
+
+	case FRAME_PID_TYPE_BLDC_SPEED:
+		pid_to_frame_setting(bldc_get_pid(FRAME_PID_TYPE_BLDC_SPEED), &response);
+		break;
+
+	case FRAME_PID_TYPE_BLDC_DQ:
+		pid_to_frame_setting(bldc_get_pid(FRAME_PID_TYPE_BLDC_DQ), &response);
+		break;
+
+	default:
+		debug_error(PID_TYPE_NOT_SUPPORTED);
+		break;
+	}
+
+	//Slave->Master->PC
+	radio_send_frame(FRAME_TYPE_SET_PID_SETTINGS, (uint8_t *) (&response), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
+}
+
+void frame_cb_get_pid_settings(void *buff, uint8_t params) {
+	FrameGetPidSettings *frame = (FrameGetPidSettings *) buff;
+
+	reponse_pid_settings(frame->pid_type);
+
+	UNUSED(params);
+}
+
+void frame_cb_set_pid_settings(void *buff, uint8_t params) {
+	FrameSetPidSettings *frame = (FrameSetPidSettings *) buff;
+
+	switch (frame->pid_type) {
+	case FRAME_PID_TYPE_PITCH_ROLL:
+		pid_set_param(&pid_pitch_roll, frame->kp, frame->ki, frame->kd, frame->out_limit, frame->d_filter_coeff);
+		break;
+
+	case FRAME_PID_TYPE_YAW:
+		pid_set_param(&pid_yaw, frame->kp, frame->ki, frame->kd, frame->out_limit, frame->d_filter_coeff);
+		break;
+
+	case FRAME_PID_TYPE_HEIGHT:
+		pid_set_param(&pid_height, frame->kp, frame->ki, frame->kd, frame->out_limit, frame->d_filter_coeff);
+		break;
+
+	case FRAME_PID_TYPE_BLDC_SPEED:
+		bldc_set_pid(FRAME_PID_TYPE_BLDC_SPEED, frame->kp, frame->ki, frame->kd, frame->out_limit, frame->d_filter_coeff);
+		break;
+
+	case FRAME_PID_TYPE_BLDC_DQ:
+		bldc_set_pid(FRAME_PID_TYPE_BLDC_DQ, frame->kp, frame->ki, frame->kd, frame->out_limit, frame->d_filter_coeff);
+		break;
+
+	default:
+		debug_error(PID_TYPE_NOT_SUPPORTED);
+		break;
+	}
+
+	//Send back settings
+	reponse_pid_settings(frame->pid_type);
+
+	UNUSED(params);
 }
 
 static void print_reset_status(void) {
@@ -725,6 +910,7 @@ static void print_reset_status(void) {
  * TODO add preload for ARR and CCR for all signals
  * TODO use ADC interrupt to measure time
  * TODO BLDC refactor to static inline functions
+ * TODO BLDC refactor measurements functions
  */
 
 int main(void) {

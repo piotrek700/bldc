@@ -53,7 +53,8 @@
 		name(FRAME_DECODING_STATE_MASHINE_NO_STATE)			\
 		name(DEBUG_ERROR_NOT_HANDLE)						\
 		name(FRAME_SCOPE_LOST)								\
-		name(BLDC_SECTOR_NOT_SUPPORTED)
+		name(BLDC_SECTOR_NOT_SUPPORTED)						\
+		name(PID_TYPE_NOT_SUPPORTED)
 
 //Non critical error definition
 #define DEBUG_MESSAGE_ERROR_LIST(name)						\

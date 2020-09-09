@@ -1,17 +1,9 @@
 #ifndef BLDC_H_
 #define BLDC_H_
 
-#include "stm32f30x.h"
-#include "../Debug/debug.h"
-#include "../Tick/tick.h"
-#include "../Rybos/rybos.h"
-#include "../Drv8301/drv8301.h"
-#include "../Adc/adc.h"
-#include <stdbool.h>
-#include "math.h"
-#include "arm_math.h"
+#include "platform.h"
+#include "../Pid/pid.h"
 #include "../Frame/frame.h"
-#include "../Frame/frame_frames.h"
 
 #define BLDC_FRAME_SCOPE_BUFF_SIZE		16
 
@@ -30,6 +22,12 @@ typedef struct {
 	BldcStateMachine state;
 	void (*state_cb)(void);
 } BldcStateDictionaryRow;
+
+BldcStateMachine bldc_get_active_state(void);
+
+Pid *bldc_get_pid(FramePidType type);
+
+void bldc_set_pid(FramePidType type, float kp, float ki, float kd, float out_limit, float d_filter_coeff);
 
 void bldc_set_i_d(float i_d);
 
