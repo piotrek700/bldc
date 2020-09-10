@@ -36,7 +36,8 @@ CCMRAM_FUCNTION void rybos_scheduler_run(void) {
 	static uint32_t active_task_ptr = 0;
 	uint32_t last_task = active_task_ptr;
 	uint32_t max_priority = RYBOS_LOWEST_PRIORITY;
-	uint32_t max_priority_ptr = 0;
+	uint32_t max_priority_ptr = -1;
+	bool task_to_execute = false;
 
 	do {
 		active_task_ptr++;
@@ -45,24 +46,27 @@ CCMRAM_FUCNTION void rybos_scheduler_run(void) {
 		}
 
 		//Check if period finished
-		if (task_list[active_task_ptr].enable) {
+		if (task_list[active_task_ptr].enable && (task_list[active_task_ptr].cb != 0)) {
 			if (tick_get_time_ms() > task_list[active_task_ptr].timer) {
 				if (task_list[active_task_ptr].priority < max_priority) {
 					max_priority = task_list[active_task_ptr].priority;
 					max_priority_ptr = active_task_ptr;
+					task_to_execute = true;
 				}
 			}
 		}
 	} while (last_task != active_task_ptr);
 
-	//Update timer and execute task
-	active_task_ptr = max_priority_ptr;
-	task_list[active_task_ptr].timer += task_list[active_task_ptr].period;
+	//Task to execute
+	if (task_to_execute) {
+		//Update timer and execute task
+		active_task_ptr = max_priority_ptr;
+		task_list[active_task_ptr].timer += task_list[active_task_ptr].period;
 
-	rybos_task_start_marker(active_task_ptr + RYBOS_MARKER_IRQ_SIZE);
-	task_list[active_task_ptr].cb();
-	rybos_task_stop_marker(active_task_ptr + RYBOS_MARKER_IRQ_SIZE);
-
+		rybos_task_start_marker(active_task_ptr + RYBOS_MARKER_IRQ_SIZE);
+		task_list[active_task_ptr].cb();
+		rybos_task_stop_marker(active_task_ptr + RYBOS_MARKER_IRQ_SIZE);
+	}
 	//Execution counter
 	exec_cnt[RYBOS_TASK_AND_IRQ_SIZE - 1]++;
 }
@@ -157,10 +161,10 @@ CCMRAM_FUCNTION void rybos_clear_irq_execution_mask(void) {
 }
 
 CCMRAM_FUCNTION void rybos_task_enable(RybosIrqTaskMarker marker, bool enable) {
+	enter_critical();
+
 	//Cancel enum IRQ offset
 	marker -= RYBOS_MARKER_IRQ_SIZE;
-
-	enter_critical();
 
 	task_list[marker].enable = enable;
 	if (task_list[marker].period == 0) {
@@ -173,10 +177,10 @@ CCMRAM_FUCNTION void rybos_task_enable(RybosIrqTaskMarker marker, bool enable) {
 }
 
 CCMRAM_FUCNTION void rybos_task_enable_time(RybosIrqTaskMarker marker, uint32_t timer, bool enable) {
+	enter_critical();
+
 	//Cancel enum IRQ offset
 	marker -= RYBOS_MARKER_IRQ_SIZE;
-
-	enter_critical();
 
 	task_list[marker].enable = enable;
 	task_list[marker].timer = timer;

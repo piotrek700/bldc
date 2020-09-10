@@ -41,7 +41,7 @@
 #define TASK_PARAM_FAST_UPDATE_PERIOD_HZ			25
 #define TASK_PARAM_SLOW_UPDATE_PERIOD_HZ			5
 #define TASK_PARAM_FAST_UPDATE_PERIOD_MS			1000/TASK_PARAM_FAST_UPDATE_PERIOD_HZ
-#define TASK_LOGGER_PERIOD_MS						0
+#define TASK_LOGGER_PERIOD_MS						1
 #define TASK_RF_TIMEOUT_MS							0
 #define TASK_PROTECTION_TIMEOUT_MS					10
 
@@ -75,7 +75,7 @@ static uint16_t rc_status = 0;
 #define PID_YAW_KP								1.0f
 #define PID_YAW_KI								0.0f
 #define PID_YAW_KD								50.0f
-#define PID_YAW_OUT_LIMIT						15.0f
+#define PID_YAW_OUT_LIMIT						20.0f
 #define PID_YAW_D_FILTER						0.0f
 
 #define PID_HEIGHT_KP							0.0f
@@ -292,14 +292,14 @@ static void control_drone(void) {
 
 		z_integrated_vel += vel_compensated[2] * (float)TASK_IMU_READ_PERIOD_MS / 1000.0f;
 
-
+/*
 		while (z_integrated_vel < -180.0f - PID_YAW_OUT_LIMIT) {
 			z_integrated_vel += 2.0f * 180.0f;
 		}
 		while (z_integrated_vel > 180.0f + PID_YAW_OUT_LIMIT) {
 			z_integrated_vel -= 2.0f * 180.0f;
 		}
-
+*/
 		float yaw_control = -pid_control_pid(&pid_yaw, z_integrated_vel, 0, 1.0f/((float)TASK_IMU_READ_PERIOD_MS));
 		yaw_control -=pid_yaw.out_limit;
 
@@ -941,7 +941,7 @@ int main(void) {
 	rybos_add_task(TASK_SLEEP_PERIOD_MS, 			 250, task_sleep, 			RYBOS_MARKER_TASK_SLEEP, 			true);
 	rybos_add_task(TASK_RF_PERIOD_MS, 				 125, task_rf, 				RYBOS_MARKER_TASK_RF, 				true);
 	rybos_add_task(TASK_PARAM_FAST_UPDATE_PERIOD_MS, 220, task_param_update, 	RYBOS_MARKER_TASK_PARAM_UPDATE, 	true);
-	rybos_add_task(TASK_LOGGER_PERIOD_MS, 			 240, task_logger, 			RYBOS_MARKER_TASK_LOGGER, 			false);
+	rybos_add_task(TASK_LOGGER_PERIOD_MS, 			 240, task_logger, 			RYBOS_MARKER_TASK_LOGGER, 			true);
 
 	print_init();
 	buzzer_generate_sound(BUZZER_SOUND_START);
