@@ -1,15 +1,19 @@
 #include "pid.h"
 
-void pid_init(Pid *pid, float kp, float ki, float kd, float out_limit, float d_filter_coeff) {
-	pid_set_param(pid, kp, ki, kd, out_limit, d_filter_coeff);
-	pid_reset(pid);
-}
-
 void pid_set_param(Pid *pid, float kp, float ki, float kd, float out_limit, float d_filter_coeff) {
 	pid->kp = kp;
 	pid->ki = ki;
 	pid->kd = kd;
 	pid->out_limit = out_limit;
+
+	if (d_filter_coeff > 1.0f) {
+		d_filter_coeff = 1.0f;
+	}
+
+	if (d_filter_coeff < 0.0f) {
+		d_filter_coeff = 0.0f;
+	}
+
 	pid->d_filter_coeff = d_filter_coeff;
 }
 
@@ -106,7 +110,7 @@ float pid_control_pd(Pid *pid, float value, float ref, float dt) {
 	pid->d_filtered = pid->d_filtered * pid->d_filter_coeff + (1.0f - pid->d_filter_coeff) * d;
 
 	//PID
-	float out = p  + pid->d_filtered;
+	float out = p + pid->d_filtered;
 
 	//PID wind-up
 	if (out > pid->out_limit) {

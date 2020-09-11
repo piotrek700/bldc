@@ -5,16 +5,16 @@
 #include <stdbool.h>
 #include "utils.h"
 
-#define PID_STATIC_INIT(_pid_name, _kp, _ki, _kd, _out_limit, _d_filter_coeff)	\
-static Pid _pid_name = {														\
-	.kp = _kp,																	\
-	.ki = _ki,																	\
-	.kd = _kd,																	\
-	.integral = 0,																\
-	.deriv = 0,																	\
-	.d_filtered = 0,															\
-	.d_filter_coeff = _d_filter_coeff,											\
-	.out_limit = _out_limit														\
+#define PID_DEF(_pid_name, _kp, _ki, _kd, _out_limit, _d_filter_coeff)	\
+static Pid _pid_name = {												\
+	.kp = _kp,															\
+	.ki = _ki,															\
+	.kd = _kd,															\
+	.integral = 0,														\
+	.deriv = 0,															\
+	.d_filtered = 0,													\
+	.d_filter_coeff = _d_filter_coeff,									\
+	.out_limit = _out_limit												\
 }
 
 typedef struct {
@@ -30,8 +30,6 @@ typedef struct {
 	float d_filter_coeff;
 	float out_limit;
 } Pid;
-
-void pid_init(Pid *pid, float kp, float ki, float kd, float out_limit, float d_filter_coeff);
 
 void pid_set_param(Pid *pid, float kp, float ki, float kd, float out_limit, float d_filter_coeff);
 

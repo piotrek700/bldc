@@ -151,8 +151,7 @@ void spi_slave_select(SpiSlaveSelect slave) {
 	//BLDC,  CPOL L, 2Edge
 
 	//Disable all CS
-	SPI_ALL_NSS_SET_HIGH
-	;
+	SPI_ALL_NSS_SET_HIGH;
 
 	switch (slave) {
 	case SPI_SLAVE_SELECT_NONE:

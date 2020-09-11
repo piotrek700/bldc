@@ -88,10 +88,10 @@ static uint32_t offset_cnt = 0;
 #define PID_HEIGHT_OUT_LIMIT					0.0f
 #define PID_HEIGHT_D_FILTER						0.0f
 
-CCMRAM_VARIABLE PID_STATIC_INIT(pid_pitch, PID_PITCH_ROLL_KP, PID_PITCH_ROLL_KI, PID_PITCH_ROLL_KD, PID_PITCH_ROLL_OUT_LIMIT, PID_PITCH_ROLL_D_FILTER);
-CCMRAM_VARIABLE PID_STATIC_INIT(pid_roll, PID_PITCH_ROLL_KP, PID_PITCH_ROLL_KI, PID_PITCH_ROLL_KD, PID_PITCH_ROLL_OUT_LIMIT, PID_PITCH_ROLL_D_FILTER);
-CCMRAM_VARIABLE PID_STATIC_INIT(pid_yaw, PID_YAW_KP, PID_YAW_KI,PID_YAW_KD, PID_YAW_OUT_LIMIT, PID_YAW_D_FILTER);
-CCMRAM_VARIABLE PID_STATIC_INIT(pid_height, PID_HEIGHT_KP, PID_HEIGHT_KI, PID_HEIGHT_KD, PID_HEIGHT_OUT_LIMIT, PID_HEIGHT_D_FILTER);
+CCMRAM_VARIABLE PID_DEF(pid_pitch, PID_PITCH_ROLL_KP, PID_PITCH_ROLL_KI, PID_PITCH_ROLL_KD, PID_PITCH_ROLL_OUT_LIMIT, PID_PITCH_ROLL_D_FILTER);
+CCMRAM_VARIABLE PID_DEF(pid_roll, PID_PITCH_ROLL_KP, PID_PITCH_ROLL_KI, PID_PITCH_ROLL_KD, PID_PITCH_ROLL_OUT_LIMIT, PID_PITCH_ROLL_D_FILTER);
+CCMRAM_VARIABLE PID_DEF(pid_yaw, PID_YAW_KP, PID_YAW_KI,PID_YAW_KD, PID_YAW_OUT_LIMIT, PID_YAW_D_FILTER);
+CCMRAM_VARIABLE PID_DEF(pid_height, PID_HEIGHT_KP, PID_HEIGHT_KI, PID_HEIGHT_KD, PID_HEIGHT_OUT_LIMIT, PID_HEIGHT_D_FILTER);
 
 static void task_rf_timeout(void) {
 	radio_timeout();
@@ -242,8 +242,9 @@ static void task_led(void) {
 	led_red_on = LED_RED_CHECK;
 
 	//Connection status
-	static uint32_t frame_cnt = 0;
 	if (counter == 1) {
+		static uint32_t frame_cnt = 0;
+
 		if (radio_get_received_frame_total() - frame_cnt >= RADIO_FRAME_PER_S_CONNECTION_LIMIT) {
 			rc_connected = true;
 			//TODO send KP KI KD to master and pc
@@ -258,7 +259,6 @@ static void task_led(void) {
 static void task_read_pressure(void) {
 	static float height_offset = 0;
 	static float height_tmp = 0;
-	static uint32_t offset_cnt = 0;
 
 	lps22hb_read_sensor();
 
@@ -299,15 +299,11 @@ static void control_drone(void) {
 		//servo_left += yaw_control;
 		//servo_right += yaw_control;
 
-		servo_top += pitch_control;
-		servo_botom -= pitch_control;
-		servo_left += 0;
-		servo_right += 0;
+		servo_top -= roll_control;
+		servo_botom += roll_control;
 
-		servo_top += 0;
-		servo_botom += 0;
-		servo_left += roll_control;
-		servo_right -= roll_control;
+		//servo_left -= pitch_control;
+		//servo_right += pitch_control;
 
 		//Set servo values
 		servo_set_position_angle(SERVO_POSITION_2_TOP, servo_top);
@@ -442,9 +438,9 @@ static void print_slow_param(void) {
 }
 
 static void undervoltage_protection(void) {
-	static uint32_t time = 0;
-
 	if (bldc_get_v_vcc_v() < ADC_MIN_BAT_V) {
+		static uint32_t time = 0;
+
 		if (tick_get_time_ms() - time > UNDEVOLTAGE_SOUND_PERIOD_MS) {
 			time = tick_get_time_ms();
 			buzzer_generate_sound(BUZZER_SOUND_SINGLE_PEAK);
@@ -453,9 +449,9 @@ static void undervoltage_protection(void) {
 }
 
 static void overtemperature_protection(void) {
-	static uint32_t time = 0;
-
 	if (bldc_get_ntc_temperature_c() > ADC_NTC_MAX_TEMP_C) {
+		static uint32_t time = 0;
+
 		if (tick_get_time_ms() - time > OVERTEMPERATURE_SOUND_PERIOD_MS) {
 			time = tick_get_time_ms();
 			buzzer_generate_sound(BUZZER_SOUND_DOUBLE_PEAK);
