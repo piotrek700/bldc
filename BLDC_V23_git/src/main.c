@@ -66,17 +66,21 @@ static int16_t rc_roll = 0;
 static int16_t rc_throttle = 0;
 static uint16_t rc_status = 0;
 
+static float vel_offset[3] = { 0, 0, 0 };
+static float vel_offset_tmp[3] = { 0, 0, 0 };
+static uint32_t offset_cnt = 0;
+
 #define PID_PITCH_ROLL_KP						0.0f
 #define PID_PITCH_ROLL_KI						0.0f
 #define PID_PITCH_ROLL_KD						0.0f
 #define PID_PITCH_ROLL_OUT_LIMIT				0.0f
 #define PID_PITCH_ROLL_D_FILTER					0.0f
 
-#define PID_YAW_KP								1.0f
-#define PID_YAW_KI								0.0f
-#define PID_YAW_KD								50.0f
-#define PID_YAW_OUT_LIMIT						20.0f
-#define PID_YAW_D_FILTER						0.0f
+#define PID_YAW_KP								0.5f
+#define PID_YAW_KI								0.001f
+#define PID_YAW_KD								100.0f
+#define PID_YAW_OUT_LIMIT						25.0f
+#define PID_YAW_D_FILTER						0.8f
 
 #define PID_HEIGHT_KP							0.0f
 #define PID_HEIGHT_KI							0.0f
@@ -84,7 +88,8 @@ static uint16_t rc_status = 0;
 #define PID_HEIGHT_OUT_LIMIT					0.0f
 #define PID_HEIGHT_D_FILTER						0.0f
 
-CCMRAM_VARIABLE PID_STATIC_INIT(pid_pitch_roll, PID_PITCH_ROLL_KP, PID_PITCH_ROLL_KI, PID_PITCH_ROLL_KD, PID_PITCH_ROLL_OUT_LIMIT, PID_PITCH_ROLL_D_FILTER);
+CCMRAM_VARIABLE PID_STATIC_INIT(pid_pitch, PID_PITCH_ROLL_KP, PID_PITCH_ROLL_KI, PID_PITCH_ROLL_KD, PID_PITCH_ROLL_OUT_LIMIT, PID_PITCH_ROLL_D_FILTER);
+CCMRAM_VARIABLE PID_STATIC_INIT(pid_roll, PID_PITCH_ROLL_KP, PID_PITCH_ROLL_KI, PID_PITCH_ROLL_KD, PID_PITCH_ROLL_OUT_LIMIT, PID_PITCH_ROLL_D_FILTER);
 CCMRAM_VARIABLE PID_STATIC_INIT(pid_yaw, PID_YAW_KP, PID_YAW_KI,PID_YAW_KD, PID_YAW_OUT_LIMIT, PID_YAW_D_FILTER);
 CCMRAM_VARIABLE PID_STATIC_INIT(pid_height, PID_HEIGHT_KP, PID_HEIGHT_KI, PID_HEIGHT_KD, PID_HEIGHT_OUT_LIMIT, PID_HEIGHT_D_FILTER);
 
@@ -270,106 +275,65 @@ static void task_read_pressure(void) {
 }
 
 static void control_drone(void) {
-	if(bldc_get_active_state() == BLDC_STATE_FOC){
+	if (bldc_get_active_state() == BLDC_STATE_FOC) {
 		//Control YAW
-		/*
-		float diff = yaw_start_ref_deg - yaw_deg;
+		z_integrated_vel += vel_compensated[2] * (float) TASK_IMU_READ_PERIOD_MS / 1000.0f;
 
-		float multipler = 0;
+		float yaw_control = -pid_control_pid(&pid_yaw, z_integrated_vel, 0, 1.0f / ((float) TASK_IMU_READ_PERIOD_MS));
+		yaw_control -= pid_yaw.out_limit;
 
-		while (diff < -180.0f) {
-			diff += 2.0f * 180.0f;
-			multipler+=1.0f;
-		}
-		while (diff > 180.0f) {
-			diff -= 2.0f * 180.0f;
-			multipler-=1.0f;
-		}
+		//Control pitch
+		float pitch_control = -pid_control_pid(&pid_pitch, pitch_deg, 0, 1.0f / ((float) TASK_IMU_READ_PERIOD_MS));
 
+		//Control roll
+		float roll_control = -pid_control_pid(&pid_roll, roll_deg, 0, 1.0f / ((float) TASK_IMU_READ_PERIOD_MS));
 
-		float yaw_control = -pid_control_pid(&pid_yaw, yaw_deg - multipler * 360.0f, yaw_start_ref_deg, 1.0f/((float)TASK_IMU_READ_PERIOD_MS));
-	*/
+		//Combine all together
+		float servo_top = 0;
+		float servo_botom = 0;
+		float servo_left = 0;
+		float servo_right = 0;
 
-		z_integrated_vel += vel_compensated[2] * (float)TASK_IMU_READ_PERIOD_MS / 1000.0f;
+		//servo_top += yaw_control;
+		//servo_botom += yaw_control;
+		//servo_left += yaw_control;
+		//servo_right += yaw_control;
 
-/*
-		while (z_integrated_vel < -180.0f - PID_YAW_OUT_LIMIT) {
-			z_integrated_vel += 2.0f * 180.0f;
-		}
-		while (z_integrated_vel > 180.0f + PID_YAW_OUT_LIMIT) {
-			z_integrated_vel -= 2.0f * 180.0f;
-		}
-*/
-		float yaw_control = -pid_control_pid(&pid_yaw, z_integrated_vel, 0, 1.0f/((float)TASK_IMU_READ_PERIOD_MS));
-		yaw_control -=pid_yaw.out_limit;
+		servo_top += pitch_control;
+		servo_botom -= pitch_control;
+		servo_left += 0;
+		servo_right += 0;
 
-		servo_set_position_angle(SERVO_POSITION_2_TOP, yaw_control);
-		servo_set_position_angle(SERVO_POSITION_4_BOTTOM, yaw_control);
-		servo_set_position_angle(SERVO_POSITION_1_LEFT, yaw_control);
-		servo_set_position_angle(SERVO_POSITION_3_RIGHT, yaw_control);
+		servo_top += 0;
+		servo_botom += 0;
+		servo_left += roll_control;
+		servo_right -= roll_control;
 
-		float ch1=z_integrated_vel*10.0f;
-		float ch2=0;
-		float ch3=0;
-		float ch4=0;
+		//Set servo values
+		servo_set_position_angle(SERVO_POSITION_2_TOP, servo_top);
+		servo_set_position_angle(SERVO_POSITION_4_BOTTOM, servo_botom);
+		servo_set_position_angle(SERVO_POSITION_1_LEFT, servo_left);
+		servo_set_position_angle(SERVO_POSITION_3_RIGHT, servo_right);
 
-		bldc_scope_send_data((int16_t)ch1, (int16_t)ch2, (int16_t)ch3, (int16_t)ch4);
+		float ch1 = z_integrated_vel * 10.0f;
+		float ch2 = pitch_control * 10.0f;
+		float ch3 = roll_control * 10.0f;
+		float ch4 = 0;
 
-	}else{
+		bldc_scope_send_data((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
+	} else {
 		pid_reset(&pid_yaw);
+		pid_reset(&pid_pitch);
+		pid_reset(&pid_roll);
 
 		servo_set_position_angle(SERVO_POSITION_2_TOP, 0);
 		servo_set_position_angle(SERVO_POSITION_4_BOTTOM, 0);
 		servo_set_position_angle(SERVO_POSITION_1_LEFT, 0);
 		servo_set_position_angle(SERVO_POSITION_3_RIGHT, 0);
 	}
-
-	//Send to scope
-	//float ch1 = vel_compensated[0] * 1000.0f;
-	//float ch2 = vel_compensated[1] * 1000.0f;
-	//float ch3 = vel_compensated[2] * 1000.0f;
-	//float ch4 = vel[0] * 1000.0f;
-
-	//bldc_scope_send_data((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
-
-	//TODO implement control_drone flight function
-	//TODO implement control_drone for balance, rotation and height
-
-	/*
-	 servo_set_position_angle(SERVO_POSITION_2_TOP, drone_parameters.pitch);
-	 servo_set_position_angle(SERVO_POSITION_4_BOTTOM, -drone_parameters.pitch);
-	 servo_set_position_angle(SERVO_POSITION_1_LEFT, drone_parameters.yaw);
-	 servo_set_position_angle(SERVO_POSITION_3_RIGHT, -drone_parameters.yaw);
-	 */
-
-	/* Rotation
-	 servo_set_position_angle(SERVO_POSITION_2_TOP, -drone_parameters.roll);
-	 servo_set_position_angle(SERVO_POSITION_4_BOTTOM,+drone_parameters.roll);
-	 servo_set_position_angle(SERVO_POSITION_1_LEFT, +drone_parameters.roll);
-	 servo_set_position_angle(SERVO_POSITION_3_RIGHT,-drone_parameters.roll);
-	 */
-
-	/*
-	float tmp = 0;
-	tmp = (float) rc_pitch * 45.0f / 2048.0f;
-	servo_set_position_angle(SERVO_POSITION_2_TOP, tmp);
-
-	tmp = (float) rc_pitch * 45.0f / 2048.0f;
-	servo_set_position_angle(SERVO_POSITION_4_BOTTOM, tmp);
-
-	tmp = (float) rc_pitch * 45.0f / 2048.0f;
-	servo_set_position_angle(SERVO_POSITION_1_LEFT, tmp);
-
-	tmp = (float) rc_pitch * 45.0f / 2048.0f;
-	servo_set_position_angle(SERVO_POSITION_3_RIGHT, tmp);
-	*/
 }
 
 static void task_imu_read(void) {
-	static float vel_offset[3] = { 0, 0, 0 };
-	static float vel_offset_tmp[3] = { 0, 0, 0 };
-	static uint32_t offset_cnt = 0;
-
 	float *acc = lsm6dsl_get_imu_acceleration();
 	float *vel = lsm6dsl_get_angular_velocity();
 
@@ -385,6 +349,9 @@ static void task_imu_read(void) {
 		vel_offset[2] = vel_offset_tmp[2] / (float) offset_cnt;
 		offset_cnt++;
 		ahrs_set_beta(AHRS_BETA_FINAL);
+
+		//Finish calibration sound
+		buzzer_generate_sound(BUZZER_SOUND_DOUBLE_RISING);
 	}
 
 	vel_compensated[0] = vel[0] - vel_offset[0];
@@ -639,7 +606,7 @@ void frame_received_complete(FrameType type, FrameParams params, uint8_t *buff, 
 		//Forward received frame to slave not allowed
 		//PC->Master->Slave
 		//radio_send_frame(type, (uint8_t *) (buff), params);
-	}else{
+	} else {
 		//Call original frame VB
 		//PC->Slave
 		cb_handler((void *) (buff), params);
@@ -672,6 +639,17 @@ static void motor_start_stop_detection(uint16_t status) {
 		//Preventive stop
 		if (status & (FRAME_STATUS_BUTTON_LB | FRAME_STATUS_BUTTON_JOYL)) {
 			bldc_stop_sig();
+		}
+
+		//Calibrate gyro
+		if (status & FRAME_STATUS_BUTTON_RT) {
+			vel_offset[0] = 0;
+			vel_offset[1] = 0;
+			vel_offset[2] = 0;
+			vel_offset_tmp[0] = 0;
+			vel_offset_tmp[1] = 0;
+			vel_offset_tmp[2] = 0;
+			offset_cnt = 0;
 		}
 	}
 }
@@ -716,7 +694,8 @@ void reponse_pid_settings(FramePidType type) {
 
 	switch (type) {
 	case FRAME_PID_TYPE_PITCH_ROLL:
-		pid_to_frame_setting(&pid_pitch_roll, &response);
+		pid_to_frame_setting(&pid_roll, &response);
+		//pid_to_frame_setting(&pid_pitch, &response);
 		break;
 
 	case FRAME_PID_TYPE_YAW:
@@ -757,7 +736,8 @@ void frame_cb_set_pid_settings(void *buff, uint8_t params) {
 
 	switch (frame->pid_type) {
 	case FRAME_PID_TYPE_PITCH_ROLL:
-		pid_set_param(&pid_pitch_roll, frame->kp, frame->ki, frame->kd, frame->out_limit, frame->d_filter_coeff);
+		pid_set_param(&pid_pitch, frame->kp, frame->ki, frame->kd, frame->out_limit, frame->d_filter_coeff);
+		pid_set_param(&pid_roll, frame->kp, frame->ki, frame->kd, frame->out_limit, frame->d_filter_coeff);
 		break;
 
 	case FRAME_PID_TYPE_YAW:
@@ -789,31 +769,31 @@ void frame_cb_set_pid_settings(void *buff, uint8_t params) {
 
 static void print_reset_status(void) {
 	if (RCC_GetFlagStatus(RCC_FLAG_LPWRRST)) {
-		printf("Start: \n");
-	}
-
-	if (RCC_GetFlagStatus(RCC_FLAG_WWDGRST)) {
 		printf("Start: Low Power reset\n");
 	}
 
-	if (RCC_GetFlagStatus(RCC_FLAG_IWDGRST)) {
+	if (RCC_GetFlagStatus(RCC_FLAG_WWDGRST)) {
 		printf("Start: Window Watchdog reset\n");
 	}
 
-	if (RCC_GetFlagStatus(RCC_FLAG_SFTRST)) {
+	if (RCC_GetFlagStatus(RCC_FLAG_IWDGRST)) {
 		printf("Start: Independent Watchdog reset\n");
 	}
 
-	if (RCC_GetFlagStatus(RCC_FLAG_PORRST)) {
+	if (RCC_GetFlagStatus(RCC_FLAG_SFTRST)) {
 		printf("Start: Software reset\n");
 	}
 
-	if (RCC_GetFlagStatus(RCC_FLAG_PINRST)) {
+	if (RCC_GetFlagStatus(RCC_FLAG_PORRST)) {
 		printf("Start: POR/PDR reset\n");
 	}
 
-	if (RCC_GetFlagStatus(RCC_FLAG_OBLRST)) {
+	if (RCC_GetFlagStatus(RCC_FLAG_PINRST)) {
 		printf("Start: Pin reset\n");
+	}
+
+	if (RCC_GetFlagStatus(RCC_FLAG_OBLRST)) {
+		printf("Start: Option Byte Loader reset \n");
 	}
 
 	//Clear all flags
@@ -869,9 +849,6 @@ static void print_reset_status(void) {
  * Uart		| DMA1_CH7	| 8	| -	| USART2		|	-		| -
  * --------------------------------------------------------------------------------------------------------------------
  * ####################################################################################################################
- * PID speed, d, q
- *
- *
  * TODO add transaction complete flag to transaction record
  * TODO PKT_LEN - rx packet len put into the fifo IN_FIFO
  * TODO AN626 PKT_LEN_ADJUST - way to reach 64 byte fifo rx
@@ -929,19 +906,19 @@ int main(void) {
 	drv8301_init();
 	radio_init();
 
-	rybos_add_task(TASK_IMU_READ_PERIOD_MS, 		 8,   task_imu_read, 		RYBOS_MARKER_TASK_IMU_READ, 		true);
-	rybos_add_task(TASK_BLDC_STATUS_PERIOD_MS, 		 63,  task_bldc_status, 	RYBOS_MARKER_TASK_BLDC_STATUS, 		true);
-	rybos_add_task(TASK_PROTECTION_TIMEOUT_MS, 		 65,  task_protection, 		RYBOS_MARKER_TASK_PROTECTION, 		true);
-	rybos_add_task(TASK_PRESSURE_READ_PERIOD_MS, 	 65,  task_read_pressure,	RYBOS_MARKER_TASK_PRESSURE_READ, 	true);
-	rybos_add_task(TASK_RF_TIMEOUT_MS, 				 124, task_rf_timeout, 		RYBOS_MARKER_TASK_RF_TIMEOUT, 		false);
-	rybos_add_task(TASK_FRAME_DECODER_PERIOD_MS, 	 126, task_frame_decoder, 	RYBOS_MARKER_TASK_FRAME_DECODER, 	true);
-	rybos_add_task(TASK_BUZZER_PERIOD_MS, 			 127, task_buzzer, 			RYBOS_MARKER_TASK_BUZZER, 			false);
-	rybos_add_task(TASK_LED_PERIOD_MS, 				 245, task_led, 			RYBOS_MARKER_TASK_LED, 				true);
-	rybos_add_task(TASK_LOAD_MONITOR_PERIOD_MS, 	 230, task_load_monitor, 	RYBOS_MARKER_TASK_LOAD_MONITOR, 	true);
-	rybos_add_task(TASK_SLEEP_PERIOD_MS, 			 250, task_sleep, 			RYBOS_MARKER_TASK_SLEEP, 			true);
-	rybos_add_task(TASK_RF_PERIOD_MS, 				 125, task_rf, 				RYBOS_MARKER_TASK_RF, 				true);
-	rybos_add_task(TASK_PARAM_FAST_UPDATE_PERIOD_MS, 220, task_param_update, 	RYBOS_MARKER_TASK_PARAM_UPDATE, 	true);
-	rybos_add_task(TASK_LOGGER_PERIOD_MS, 			 240, task_logger, 			RYBOS_MARKER_TASK_LOGGER, 			true);
+	rybos_add_task(TASK_IMU_READ_PERIOD_MS, 8, task_imu_read, RYBOS_MARKER_TASK_IMU_READ, true);
+	rybos_add_task(TASK_BLDC_STATUS_PERIOD_MS, 63, task_bldc_status, RYBOS_MARKER_TASK_BLDC_STATUS, true);
+	rybos_add_task(TASK_PROTECTION_TIMEOUT_MS, 65, task_protection, RYBOS_MARKER_TASK_PROTECTION, true);
+	rybos_add_task(TASK_PRESSURE_READ_PERIOD_MS, 65, task_read_pressure, RYBOS_MARKER_TASK_PRESSURE_READ, true);
+	rybos_add_task(TASK_RF_TIMEOUT_MS, 124, task_rf_timeout, RYBOS_MARKER_TASK_RF_TIMEOUT, false);
+	rybos_add_task(TASK_FRAME_DECODER_PERIOD_MS, 126, task_frame_decoder, RYBOS_MARKER_TASK_FRAME_DECODER, true);
+	rybos_add_task(TASK_BUZZER_PERIOD_MS, 127, task_buzzer, RYBOS_MARKER_TASK_BUZZER, false);
+	rybos_add_task(TASK_LED_PERIOD_MS, 245, task_led, RYBOS_MARKER_TASK_LED, true);
+	rybos_add_task(TASK_LOAD_MONITOR_PERIOD_MS, 230, task_load_monitor, RYBOS_MARKER_TASK_LOAD_MONITOR, true);
+	rybos_add_task(TASK_SLEEP_PERIOD_MS, 250, task_sleep, RYBOS_MARKER_TASK_SLEEP, true);
+	rybos_add_task(TASK_RF_PERIOD_MS, 125, task_rf, RYBOS_MARKER_TASK_RF, true);
+	rybos_add_task(TASK_PARAM_FAST_UPDATE_PERIOD_MS, 220, task_param_update, RYBOS_MARKER_TASK_PARAM_UPDATE, true);
+	rybos_add_task(TASK_LOGGER_PERIOD_MS, 240, task_logger, RYBOS_MARKER_TASK_LOGGER, true);
 
 	print_init();
 	buzzer_generate_sound(BUZZER_SOUND_START);

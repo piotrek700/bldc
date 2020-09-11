@@ -174,4 +174,10 @@ static const BuzzerSoundStep buzzer_sound_turn_off[] = {
 		{ 300, 1500 }
 };
 
+static const BuzzerSoundStep buzzer_sound_double_rising[] = {
+		{ 100, 2800 },
+		{ 100, 0 },
+		{ 300, 3100 }
+};
+
 #endif

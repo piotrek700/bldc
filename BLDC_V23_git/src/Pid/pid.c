@@ -49,7 +49,7 @@ float pid_control_pid(Pid *pid, float value, float ref, float dt) {
 	}
 
 	//PID
-	float out = p + pid->integral + d;
+	float out = pd + pid->integral;
 
 	//PID wind-up
 	if (out > pid->out_limit) {
@@ -106,7 +106,7 @@ float pid_control_pd(Pid *pid, float value, float ref, float dt) {
 	pid->d_filtered = pid->d_filtered * pid->d_filter_coeff + (1.0f - pid->d_filter_coeff) * d;
 
 	//PID
-	float out = p  + d;
+	float out = p  + pid->d_filtered;
 
 	//PID wind-up
 	if (out > pid->out_limit) {

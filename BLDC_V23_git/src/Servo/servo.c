@@ -4,7 +4,8 @@
 static bool init_status = false;
 
 static float servo_angle[4] = { 0, 0, 0, 0 };
-static float servo_angle_offset[4] = { 11.0f, 2.0f, 12.0f, 9.0f };
+//static float servo_angle_offset[4] = { 11.0f, 2.0f, 12.0f, 9.0f };
+static float servo_angle_offset[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 
 void servo_test(void) {
 	if (!DEBUG_TEST_ENABLE) {
