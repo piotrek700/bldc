@@ -147,9 +147,35 @@
 							<tool id="com.atollic.truestudio.ar.base.1050600797" name="Archiver" superClass="com.atollic.truestudio.ar.base"/>
 						</toolChain>
 					</folderInfo>
+					<folderInfo id="com.atollic.truestudio.exe.debug.2025036794.1592738291" name="/" resourcePath="src">
+						<toolChain id="com.atollic.truestudio.exe.debug.toolchain.993910307" name="Atollic ARM Tools" superClass="com.atollic.truestudio.exe.debug.toolchain" unusedChildren="">
+							<option id="com.atollic.truestudio.general.runtimelib.1506105754.1408978963" name="Runtime Library" superClass="com.atollic.truestudio.general.runtimelib.1506105754"/>
+							<option id="com.atollic.truestudio.toolchain_options.mcu.1915469462.111139507" name="Microcontroller" superClass="com.atollic.truestudio.toolchain_options.mcu.1915469462"/>
+							<option id="com.atollic.truestudio.toolchain_options.vendor.1701996915.320036756" name="Vendor name" superClass="com.atollic.truestudio.toolchain_options.vendor.1701996915"/>
+							<targetPlatform archList="all" binaryParser="org.eclipse.cdt.core.ELF" id="com.atollic.truestudio.exe.debug.toolchain.platform" isAbstract="false" name="Debug platform" osList="all" superClass="com.atollic.truestudio.exe.debug.toolchain.platform"/>
+							<tool id="com.atollic.truestudio.exe.debug.toolchain.as.1145194191" name="Assembler" superClass="com.atollic.truestudio.exe.debug.toolchain.as.522282845">
+								<option id="com.atollic.truestudio.as.symbols.defined.28949043" name="Defined symbols" superClass="com.atollic.truestudio.as.symbols.defined" useByScannerDiscovery="false" valueType="definedSymbols">
+									<listOptionValue builtIn="false" value="USE_STM32F3_DISCOVERY"/>
+									<listOptionValue builtIn="false" value="HSE_VALUE=32000000"/>
+									<listOptionValue builtIn="false" value="STM32F30X"/>
+									<listOptionValue builtIn="false" value="USE_STDPERIPH_DRIVER"/>
+									<listOptionValue builtIn="false" value="STM32F303xC"/>
+								</option>
+								<inputType id="com.atollic.truestudio.as.input.1303776636" name="Input" superClass="com.atollic.truestudio.as.input"/>
+							</tool>
+							<tool id="com.atollic.truestudio.exe.debug.toolchain.gcc.1352123062" name="C Compiler" superClass="com.atollic.truestudio.exe.debug.toolchain.gcc.515334996">
+								<inputType id="com.atollic.truestudio.gcc.input.1228377287" superClass="com.atollic.truestudio.gcc.input"/>
+							</tool>
+							<tool id="com.atollic.truestudio.exe.debug.toolchain.ld.248768544" name="C Linker" superClass="com.atollic.truestudio.exe.debug.toolchain.ld.1518655304"/>
+							<tool id="com.atollic.truestudio.exe.debug.toolchain.gpp.549878102" name="C++ Compiler" superClass="com.atollic.truestudio.exe.debug.toolchain.gpp.78578921"/>
+							<tool id="com.atollic.truestudio.exe.debug.toolchain.ldcc.1414322258" name="C++ Linker" superClass="com.atollic.truestudio.exe.debug.toolchain.ldcc.1288559226"/>
+							<tool id="com.atollic.truestudio.ar.base.871926895" name="Archiver" superClass="com.atollic.truestudio.ar.base.1050600797"/>
+							<tool id="com.atollic.truestudio.exe.debug.toolchain.secoutput.539169167" name="Other" superClass="com.atollic.truestudio.exe.debug.toolchain.secoutput.2143220406"/>
+						</toolChain>
+					</folderInfo>
 					<sourceEntries>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Libraries"/>
-						<entry excluding="Si4468/si4468_wds/drivers/radio/radio_comm.c|Si4468/si4468_wds/application/radio.c|tiny_printf.c|Si4468/si4468_wds/application/main.c|Si4468/si4468_wds/application/sample_code_func.c|Si4468/si4468_wds/application/isr.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
+						<entry excluding="tiny_printf.c|Si4468/si4468_wds/drivers/radio/radio_comm.c|Si4468/si4468_wds/application/radio.c|Si4468/si4468_wds/application/main.c|Si4468/si4468_wds/application/sample_code_func.c|Si4468/si4468_wds/application/isr.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>

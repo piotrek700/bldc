@@ -306,7 +306,9 @@ CCMRAM_FUCNTION static void bldc_svm(float alpha, float beta, uint32_t half_peri
 	}
 
 	//PWM timings
-	uint32_t t_a, t_b, t_c;
+	uint32_t t_a = 0;
+	uint32_t t_b = 0;
+	uint32_t t_c = 0;
 
 	switch (sector) {
 	case 1: {
@@ -1065,7 +1067,7 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 	float ch3 = motor_speed_target_rps * 10.0f;
 	float ch4 = p3_i * 1000.0f;
 
-	//bldc_scope_send_data((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
+	scope_send_4ch((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
 }
 
 CCMRAM_FUCNTION void bldc_adc_irq_hanlder(void) {

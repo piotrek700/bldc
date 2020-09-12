@@ -94,44 +94,6 @@ CCMRAM_VARIABLE PID_DEF(pid_roll, PID_PITCH_ROLL_KP, PID_PITCH_ROLL_KI, PID_PITC
 CCMRAM_VARIABLE PID_DEF(pid_yaw, PID_YAW_KP, PID_YAW_KI,PID_YAW_KD, PID_YAW_OUT_LIMIT, PID_YAW_D_FILTER);
 CCMRAM_VARIABLE PID_DEF(pid_height, PID_HEIGHT_KP, PID_HEIGHT_KI, PID_HEIGHT_KD, PID_HEIGHT_OUT_LIMIT, PID_HEIGHT_D_FILTER);
 
-static void task_rf_timeout(void) {
-	radio_timeout();
-}
-
-static void task_sleep(void) {
-	//TODO implement all sleep functions
-
-	//Prevent running scheduler after BLDC IRQ
-	do {
-		rybos_clear_irq_execution_mask();
-		__WFI();
-	} while (rybos_get_irq_execution_mask() == RYBOS_IRQ_UNIQUE_MASK_ADC_BLDC);
-
-}
-
-static void task_buzzer(void) {
-	buzzer_state_machine();
-}
-
-static void task_logger(void) {
-	log_tx_state_mashine();
-}
-
-static void task_rf(void) {
-	radio_slave_sm();
-}
-
-static void task_frame_decoder(void) {
-	//Send data
-	scope_state_machine();
-
-	//Read data
-	uint8_t tmp;
-	while (uart_get_byte_dma(&tmp)) {
-		frame_decoding_state_mashine(tmp);
-	}
-}
-
 static void print_bldc_status(uint16_t status_reg1, uint16_t status_reg2) {
 	//TODO add actions depends of fault
 	//TODO add frame send to master
@@ -185,193 +147,146 @@ static void print_bldc_status(uint16_t status_reg1, uint16_t status_reg2) {
 	}
 }
 
-static void task_bldc_status(void) {
-	print_bldc_status(drv8301_get_status_reg1(), drv8301_get_status_reg2());
+static void print_init(void) {
+	printf("Slave Initialization finished...\n");
+	printf("Compilation date: %s\n", __DATE__);
+	printf("Compilation time: %s\n", __TIME__);
+	printf("UUID0: %08X %08X %08X\n", (unsigned int) STM32_UUID[0], (unsigned int) STM32_UUID[1], (unsigned int) STM32_UUID[2]);
 
-	drv8301_read_status();
-}
-
-static void rc_disconnected(void) {
-	rc_yaw = 0;
-	rc_pitch = 0;
-	rc_roll = 0;
-	rc_throttle = 0;
-
-	//Stop motor
-	bldc_stop_sig();
-
-	//TODO implement auto landing
-}
-
-static void task_led(void) {
-	//Led status diode
-	static uint32_t counter = 0;
-
-	if (counter == 1) {
-		//TODO remove comment
-		//LED_BLUE_ON;
-	} else if (counter == TASK_LED_BLINK_PERIOD) {
-		counter = 0;
-	} else {
-		//TODO remove comment
-		//LED_BLUE_OFF;
-	}
-	counter++;
-
-	//Led Red disabler
-	static bool led_red_on = false;
-
-	if (led_red_on) {
-		LED_RED_OFF;
-		led_red_on = false;
-	}
-	led_red_on = LED_RED_CHECK;
-
-	//Connection status
-	if (counter == 1) {
-		static uint32_t frame_cnt = 0;
-
-		if (radio_get_received_frame_total() - frame_cnt >= RADIO_FRAME_PER_S_CONNECTION_LIMIT) {
-			rc_connected = true;
-			//TODO send KP KI KD to master and pc
-		} else {
-			rc_connected = false;
-			rc_disconnected();
-		}
-		frame_cnt = radio_get_received_frame_total();
-	}
-}
-
-static void task_read_pressure(void) {
-	static float height_offset = 0;
-	static float height_tmp = 0;
-	static uint32_t height_offset_cnt = 0;
-
-	lps22hb_read_sensor();
-
-	//Offset compensation
-	if (height_offset_cnt < LPS22HB_OFFSET_COUNTER) {
-		height_tmp += lps22hb_get_height_m();
-		height_offset_cnt++;
-	} else if (height_offset_cnt == LPS22HB_OFFSET_COUNTER) {
-		height_offset = height_tmp / (float) height_offset_cnt;
-		height_offset_cnt++;
-	}
-
-	height_compensated = lps22hb_get_height_m() - height_offset;
-}
-
-static void control_drone(void) {
-	if (bldc_get_active_state() == BLDC_STATE_FOC) {
-		//Control YAW
-		z_integrated_vel += vel_compensated[2] * (float) TASK_IMU_READ_PERIOD_MS / 1000.0f;
-
-		float yaw_control = -pid_control_pid(&pid_yaw, z_integrated_vel, 0, 1.0f / ((float) TASK_IMU_READ_PERIOD_MS));
-		yaw_control -= pid_yaw.out_limit;
-
-		//Control pitch
-		float pitch_control = -pid_control_pid(&pid_pitch, pitch_deg, 0, 1.0f / ((float) TASK_IMU_READ_PERIOD_MS));
-
-		//Control roll
-		float roll_control = -pid_control_pid(&pid_roll, roll_deg, 0, 1.0f / ((float) TASK_IMU_READ_PERIOD_MS));
-
-		//Combine all together
-		float servo_top = 0;
-		float servo_botom = 0;
-		float servo_left = 0;
-		float servo_right = 0;
-
-		//servo_top += yaw_control;
-		//servo_botom += yaw_control;
-		//servo_left += yaw_control;
-		//servo_right += yaw_control;
-
-		servo_top -= roll_control;
-		servo_botom += roll_control;
-
-		servo_left -= pitch_control;
-		servo_right += pitch_control;
-
-		//Set servo values
-		servo_set_position_angle(SERVO_POSITION_2_TOP, servo_top);
-		servo_set_position_angle(SERVO_POSITION_4_BOTTOM, servo_botom);
-		servo_set_position_angle(SERVO_POSITION_1_LEFT, servo_left);
-		servo_set_position_angle(SERVO_POSITION_3_RIGHT, servo_right);
-
-		float ch1 = z_integrated_vel * 10.0f;
-		float ch2 = pitch_control * 10.0f;
-		float ch3 = roll_control * 10.0f;
-		float ch4 = 0;
-
-		scope_send_4ch((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
-	} else {
-		pid_reset(&pid_yaw);
-		pid_reset(&pid_pitch);
-		pid_reset(&pid_roll);
-
-		servo_set_position_angle(SERVO_POSITION_2_TOP, 0);
-		servo_set_position_angle(SERVO_POSITION_4_BOTTOM, 0);
-		servo_set_position_angle(SERVO_POSITION_1_LEFT, 0);
-		servo_set_position_angle(SERVO_POSITION_3_RIGHT, 0);
-	}
-}
-
-static void task_imu_read(void) {
-	float *acc = lsm6dsl_get_imu_acceleration();
-	float *vel = lsm6dsl_get_angular_velocity();
-
-	//Offset compensation
-	if (gyro_offset_cnt < IMU_OFFSET_COUNTER) {
-		vel_offset_tmp[0] += vel[0];
-		vel_offset_tmp[1] += vel[1];
-		vel_offset_tmp[2] += vel[2];
-		gyro_offset_cnt++;
-	} else if (gyro_offset_cnt == IMU_OFFSET_COUNTER) {
-		vel_offset[0] = vel_offset_tmp[0] / (float) gyro_offset_cnt;
-		vel_offset[1] = vel_offset_tmp[1] / (float) gyro_offset_cnt;
-		vel_offset[2] = vel_offset_tmp[2] / (float) gyro_offset_cnt;
-		gyro_offset_cnt++;
-		ahrs_set_beta(AHRS_BETA_FINAL);
-
-		//Finish calibration sound
-		buzzer_generate_sound(BUZZER_SOUND_DOUBLE_RISING);
-	}
-
-	vel_compensated[0] = vel[0] - vel_offset[0];
-	vel_compensated[1] = vel[1] - vel_offset[1];
-	vel_compensated[2] = vel[2] - vel_offset[2];
-
-	//AHRS update
-	ahrs_update(DEG_TO_RAD(vel_compensated[0]), DEG_TO_RAD(-vel_compensated[1]), DEG_TO_RAD(-vel_compensated[2]), acc[0], -acc[1], -acc[2]); //YPR 0 0 0
-
-	ahrs_rotate_45();
-
-	//toll <--> yaw
-	roll_deg = ahrs_get_yaw();
-	pitch_deg = ahrs_get_pitch();
-	yaw_deg = ahrs_get_roll();
-
-	lsm6dsl_read_sensor();
-
-	control_drone();
-}
-
-void frame_cb_req_init_data(void *buff, uint8_t params) {
-	UNUSED(buff);
-	UNUSED(params);
-
-	FrameRespInitData frame;
-
-	memcpy(frame.compilation_date, __DATE__, 11);
-	memcpy(frame.compilation_time, __TIME__, 8);
-
-	frame.magic_init_number = INIT_MAGIC_NUMBER;
-	frame.uuid[0] = STM32_UUID[0];
-	frame.uuid[1] = STM32_UUID[1];
-	frame.uuid[2] = STM32_UUID[2];
+	FrameReqDisplayChannels frame;
 
 	//Slave->Master->PC
-	radio_send_frame(FRAME_TYPE_RESP_INIT_DATA, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
+	uart_send_frame(FRAME_TYPE_REQ_DISPLAY_CHANNELS, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
+
+	//TODO send KP KI KD to master and PC
+}
+
+static void print_cpu_load(void) {
+	FrameSystemLoadSlave frame;
+
+	uint32_t i;
+	float accumulate = 0;
+	float task_load;
+	float cnt;
+
+	printf("----------------------------------------\n");
+	printf("--------------Load Monitor--------------\n");
+	printf("I\\T\tID\tLoad[%%]\tExec. Cnt\tLabel\n");
+	printf("----------------------------------------\n");
+
+	for (i = 0; i < RYBOS_TASK_AND_IRQ_SIZE - 1; i++) {
+		task_load = rybos_get_task_execution_time(i) / (TICK_CPU_FREQUENCY_HZ / 1000000);
+		rybos_clear_task_execution_time(i);
+
+		task_load /= 10000.0f * (float) TASK_LOAD_MONITOR_PERIOD_S;
+		frame.load[i] = SCALE_FLOAT_TO_UINT16(task_load, 0.0f, 100.0f);
+
+		accumulate += task_load;
+
+		cnt = (float) rybos_get_task_execution_cnt(i) / (float) TASK_LOAD_MONITOR_PERIOD_S;
+		rybos_clear_task_execution_cnt(i);
+
+		uint8_t symbol;
+		if (i < RYBOS_MARKER_IRQ_SIZE) {
+			symbol = 'I';
+		} else {
+			symbol = 'T';
+		}
+		printf("%c\t%u\t%6.3f\t%8.1f\t%s\n", (char) symbol, (unsigned int) i + 1, (double) task_load, (double) cnt, RYBOS_IRQ_TASK_NAMES[i]);
+	}
+
+	task_load = 100.0f - accumulate;
+	frame.load[i] = SCALE_FLOAT_TO_UINT16(task_load, 0.0f, 100.0f);
+
+	cnt = (float) rybos_get_task_execution_cnt(i) / (float) TASK_LOAD_MONITOR_PERIOD_S;
+	rybos_clear_task_execution_cnt(i);
+
+	printf("T\t%u\t%6.3f\t%8.1f\t%s\n", (unsigned int) i + 1, (double) task_load, (double) cnt, RYBOS_IRQ_TASK_NAMES[i]);
+
+	//Slave->Master->PC
+	radio_send_frame(FRAME_TYPE_SYSTEM_LOAD_SLAVE, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
+}
+
+static void print_reset_status(void) {
+	if (RCC_GetFlagStatus(RCC_FLAG_LPWRRST)) {
+		printf("Start: Low Power reset\n");
+	}
+
+	if (RCC_GetFlagStatus(RCC_FLAG_WWDGRST)) {
+		printf("Start: Window Watchdog reset\n");
+	}
+
+	if (RCC_GetFlagStatus(RCC_FLAG_IWDGRST)) {
+		printf("Start: Independent Watchdog reset\n");
+	}
+
+	if (RCC_GetFlagStatus(RCC_FLAG_SFTRST)) {
+		printf("Start: Software reset\n");
+	}
+
+	if (RCC_GetFlagStatus(RCC_FLAG_PORRST)) {
+		printf("Start: POR/PDR reset\n");
+	}
+
+	if (RCC_GetFlagStatus(RCC_FLAG_PINRST)) {
+		printf("Start: Pin reset\n");
+	}
+
+	if (RCC_GetFlagStatus(RCC_FLAG_OBLRST)) {
+		printf("Start: Option Byte Loader reset \n");
+	}
+
+	//Clear all flags
+	RCC_ClearFlag();
+}
+
+static void print_radio_parameters(void) {
+	FrameRadioStat frame;
+
+	frame.avarage_rssi = SCALE_FLOAT_TO_UINT16(radio_get_avarage_rssi(), -256.0f, 32.0f);						//Scale -256 - 32
+	frame.max_rssi = SCALE_FLOAT_TO_UINT16(radio_get_max_rssi(), -256.0f, 32.0f);								//Scale -256 - 32
+	frame.min_rssi = SCALE_FLOAT_TO_UINT16(radio_get_min_rssi(), -256.0f, 32.0f);								//Scale -256 - 32
+
+	frame.max_tran_deph = radio_get_max_queue_depth();
+	frame.rettransmition = radio_get_retransmition_cnt();
+	frame.rx_bytes = radio_get_received_bytes();
+	frame.tx_bytes = radio_get_transmited_bytes();
+	frame.recived_frame = radio_get_received_frame();
+	frame.recived_frame_total = radio_get_received_frame_total();
+	frame.transmitted_frame = radio_get_transmitted_frame();
+
+	radio_reset_statistics();
+
+	//Slave->Master->PC
+	radio_send_frame(FRAME_TYPE_RADIO_STAT, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
+}
+
+static void print_system_param(void) {
+	FrameSystemParamSlave frame;
+
+	frame.critical_deph = critiacl_get_max_queue_depth();
+	frame.spi_tran_deph = spi_get_max_queue_depth();
+	frame.system_local_time = tick_get_time_ms();
+	frame.scope_deph = scope_get_max_queue_depth();
+
+	//Slave->Master->PC
+	radio_send_frame(FRAME_TYPE_SYSTEM_PARAMS_SLAVE, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
+}
+
+static void print_uart_param(void) {
+	FrameUartStat frame;
+
+	frame.tx_bytes = uart_get_transmitted_bytes();
+	frame.rx_bytes = uart_get_received_bytes();
+	frame.rx_error_frames = uart_get_received_error_frames();
+	frame.recived_frames = uart_get_received_frames();
+	frame.transmitted_frames = uart_get_transmitted_frames();
+	frame.max_tran_deph = uart_get_max_queue_depth();
+
+	uart_reset_statistics();
+
+	//Slave->Master->PC
+	radio_send_frame(FRAME_TYPE_UART_STAT, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
 }
 
 static void print_fast_param(void) {
@@ -436,240 +351,6 @@ static void print_slow_param(void) {
 	radio_send_frame(FRAME_TYPE_SLOW_PARAMS_SLAVE, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
 }
 
-static void undervoltage_protection(void) {
-	if (bldc_get_v_vcc_v() < ADC_MIN_BAT_V) {
-		static uint32_t time = 0;
-
-		if (tick_get_time_ms() - time > UNDEVOLTAGE_SOUND_PERIOD_MS) {
-			time = tick_get_time_ms();
-			buzzer_generate_sound(BUZZER_SOUND_SINGLE_PEAK);
-		}
-	}
-}
-
-static void overtemperature_protection(void) {
-	if (bldc_get_ntc_temperature_c() > ADC_NTC_MAX_TEMP_C) {
-		static uint32_t time = 0;
-
-		if (tick_get_time_ms() - time > OVERTEMPERATURE_SOUND_PERIOD_MS) {
-			time = tick_get_time_ms();
-			buzzer_generate_sound(BUZZER_SOUND_DOUBLE_PEAK);
-		}
-	}
-}
-
-static void task_param_update(void) {
-	static uint32_t cnt = 0;
-
-	//25Hz
-	print_fast_param();
-
-	//5Hz
-	if (cnt == 0) {
-		print_slow_param();
-	}
-
-	cnt++;
-	if (cnt == TASK_PARAM_FAST_UPDATE_PERIOD_HZ / TASK_PARAM_SLOW_UPDATE_PERIOD_HZ) {
-		cnt = 0;
-	}
-}
-
-static void task_protection(void) {
-	undervoltage_protection();
-	overtemperature_protection();
-}
-
-static void print_init(void) {
-	printf("Slave Initialization finished...\n");
-	printf("Compilation date: %s\n", __DATE__);
-	printf("Compilation time: %s\n", __TIME__);
-	printf("UUID0: %08X %08X %08X\n", (unsigned int) STM32_UUID[0], (unsigned int) STM32_UUID[1], (unsigned int) STM32_UUID[2]);
-
-	FrameReqDisplayChannels frame;
-
-	//Slave->Master->PC
-	uart_send_frame(FRAME_TYPE_REQ_DISPLAY_CHANNELS, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
-
-	//TODO send KP KI KD to master and PC
-}
-
-static void print_cpu_load(void) {
-	FrameSystemLoadSlave frame;
-
-	uint32_t i;
-	float accumulate = 0;
-	float task_load;
-	float cnt;
-
-	printf("----------------------------------------\n");
-	printf("--------------Load Monitor--------------\n");
-	printf("I\\T\tID\tLoad[%%]\tExec. Cnt\tLabel\n");
-	printf("----------------------------------------\n");
-
-	for (i = 0; i < RYBOS_TASK_AND_IRQ_SIZE - 1; i++) {
-		task_load = rybos_get_task_execution_time(i) / (TICK_CPU_FREQUENCY_HZ / 1000000);
-		rybos_clear_task_execution_time(i);
-
-		task_load /= 10000.0f * (float) TASK_LOAD_MONITOR_PERIOD_S;
-		frame.load[i] = SCALE_FLOAT_TO_UINT16(task_load, 0.0f, 100.0f);
-
-		accumulate += task_load;
-
-		cnt = (float) rybos_get_task_execution_cnt(i) / (float) TASK_LOAD_MONITOR_PERIOD_S;
-		rybos_clear_task_execution_cnt(i);
-
-		uint8_t symbol;
-		if (i < RYBOS_MARKER_IRQ_SIZE) {
-			symbol = 'I';
-		} else {
-			symbol = 'T';
-		}
-		printf("%c\t%u\t%6.3f\t%8.1f\t%s\n", (char) symbol, (unsigned int) i + 1, (double) task_load, (double) cnt, RYBOS_IRQ_TASK_NAMES[i]);
-	}
-
-	task_load = 100.0f - accumulate;
-	frame.load[i] = SCALE_FLOAT_TO_UINT16(task_load, 0.0f, 100.0f);
-
-	cnt = (float) rybos_get_task_execution_cnt(i) / (float) TASK_LOAD_MONITOR_PERIOD_S;
-	rybos_clear_task_execution_cnt(i);
-
-	printf("T\t%u\t%6.3f\t%8.1f\t%s\n", (unsigned int) i + 1, (double) task_load, (double) cnt, RYBOS_IRQ_TASK_NAMES[i]);
-
-	//Slave->Master->PC
-	radio_send_frame(FRAME_TYPE_SYSTEM_LOAD_SLAVE, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
-}
-
-static void print_radio_parameters(void) {
-	FrameRadioStat frame;
-
-	frame.avarage_rssi = SCALE_FLOAT_TO_UINT16(radio_get_avarage_rssi(), -256.0f, 32.0f);						//Scale -256 - 32
-	frame.max_rssi = SCALE_FLOAT_TO_UINT16(radio_get_max_rssi(), -256.0f, 32.0f);								//Scale -256 - 32
-	frame.min_rssi = SCALE_FLOAT_TO_UINT16(radio_get_min_rssi(), -256.0f, 32.0f);								//Scale -256 - 32
-
-	frame.max_tran_deph = radio_get_max_queue_depth();
-	frame.rettransmition = radio_get_retransmition_cnt();
-	frame.rx_bytes = radio_get_received_bytes();
-	frame.tx_bytes = radio_get_transmited_bytes();
-	frame.recived_frame = radio_get_received_frame();
-	frame.recived_frame_total = radio_get_received_frame_total();
-	frame.transmitted_frame = radio_get_transmitted_frame();
-
-	radio_reset_statistics();
-
-	//Slave->Master->PC
-	radio_send_frame(FRAME_TYPE_RADIO_STAT, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
-}
-
-static void print_system_param(void) {
-	FrameSystemParamSlave frame;
-
-	frame.critical_deph = critiacl_get_max_queue_depth();
-	frame.spi_tran_deph = spi_get_max_queue_depth();
-	frame.system_local_time = tick_get_time_ms();
-	frame.scope_deph = scope_get_max_queue_depth();
-
-	//Slave->Master->PC
-	radio_send_frame(FRAME_TYPE_SYSTEM_PARAMS_SLAVE, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
-}
-
-static void print_uart_param(void) {
-	FrameUartStat frame;
-
-	frame.tx_bytes = uart_get_transmitted_bytes();
-	frame.rx_bytes = uart_get_received_bytes();
-	frame.rx_error_frames = uart_get_received_error_frames();
-	frame.recived_frames = uart_get_received_frames();
-	frame.transmitted_frames = uart_get_transmitted_frames();
-	frame.max_tran_deph = uart_get_max_queue_depth();
-
-	uart_reset_statistics();
-
-	//Slave->Master->PC
-	radio_send_frame(FRAME_TYPE_UART_STAT, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
-}
-
-static void task_load_monitor(void) {
-	print_cpu_load();
-	print_radio_parameters();
-	print_system_param();
-	print_uart_param();
-}
-
-void frame_received_complete(FrameType type, FrameParams params, uint8_t *buff, void (*cb_handler)(void *, uint8_t)) {
-	uart_increment_reveived_frame_cnt();
-	if (params & FRAME_DESTINATION_MASTER_PC) {
-		//Forward received frame to slave not allowed
-		//PC->Master->Slave
-		//radio_send_frame(type, (uint8_t *) (buff), params);
-	} else {
-		//Call original frame VB
-		//PC->Slave
-		cb_handler((void *) (buff), params);
-	}
-
-	UNUSED(type);
-}
-
-//Frame received
-void frame_received_error(void) {
-	uart_increment_received_error_frame_cnt();
-	debug_error(FRAME_CRC_ERROR);
-}
-
-static void motor_start_stop_detection(uint16_t status) {
-	//Check if unlocked
-	if (!(status & FRAME_STATUS_LOCK)) {
-		//Start motor
-		if (status & FRAME_STATUS_BUTTON_RB) {
-			bldc_start_sig();
-
-			//Take reference YAW angle
-			yaw_start_ref_deg = yaw_deg;
-			z_integrated_vel = 0;
-
-			//Take reference of height
-			height_start_ref = height_compensated;
-		}
-
-		//Preventive stop
-		if (status & (FRAME_STATUS_BUTTON_LB | FRAME_STATUS_BUTTON_JOYL)) {
-			z_integrated_vel = 0;
-			bldc_stop_sig();
-		}
-
-		//Calibrate gyro
-		if (status & FRAME_STATUS_BUTTON_RT) {
-			vel_offset[0] = 0;
-			vel_offset[1] = 0;
-			vel_offset[2] = 0;
-			vel_offset_tmp[0] = 0;
-			vel_offset_tmp[1] = 0;
-			vel_offset_tmp[2] = 0;
-			gyro_offset_cnt = 0;
-		}
-	}
-}
-
-void frame_cb_rc_control(void *buff, uint8_t params) {
-	UNUSED(params);
-
-	FrameRcControl *frame = (FrameRcControl *) buff;
-
-	if (rc_connected) {
-		rc_yaw = frame->yaw;
-		rc_pitch = frame->pitch;
-		rc_roll = frame->roll;
-		rc_throttle = frame->throttle;
-		rc_status = frame->status;
-
-		motor_start_stop_detection(rc_status);
-		bldc_increase_motor_speed_rps(rc_throttle / 2048.0f * 1.0f);
-	} else {
-		rc_disconnected();
-	}
-}
-
 void pid_to_frame_setting(Pid *pid, FrameSetPidSettings *frame) {
 	frame->kp = pid->kp;
 	frame->ki = pid->ki;
@@ -720,6 +401,329 @@ void reponse_pid_settings(FramePidType type) {
 	radio_send_frame(FRAME_TYPE_SET_PID_SETTINGS, (uint8_t *) (&response), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
 }
 
+static void rc_disconnected(void) {
+	rc_yaw = 0;
+	rc_pitch = 0;
+	rc_roll = 0;
+	rc_throttle = 0;
+
+	//Stop motor
+	bldc_stop_sig();
+
+	//TODO implement auto landing
+}
+
+static void control_drone(void) {
+	float yaw_control;
+	float pitch_control;
+	float roll_control;
+	float dt = 1.0f / ((float) TASK_IMU_READ_PERIOD_MS);
+
+	if (bldc_get_active_state() == BLDC_STATE_FOC) {
+		//Control YAW
+		z_integrated_vel += vel_compensated[2] * (float) TASK_IMU_READ_PERIOD_MS / 1000.0f;
+		yaw_control = -pid_control_pid(&pid_yaw, z_integrated_vel, 0, dt);
+		yaw_control -= pid_yaw.out_limit;
+	} else {
+		//Control YAW
+		yaw_control = -pid_control_pid(&pid_yaw, 0, 0, dt);
+	}
+
+	//Control pitch
+	pitch_control = -pid_control_pid(&pid_pitch, pitch_deg, (float)rc_roll * 25.0f / 2048.0f, dt);
+
+	//Control roll
+	roll_control = -pid_control_pid(&pid_roll, roll_deg, (float)-rc_pitch * 25.0f / 2048.0f, dt);
+
+	//Combine all together
+	float servo_top = 0;
+	float servo_botom = 0;
+	float servo_left = 0;
+	float servo_right = 0;
+
+	servo_top += yaw_control;
+	servo_botom += yaw_control;
+	servo_left += yaw_control;
+	servo_right += yaw_control;
+
+	servo_top -= roll_control;
+	servo_botom += roll_control;
+
+	servo_left -= pitch_control;
+	servo_right += pitch_control;
+
+	//float ch1 = z_integrated_vel * 10.0f;
+	//float ch2 = pitch_control * 10.0f;
+	//float ch3 = roll_control * 10.0f;
+	//float ch4 = 0;
+
+	//scope_send_4ch((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
+
+	//Set servo values
+	servo_set_position_angle(SERVO_POSITION_2_TOP, servo_top);
+	servo_set_position_angle(SERVO_POSITION_4_BOTTOM, servo_botom);
+	servo_set_position_angle(SERVO_POSITION_1_LEFT, servo_left);
+	servo_set_position_angle(SERVO_POSITION_3_RIGHT, servo_right);
+}
+
+static void motor_start_stop_detection(uint16_t status) {
+	//Check if unlocked
+	if (!(status & FRAME_STATUS_LOCK)) {
+		//Start motor
+		if (status & FRAME_STATUS_BUTTON_RB) {
+			bldc_start_sig();
+
+			//Take reference YAW angle
+			yaw_start_ref_deg = yaw_deg;
+			z_integrated_vel = 0;
+
+			//Take reference of height
+			height_start_ref = height_compensated;
+		}
+
+		//Preventive stop
+		if (status & FRAME_STATUS_BUTTON_LB) {
+			z_integrated_vel = 0;
+			pid_reset(&pid_yaw);
+			bldc_stop_sig();
+		}
+
+		//Calibrate gyro
+		if (status & FRAME_STATUS_BUTTON_RT) {
+			vel_offset[0] = 0;
+			vel_offset[1] = 0;
+			vel_offset[2] = 0;
+			vel_offset_tmp[0] = 0;
+			vel_offset_tmp[1] = 0;
+			vel_offset_tmp[2] = 0;
+			gyro_offset_cnt = 0;
+		}
+	}
+}
+
+static void task_rf_timeout(void) {
+	radio_timeout();
+}
+
+static void task_sleep(void) {
+	//TODO implement all sleep functions
+
+	//Prevent running scheduler after BLDC IRQ
+	do {
+		rybos_clear_irq_execution_mask();
+		__WFI();
+	} while (rybos_get_irq_execution_mask() == RYBOS_IRQ_UNIQUE_MASK_ADC_BLDC);
+
+}
+
+static void task_buzzer(void) {
+	buzzer_state_machine();
+}
+
+static void task_logger(void) {
+	log_tx_state_mashine();
+}
+
+static void task_rf(void) {
+	radio_slave_sm();
+}
+
+static void task_frame_decoder(void) {
+	//Send data
+	scope_state_machine();
+
+	//Read data
+	uint8_t tmp;
+	while (uart_get_byte_dma(&tmp)) {
+		frame_decoding_state_mashine(tmp);
+	}
+}
+
+static void task_bldc_status(void) {
+	print_bldc_status(drv8301_get_status_reg1(), drv8301_get_status_reg2());
+
+	drv8301_read_status();
+}
+
+static void task_led(void) {
+	//Led status diode
+	static uint32_t counter = 0;
+
+	if (counter == 1) {
+		//TODO remove comment
+		//LED_BLUE_ON;
+	} else if (counter == TASK_LED_BLINK_PERIOD) {
+		counter = 0;
+	} else {
+		//TODO remove comment
+		//LED_BLUE_OFF;
+	}
+	counter++;
+
+	//Led Red disabler
+	static bool led_red_on = false;
+
+	if (led_red_on) {
+		LED_RED_OFF;
+		led_red_on = false;
+	}
+	led_red_on = LED_RED_CHECK;
+
+	//Connection status
+	if (counter == 1) {
+		static uint32_t frame_cnt = 0;
+		if (radio_get_received_frame_total() - frame_cnt >= RADIO_FRAME_PER_S_CONNECTION_LIMIT) {
+			rc_connected = true;
+		} else {
+			rc_connected = false;
+			rc_disconnected();
+		}
+		frame_cnt = radio_get_received_frame_total();
+	}
+}
+
+static void task_read_pressure(void) {
+	static float height_offset = 0;
+	static float height_tmp = 0;
+	static uint32_t height_offset_cnt = 0;
+
+	lps22hb_read_sensor();
+
+	//Offset compensation
+	if (height_offset_cnt < LPS22HB_OFFSET_COUNTER) {
+		height_tmp += lps22hb_get_height_m();
+		height_offset_cnt++;
+	} else if (height_offset_cnt == LPS22HB_OFFSET_COUNTER) {
+		height_offset = height_tmp / (float) height_offset_cnt;
+		height_offset_cnt++;
+	}
+
+	height_compensated = lps22hb_get_height_m() - height_offset;
+}
+
+static void task_imu_read(void) {
+	float *acc = lsm6dsl_get_imu_acceleration();
+	float *vel = lsm6dsl_get_angular_velocity();
+
+	//Offset compensation
+	if (gyro_offset_cnt < IMU_OFFSET_COUNTER) {
+		vel_offset_tmp[0] += vel[0];
+		vel_offset_tmp[1] += vel[1];
+		vel_offset_tmp[2] += vel[2];
+		gyro_offset_cnt++;
+	} else if (gyro_offset_cnt == IMU_OFFSET_COUNTER) {
+		vel_offset[0] = vel_offset_tmp[0] / (float) gyro_offset_cnt;
+		vel_offset[1] = vel_offset_tmp[1] / (float) gyro_offset_cnt;
+		vel_offset[2] = vel_offset_tmp[2] / (float) gyro_offset_cnt;
+		gyro_offset_cnt++;
+		ahrs_set_beta(AHRS_BETA_FINAL);
+
+		//Finish calibration sound
+		buzzer_generate_sound(BUZZER_SOUND_DOUBLE_RISING);
+	}
+
+	vel_compensated[0] = vel[0] - vel_offset[0];
+	vel_compensated[1] = vel[1] - vel_offset[1];
+	vel_compensated[2] = vel[2] - vel_offset[2];
+
+	//AHRS update
+	ahrs_update(DEG_TO_RAD(vel_compensated[0]), DEG_TO_RAD(-vel_compensated[1]), DEG_TO_RAD(-vel_compensated[2]), acc[0], -acc[1], -acc[2]); //YPR 0 0 0
+
+	ahrs_rotate_45();
+
+	//toll <--> yaw
+	roll_deg = ahrs_get_yaw();
+	pitch_deg = ahrs_get_pitch();
+	yaw_deg = ahrs_get_roll();
+
+	lsm6dsl_read_sensor();
+
+	control_drone();
+}
+
+static void task_param_update(void) {
+	static uint32_t cnt = 0;
+
+	//25Hz
+	print_fast_param();
+
+	//5Hz
+	if (cnt == 0) {
+		print_slow_param();
+	}
+
+	cnt++;
+	if (cnt == TASK_PARAM_FAST_UPDATE_PERIOD_HZ / TASK_PARAM_SLOW_UPDATE_PERIOD_HZ) {
+		cnt = 0;
+	}
+}
+
+static void task_protection(void) {
+	//Under-voltage protection
+	if (bldc_get_v_vcc_v() < ADC_MIN_BAT_V) {
+		static uint32_t time = 0;
+
+		if (tick_get_time_ms() - time > UNDEVOLTAGE_SOUND_PERIOD_MS) {
+			time = tick_get_time_ms();
+			buzzer_generate_sound(BUZZER_SOUND_SINGLE_PEAK);
+		}
+	}
+
+	//Over-temperature protection
+	if (bldc_get_ntc_temperature_c() > ADC_NTC_MAX_TEMP_C) {
+		static uint32_t time = 0;
+
+		if (tick_get_time_ms() - time > OVERTEMPERATURE_SOUND_PERIOD_MS) {
+			time = tick_get_time_ms();
+			buzzer_generate_sound(BUZZER_SOUND_DOUBLE_PEAK);
+		}
+	}
+}
+
+static void task_load_monitor(void) {
+	print_cpu_load();
+	print_radio_parameters();
+	print_system_param();
+	print_uart_param();
+}
+
+void frame_cb_req_init_data(void *buff, uint8_t params) {
+	FrameRespInitData frame;
+
+	memcpy(frame.compilation_date, __DATE__, 11);
+	memcpy(frame.compilation_time, __TIME__, 8);
+
+	frame.magic_init_number = INIT_MAGIC_NUMBER;
+	frame.uuid[0] = STM32_UUID[0];
+	frame.uuid[1] = STM32_UUID[1];
+	frame.uuid[2] = STM32_UUID[2];
+
+	//Slave->Master->PC
+	radio_send_frame(FRAME_TYPE_RESP_INIT_DATA, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
+
+	UNUSED(buff);
+	UNUSED(params);
+}
+
+void frame_cb_rc_control(void *buff, uint8_t params) {
+	FrameRcControl *frame = (FrameRcControl *) buff;
+
+	if (rc_connected) {
+		rc_yaw = frame->yaw;
+		rc_pitch = frame->pitch;
+		rc_roll = frame->roll;
+		rc_throttle = frame->throttle;
+		rc_status = frame->status;
+
+		motor_start_stop_detection(rc_status);
+		bldc_increase_motor_speed_rps(rc_throttle / 2048.0f * 1.0f);
+	} else {
+		rc_disconnected();
+	}
+
+	UNUSED(params);
+}
+
 void frame_cb_get_pid_settings(void *buff, uint8_t params) {
 	FrameGetPidSettings *frame = (FrameGetPidSettings *) buff;
 
@@ -764,37 +768,23 @@ void frame_cb_set_pid_settings(void *buff, uint8_t params) {
 	UNUSED(params);
 }
 
-static void print_reset_status(void) {
-	if (RCC_GetFlagStatus(RCC_FLAG_LPWRRST)) {
-		printf("Start: Low Power reset\n");
+void frame_received_complete(FrameType type, FrameParams params, uint8_t *buff, void (*cb_handler)(void *, uint8_t)) {
+	uart_increment_reveived_frame_cnt();
+	if (params & FRAME_DESTINATION_MASTER_PC) {
+		//Forward received frame to slave not allowed
+		//radio_send_frame(type, (uint8_t *) (buff), params);
+	} else {
+		//Call original frame VB
+		cb_handler((void *) (buff), params);
 	}
 
-	if (RCC_GetFlagStatus(RCC_FLAG_WWDGRST)) {
-		printf("Start: Window Watchdog reset\n");
-	}
+	UNUSED(type);
+}
 
-	if (RCC_GetFlagStatus(RCC_FLAG_IWDGRST)) {
-		printf("Start: Independent Watchdog reset\n");
-	}
-
-	if (RCC_GetFlagStatus(RCC_FLAG_SFTRST)) {
-		printf("Start: Software reset\n");
-	}
-
-	if (RCC_GetFlagStatus(RCC_FLAG_PORRST)) {
-		printf("Start: POR/PDR reset\n");
-	}
-
-	if (RCC_GetFlagStatus(RCC_FLAG_PINRST)) {
-		printf("Start: Pin reset\n");
-	}
-
-	if (RCC_GetFlagStatus(RCC_FLAG_OBLRST)) {
-		printf("Start: Option Byte Loader reset \n");
-	}
-
-	//Clear all flags
-	RCC_ClearFlag();
+//Frame received
+void frame_received_error(void) {
+	uart_increment_received_error_frame_cnt();
+	debug_error(FRAME_CRC_ERROR);
 }
 
 /*
@@ -832,6 +822,8 @@ static void print_reset_status(void) {
  * Radio	| -			| -	| -	| -				|	-		| TODO Refactor
  * --------------------------------------------------------------------------------------------------------------------
  * Rybos	| -			| -	| -	| -				|	+		| -
+ * --------------------------------------------------------------------------------------------------------------------
+ * Scope	| -			| -	| -	| -				|	+		| -
  * --------------------------------------------------------------------------------------------------------------------
  * Servo	| -			| -	| -	| TIM4			|	+		| -
  * --------------------------------------------------------------------------------------------------------------------
@@ -879,13 +871,11 @@ static void print_reset_status(void) {
  * TODO chenge critical functions to inline
  * TODO add two separate section of CMM, 1 for variables, 1 for functions. Go to AN4296
  * TOOD add dead time compensation to RL measurement
- * TODO add dynamic PID with I active limitation
  * TODO 10x mniejsze wmocnienie dla nizszysch predkosci
  * TODO add preload for ARR and CCR for all signals
  * TODO use ADC interrupt to measure time
  * TODO BLDC refactor to static inline functions
  * TODO BLDC refactor measurements functions
- * TODO add scope header and move all buffers there
  */
 
 int main(void) {
@@ -904,19 +894,19 @@ int main(void) {
 	drv8301_init();
 	radio_init();
 
-	rybos_add_task(TASK_IMU_READ_PERIOD_MS, 8, task_imu_read, RYBOS_MARKER_TASK_IMU_READ, true);
-	rybos_add_task(TASK_BLDC_STATUS_PERIOD_MS, 63, task_bldc_status, RYBOS_MARKER_TASK_BLDC_STATUS, true);
-	rybos_add_task(TASK_PROTECTION_TIMEOUT_MS, 65, task_protection, RYBOS_MARKER_TASK_PROTECTION, true);
-	rybos_add_task(TASK_PRESSURE_READ_PERIOD_MS, 65, task_read_pressure, RYBOS_MARKER_TASK_PRESSURE_READ, true);
-	rybos_add_task(TASK_RF_TIMEOUT_MS, 124, task_rf_timeout, RYBOS_MARKER_TASK_RF_TIMEOUT, false);
-	rybos_add_task(TASK_FRAME_DECODER_PERIOD_MS, 126, task_frame_decoder, RYBOS_MARKER_TASK_FRAME_DECODER, true);
-	rybos_add_task(TASK_BUZZER_PERIOD_MS, 127, task_buzzer, RYBOS_MARKER_TASK_BUZZER, false);
-	rybos_add_task(TASK_LED_PERIOD_MS, 245, task_led, RYBOS_MARKER_TASK_LED, true);
-	rybos_add_task(TASK_LOAD_MONITOR_PERIOD_MS, 230, task_load_monitor, RYBOS_MARKER_TASK_LOAD_MONITOR, true);
-	rybos_add_task(TASK_SLEEP_PERIOD_MS, 250, task_sleep, RYBOS_MARKER_TASK_SLEEP, true);
-	rybos_add_task(TASK_RF_PERIOD_MS, 125, task_rf, RYBOS_MARKER_TASK_RF, true);
-	rybos_add_task(TASK_PARAM_FAST_UPDATE_PERIOD_MS, 220, task_param_update, RYBOS_MARKER_TASK_PARAM_UPDATE, true);
-	rybos_add_task(TASK_LOGGER_PERIOD_MS, 240, task_logger, RYBOS_MARKER_TASK_LOGGER, true);
+	rybos_add_task(TASK_IMU_READ_PERIOD_MS, 		   8, task_imu_read, 		RYBOS_MARKER_TASK_IMU_READ, 		true);
+	rybos_add_task(TASK_BLDC_STATUS_PERIOD_MS, 		  63, task_bldc_status, 	RYBOS_MARKER_TASK_BLDC_STATUS, 		true);
+	rybos_add_task(TASK_PROTECTION_TIMEOUT_MS, 		  65, task_protection, 		RYBOS_MARKER_TASK_PROTECTION, 		true);
+	rybos_add_task(TASK_PRESSURE_READ_PERIOD_MS, 	  65, task_read_pressure, 	RYBOS_MARKER_TASK_PRESSURE_READ, 	true);
+	rybos_add_task(TASK_RF_TIMEOUT_MS, 				 124, task_rf_timeout, 		RYBOS_MARKER_TASK_RF_TIMEOUT, 		false);
+	rybos_add_task(TASK_FRAME_DECODER_PERIOD_MS, 	 126, task_frame_decoder, 	RYBOS_MARKER_TASK_FRAME_DECODER, 	true);
+	rybos_add_task(TASK_BUZZER_PERIOD_MS, 			 127, task_buzzer, 			RYBOS_MARKER_TASK_BUZZER, 			false);
+	rybos_add_task(TASK_LED_PERIOD_MS, 				 245, task_led, 			RYBOS_MARKER_TASK_LED, 				true);
+	rybos_add_task(TASK_LOAD_MONITOR_PERIOD_MS, 	 230, task_load_monitor, 	RYBOS_MARKER_TASK_LOAD_MONITOR, 	true);
+	rybos_add_task(TASK_SLEEP_PERIOD_MS, 			 250, task_sleep, 			RYBOS_MARKER_TASK_SLEEP, 			true);
+	rybos_add_task(TASK_RF_PERIOD_MS, 				 125, task_rf, 				RYBOS_MARKER_TASK_RF, 				true);
+	rybos_add_task(TASK_PARAM_FAST_UPDATE_PERIOD_MS, 220, task_param_update, 	RYBOS_MARKER_TASK_PARAM_UPDATE, 	true);
+	rybos_add_task(TASK_LOGGER_PERIOD_MS, 			 240, task_logger, 			RYBOS_MARKER_TASK_LOGGER, 			true);
 
 	print_init();
 	buzzer_generate_sound(BUZZER_SOUND_START);

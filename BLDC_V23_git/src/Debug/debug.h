@@ -12,8 +12,8 @@
 
 typedef enum {
 	DEBUG_CRITICAL_ERROR_LIST(DEBUG_GENERATE_ENUM)
+	DEBUG_CRITICAL_NOT_CRITICAL_PTR,
 	DEBUG_MESSAGE_ERROR_LIST(DEBUG_GENERATE_ENUM)
-	NO_ERROR = 0xFF
 } DebugError;
 
 const char * debug_get_error_string(DebugError error);

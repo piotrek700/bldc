@@ -3,6 +3,7 @@
 
 static const char *debug_error_string[] = {
 		DEBUG_CRITICAL_ERROR_LIST(DEBUG_STRING)
+		"DEBUG_CRITICAL_NOT_CRITICAL_PTR",
 		DEBUG_MESSAGE_ERROR_LIST(DEBUG_STRING)
 };
 
@@ -10,6 +11,7 @@ void __attribute__((weak)) debug_critical_error(DebugError error, uint8_t *file,
 	UNUSED(error);
 	UNUSED(file);
 	UNUSED(line);
+
 	while (1) {
 		__NOP();
 	}
@@ -26,24 +28,14 @@ const char * debug_get_error_string(DebugError error) {
 }
 
 void debug_error_handler(DebugError error, uint8_t *file, int32_t line) {
-	switch (error) {
-	//case ALL_CRITIAL:
-		DEBUG_CRITICAL_ERROR_LIST(DEBUG_GENERATE_CASE)
+	if(error < DEBUG_CRITICAL_NOT_CRITICAL_PTR){
 		debug_critical_error(error, file, line);
-		break;
+		return;
+	}
 
-	//case ALL_MESSAGE
-		DEBUG_MESSAGE_ERROR_LIST(DEBUG_GENERATE_CASE)
+	if(error > DEBUG_CRITICAL_NOT_CRITICAL_PTR){
 		debug_message_error(error, file, line);
-		break;
-
-	//No error do nothing
-	case NO_ERROR:
-		break;
-
-	default:
-		debug_error(DEBUG_ERROR_NOT_HANDLE);
-		break;
+		return;
 	}
 }
 
