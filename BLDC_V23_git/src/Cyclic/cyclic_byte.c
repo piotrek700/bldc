@@ -11,19 +11,9 @@ void cyclic_byte_clear(CyclicByteBuffer *cyclic) {
 void cyclic_byte_add(CyclicByteBuffer *cyclic, uint8_t data) {
 	enter_critical();
 
-	cyclic->buffer[cyclic->write_ptr] = data;
-	cyclic->write_ptr++;
-	if (cyclic->write_ptr == cyclic->length) {
-		cyclic->write_ptr = 0;
-	}
-
 	cyclic->elements++;
 
-	if (cyclic->elements > cyclic->max_elements) {
-		cyclic->max_elements = cyclic->elements;
-	}
-
-	if (cyclic->elements == cyclic->length) {
+	if (cyclic->elements > cyclic->length) {
 		if (cyclic->overflow_allowed) {
 			cyclic->elements--;
 
@@ -36,6 +26,16 @@ void cyclic_byte_add(CyclicByteBuffer *cyclic, uint8_t data) {
 		} else {
 			debug_error(CYCLIC_BYTE_OVERFLOW_CRITICAL);
 		}
+	}
+
+	if (cyclic->elements > cyclic->max_elements) {
+		cyclic->max_elements = cyclic->elements;
+	}
+
+	cyclic->buffer[cyclic->write_ptr] = data;
+	cyclic->write_ptr++;
+	if (cyclic->write_ptr == cyclic->length) {
+		cyclic->write_ptr = 0;
 	}
 
 	exit_critical();

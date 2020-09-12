@@ -8,6 +8,7 @@
 #include "../Rybos/rybos.h"
 #include "../Drv8301/drv8301.h"
 #include "../Adc/adc.h"
+#include "../Scope/scope.h"
 
 //Constant
 #define ONE_BY_SQRT3							0.57735026919f
@@ -70,7 +71,7 @@
 #define BLDC_DQ_LPF_ALPHA						(BLDC_DQ_LPF_CUTOFF_FREQ/(BLDC_DQ_LPF_CUTOFF_FREQ+((float)DRV8301_PWM_3F_SWITCHING_FREQ_HZ)/(2.0f*(float)M_PI)))
 #define BLDC_LDO_VCC_LPF_ALPHA					(BLDC_DQ_LPF_CUTOFF_FREQ/(BLDC_DQ_LPF_CUTOFF_FREQ+((float)DRV8301_PWM_3F_SWITCHING_FREQ_HZ)/(2.0f*(float)M_PI)))
 
-#define BLDC_IQ_MAX_FOR_RUN						20.0f
+#define BLDC_IQ_MAX_FOR_RUN						25.0f
 
 #define BLDC_STARTUP_TIME_MS					200
 #define BLDC_START_TIEMOUT_MS 					1000
@@ -98,6 +99,9 @@ static float v2_bemf_offset = 0;
 static float v3_bemf_offset = 0;
 static float v_bemf_offset_ldo = 0;
 static float v_bemf_offset_vcc = 0;
+
+static float i_q_last_foc = 0;
+static float i_d_last_foc = 0;
 
 //CCM variables
 CCMRAM_VARIABLE static float p1_i_offset = 0;
@@ -168,12 +172,6 @@ static float measure_l_i1_avr_2 = 0;
 static float measure_l_i3_avr_2 = 0;
 static float measure_l_vcc_avr_2 = 0;
 
-//Scope
-static volatile FrameDisplayChannelsData4 scope_frame_buff[BLDC_FRAME_SCOPE_BUFF_SIZE];
-static volatile bool scope_frame_ready_buff[BLDC_FRAME_SCOPE_BUFF_SIZE];
-static volatile uint32_t scope_frame_buff_depth = 0;
-static volatile uint32_t scope_frame_buff_max_depth = 0;
-
 //FLux
 static float linkage_bemf_a = 0.0;
 static float linkage_bemf_b = 0.0;
@@ -239,6 +237,18 @@ void bldc_set_pid(FramePidType type, float kp, float ki, float kd, float out_lim
 
 void bldc_set_i_d(float i_d) {
 	i_q_ref = i_d;
+}
+
+float bldc_get_i_d(void){
+	return 	i_d_last_foc;
+}
+
+float bldc_get_i_q(void){
+	return i_q_last_foc;
+}
+
+float bldc_get_speed_rps(void){
+	return motor_speed_rps;
 }
 
 float bldc_get_v_ldo_v(void) {
@@ -564,6 +574,12 @@ static void bldc_state_stop(void) {
 	bldc_stop_pwm();
 	DRV8301_PWM_UPDATE_EVENT;
 
+	//Clear radio parameters
+	i_q_last_foc = 0;
+	i_d_last_foc = 0;
+
+	motor_speed_rps = 0;
+
 	bldc_set_active_state(BLDC_STATE_DO_NOTHING);
 }
 
@@ -888,52 +904,6 @@ void bldc_set_i_q_ref(float iq) {
 	i_q_ref_rc = iq;
 }
 
-FrameDisplayChannelsData4 * bldc_get_scope_4ch_frame(uint32_t index) {
-	return (FrameDisplayChannelsData4 *) &(scope_frame_buff[index]);
-}
-
-bool bldc_get_frame_ready(uint32_t index) {
-	return scope_frame_ready_buff[index];
-}
-
-void bldc_get_frame_ready_clear(uint32_t index) {
-	scope_frame_buff_depth--;
-	scope_frame_ready_buff[index] = false;
-}
-
-CCMRAM_FUCNTION void bldc_scope_send_data(int16_t ch1, int16_t ch2, int16_t ch3, int16_t ch4) {
-	static uint32_t frame_index_cnt = 0;
-	static uint32_t scope_frame_data_cnt = 0;
-	static uint32_t scope_frame_packet_cnt = 0;
-
-	if (scope_frame_data_cnt < FRAME_MAX_DISPLAY_CHANNELS_8 * 2) {
-		uint32_t index = scope_frame_data_cnt;
-		scope_frame_buff[frame_index_cnt].ch1[index] = ch1;
-		scope_frame_buff[frame_index_cnt].ch2[index] = ch2;
-		scope_frame_buff[frame_index_cnt].ch3[index] = ch3;
-		scope_frame_buff[frame_index_cnt].ch4[index] = ch4;
-
-		scope_frame_data_cnt++;
-		if (scope_frame_data_cnt == FRAME_MAX_DISPLAY_CHANNELS_8 * 2) {
-			scope_frame_buff[frame_index_cnt].packet_cnt = scope_frame_packet_cnt;
-			scope_frame_packet_cnt++;
-			scope_frame_ready_buff[frame_index_cnt] = true;
-
-			scope_frame_data_cnt = 0;
-
-			scope_frame_buff_depth++;
-			if (scope_frame_buff_depth > scope_frame_buff_max_depth) {
-				scope_frame_buff_max_depth = scope_frame_buff_depth;
-			}
-
-			frame_index_cnt++;
-			if (frame_index_cnt == BLDC_FRAME_SCOPE_BUFF_SIZE) {
-				frame_index_cnt = 0;
-			}
-		}
-	}
-}
-
 CCMRAM_FUCNTION void bldc_2d_saturation_limit(float *x, float *y, float max) {
 	float mag;
 	arm_sqrt_f32((*x) * (*x) + (*y) * (*y), &mag);
@@ -1029,6 +999,9 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 
 	float i_d = i_alpha * cos_tetha + i_beta * sin_tetha;
 	float i_q = i_beta * cos_tetha - i_alpha * sin_tetha;
+
+	i_d_last_foc = i_d;
+	i_q_last_foc = i_q;
 
 	//PID
 	pid_d.out_limit = BLDC_PID_I_LIMIT * v_vcc_v * BLDC_MAX_DUTY;

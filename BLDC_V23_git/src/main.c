@@ -26,6 +26,7 @@
 #include "utils.h"
 #include "Atomic/atomic.h"
 #include "Pid/pid.h"
+#include "Scope/scope.h"
 
 #define TASK_LED_PERIOD_MS							50
 #define TASK_LED_BLINK_PERIOD						1000/TASK_LED_PERIOD_MS
@@ -68,7 +69,7 @@ static uint16_t rc_status = 0;
 
 static float vel_offset[3] = { 0, 0, 0 };
 static float vel_offset_tmp[3] = { 0, 0, 0 };
-static uint32_t offset_cnt = 0;
+static uint32_t gyro_offset_cnt = 0;
 
 #define PID_PITCH_ROLL_KP						0.0f
 #define PID_PITCH_ROLL_KI						0.0f
@@ -120,24 +121,9 @@ static void task_rf(void) {
 	radio_slave_sm();
 }
 
-static void uart_send_scope_data(void) {
-	static uint32_t index = 0;
-
-	while (bldc_get_frame_ready(index)) {
-		uart_send_scope_frame(FRAME_TYPE_DISPLAY_CHANNELS_DATA_4, (uint8_t *) bldc_get_scope_4ch_frame(index),
-				FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
-		bldc_get_frame_ready_clear(index);
-
-		index++;
-		if (index == BLDC_FRAME_SCOPE_BUFF_SIZE) {
-			index = 0;
-		}
-	}
-}
-
 static void task_frame_decoder(void) {
 	//Send data
-	uart_send_scope_data();
+	scope_state_machine();
 
 	//Read data
 	uint8_t tmp;
@@ -259,16 +245,17 @@ static void task_led(void) {
 static void task_read_pressure(void) {
 	static float height_offset = 0;
 	static float height_tmp = 0;
+	static uint32_t height_offset_cnt = 0;
 
 	lps22hb_read_sensor();
 
 	//Offset compensation
-	if (offset_cnt < LPS22HB_OFFSET_COUNTER) {
+	if (height_offset_cnt < LPS22HB_OFFSET_COUNTER) {
 		height_tmp += lps22hb_get_height_m();
-		offset_cnt++;
-	} else if (offset_cnt == LPS22HB_OFFSET_COUNTER) {
-		height_offset = height_tmp / (float) offset_cnt;
-		offset_cnt++;
+		height_offset_cnt++;
+	} else if (height_offset_cnt == LPS22HB_OFFSET_COUNTER) {
+		height_offset = height_tmp / (float) height_offset_cnt;
+		height_offset_cnt++;
 	}
 
 	height_compensated = lps22hb_get_height_m() - height_offset;
@@ -302,8 +289,8 @@ static void control_drone(void) {
 		servo_top -= roll_control;
 		servo_botom += roll_control;
 
-		//servo_left -= pitch_control;
-		//servo_right += pitch_control;
+		servo_left -= pitch_control;
+		servo_right += pitch_control;
 
 		//Set servo values
 		servo_set_position_angle(SERVO_POSITION_2_TOP, servo_top);
@@ -316,7 +303,7 @@ static void control_drone(void) {
 		float ch3 = roll_control * 10.0f;
 		float ch4 = 0;
 
-		bldc_scope_send_data((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
+		scope_send_4ch((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
 	} else {
 		pid_reset(&pid_yaw);
 		pid_reset(&pid_pitch);
@@ -334,16 +321,16 @@ static void task_imu_read(void) {
 	float *vel = lsm6dsl_get_angular_velocity();
 
 	//Offset compensation
-	if (offset_cnt < IMU_OFFSET_COUNTER) {
+	if (gyro_offset_cnt < IMU_OFFSET_COUNTER) {
 		vel_offset_tmp[0] += vel[0];
 		vel_offset_tmp[1] += vel[1];
 		vel_offset_tmp[2] += vel[2];
-		offset_cnt++;
-	} else if (offset_cnt == IMU_OFFSET_COUNTER) {
-		vel_offset[0] = vel_offset_tmp[0] / (float) offset_cnt;
-		vel_offset[1] = vel_offset_tmp[1] / (float) offset_cnt;
-		vel_offset[2] = vel_offset_tmp[2] / (float) offset_cnt;
-		offset_cnt++;
+		gyro_offset_cnt++;
+	} else if (gyro_offset_cnt == IMU_OFFSET_COUNTER) {
+		vel_offset[0] = vel_offset_tmp[0] / (float) gyro_offset_cnt;
+		vel_offset[1] = vel_offset_tmp[1] / (float) gyro_offset_cnt;
+		vel_offset[2] = vel_offset_tmp[2] / (float) gyro_offset_cnt;
+		gyro_offset_cnt++;
 		ahrs_set_beta(AHRS_BETA_FINAL);
 
 		//Finish calibration sound
@@ -393,15 +380,27 @@ static void print_fast_param(void) {
 	float *q = ahrs_get_q2();
 	float *angle = servo_get_angle();
 
+	//AHRS
 	frame.ahrs.q[0] = SCALE_FLOAT_TO_INT16(q[0], -1.0f, 1.0f);															//	  -1 	-     1
 	frame.ahrs.q[1] = SCALE_FLOAT_TO_INT16(q[1], -1.0f, 1.0f);															//	  -1 	-     1
 	frame.ahrs.q[2] = SCALE_FLOAT_TO_INT16(q[2], -1.0f, 1.0f);															//	  -1 	-     1
 	frame.ahrs.q[3] = SCALE_FLOAT_TO_INT16(q[3], -1.0f, 1.0f);															//	  -1 	-     1
 
+	//Servo
 	frame.servo.angle[0] = SCALE_FLOAT_TO_INT16(angle[0], -180.0f, 180.0f);												//	-180 	-  	180		deg
 	frame.servo.angle[1] = SCALE_FLOAT_TO_INT16(angle[1], -180.0f, 180.0f);												//	-180 	-  	180		deg
 	frame.servo.angle[2] = SCALE_FLOAT_TO_INT16(angle[2], -180.0f, 180.0f);												//	-180 	-  	180		deg
 	frame.servo.angle[3] = SCALE_FLOAT_TO_INT16(angle[3], -180.0f, 180.0f);												//	-180 	-  	180		deg
+
+	//Motor
+	frame.motor.iq_current = SCALE_FLOAT_TO_INT16(bldc_get_i_q(), -50.0f, 50.0f);										//	-50 	-  	50		A
+	frame.motor.rps = SCALE_FLOAT_TO_INT16(bldc_get_speed_rps(), -500.0f, 500.0f);										//	-10 	-  	50		A
+
+	//PID
+	frame.pid.pitch_e = SCALE_FLOAT_TO_INT16(0 - pitch_deg, -180.0f, 180.0f);											//	-180 	-  	180		deg
+	frame.pid.roll_e = SCALE_FLOAT_TO_INT16(0 - roll_deg, -180.0f, 180.0f);												//	-180 	-  	180		deg
+	frame.pid.yaw_e = SCALE_FLOAT_TO_INT16(0 - z_integrated_vel, -180.0f, 180.0f);										//	-180 	-  	180		deg
+	frame.pid.height_e = SCALE_FLOAT_TO_INT16((height_start_ref - height_compensated), -50.0f, 50.0f);					//	-50 	-  	50		m
 
 	//Slave->Master->PC
 	radio_send_frame(FRAME_TYPE_FAST_PARAMS_SLAVE, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
@@ -565,9 +564,10 @@ static void print_radio_parameters(void) {
 static void print_system_param(void) {
 	FrameSystemParamSlave frame;
 
-	frame.critical_deh = critiacl_get_max_queue_depth();
+	frame.critical_deph = critiacl_get_max_queue_depth();
 	frame.spi_tran_deph = spi_get_max_queue_depth();
 	frame.system_local_time = tick_get_time_ms();
+	frame.scope_deph = scope_get_max_queue_depth();
 
 	//Slave->Master->PC
 	radio_send_frame(FRAME_TYPE_SYSTEM_PARAMS_SLAVE, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
@@ -634,6 +634,7 @@ static void motor_start_stop_detection(uint16_t status) {
 
 		//Preventive stop
 		if (status & (FRAME_STATUS_BUTTON_LB | FRAME_STATUS_BUTTON_JOYL)) {
+			z_integrated_vel = 0;
 			bldc_stop_sig();
 		}
 
@@ -645,7 +646,7 @@ static void motor_start_stop_detection(uint16_t status) {
 			vel_offset_tmp[0] = 0;
 			vel_offset_tmp[1] = 0;
 			vel_offset_tmp[2] = 0;
-			offset_cnt = 0;
+			gyro_offset_cnt = 0;
 		}
 	}
 }
@@ -690,8 +691,8 @@ void reponse_pid_settings(FramePidType type) {
 
 	switch (type) {
 	case FRAME_PID_TYPE_PITCH_ROLL:
+		//Response with only one, rest pitch is the same
 		pid_to_frame_setting(&pid_roll, &response);
-		//pid_to_frame_setting(&pid_pitch, &response);
 		break;
 
 	case FRAME_PID_TYPE_YAW:
@@ -884,6 +885,7 @@ static void print_reset_status(void) {
  * TODO use ADC interrupt to measure time
  * TODO BLDC refactor to static inline functions
  * TODO BLDC refactor measurements functions
+ * TODO add scope header and move all buffers there
  */
 
 int main(void) {

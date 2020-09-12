@@ -12,19 +12,9 @@ void cyclic_clear(CyclicBuffer *cyclic) {
 void cyclic_add(CyclicBuffer *cyclic, uint8_t *data) {
 	enter_critical();
 
-	memcpy(cyclic->buffer + cyclic->write_ptr, data, cyclic->element_size);
-	cyclic->write_ptr += cyclic->element_size;
-
-	if (cyclic->write_ptr >= cyclic->length * cyclic->element_size) {
-		cyclic->write_ptr = 0;
-	}
 	cyclic->elements++;
 
-	if (cyclic->elements > cyclic->max_elements) {
-		cyclic->max_elements = cyclic->elements;
-	}
-
-	if (cyclic->elements == cyclic->length) {
+	if (cyclic->elements > cyclic->length) {
 		if (cyclic->overflow_allowed) {
 			cyclic->elements--;
 
@@ -37,6 +27,17 @@ void cyclic_add(CyclicBuffer *cyclic, uint8_t *data) {
 		} else {
 			debug_error(CYCLIC_BUFFER_OVERFLOW_CRITICAL);
 		}
+	}
+
+	if (cyclic->elements > cyclic->max_elements) {
+		cyclic->max_elements = cyclic->elements;
+	}
+
+	memcpy(cyclic->buffer + cyclic->write_ptr, data, cyclic->element_size);
+	cyclic->write_ptr += cyclic->element_size;
+
+	if (cyclic->write_ptr >= cyclic->length * cyclic->element_size) {
+		cyclic->write_ptr = 0;
 	}
 
 	exit_critical();
@@ -75,18 +76,9 @@ uint8_t* cyclic_get_to_add(CyclicBuffer *cyclic) {
 }
 
 void cyclic_move(CyclicBuffer *cyclic) {
-	cyclic->write_ptr += cyclic->element_size;
-
-	if (cyclic->write_ptr >= cyclic->length * cyclic->element_size) {
-		cyclic->write_ptr = 0;
-	}
 	cyclic->elements++;
 
-	if (cyclic->elements > cyclic->max_elements) {
-		cyclic->max_elements = cyclic->elements;
-	}
-
-	if (cyclic->elements == cyclic->length) {
+	if (cyclic->elements > cyclic->length) {
 		if (cyclic->overflow_allowed) {
 			cyclic->elements--;
 
@@ -100,6 +92,16 @@ void cyclic_move(CyclicBuffer *cyclic) {
 			debug_error(CYCLIC_BUFFER_OVERFLOW_CRITICAL);
 		}
 
+	}
+
+	if (cyclic->elements > cyclic->max_elements) {
+		cyclic->max_elements = cyclic->elements;
+	}
+
+	cyclic->write_ptr += cyclic->element_size;
+
+	if (cyclic->write_ptr >= cyclic->length * cyclic->element_size) {
+		cyclic->write_ptr = 0;
 	}
 }
 

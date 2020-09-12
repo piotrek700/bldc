@@ -5,8 +5,6 @@
 #include "../Pid/pid.h"
 #include "../Frame/frame.h"
 
-#define BLDC_FRAME_SCOPE_BUFF_SIZE		16
-
 typedef enum {
 	BLDC_STATE_CALIBRATE_I,
 	BLDC_STATE_CALIBRATE_V,
@@ -30,6 +28,12 @@ Pid *bldc_get_pid(FramePidType type);
 void bldc_set_pid(FramePidType type, float kp, float ki, float kd, float out_limit, float d_filter_coeff);
 
 void bldc_set_i_d(float i_d);
+
+float bldc_get_i_d(void);
+
+float bldc_get_i_q(void);
+
+float bldc_get_speed_rps(void);
 
 float bldc_get_v_ldo_v(void);
 
@@ -59,18 +63,10 @@ bool bldc_status(void);
 
 void bldc_set_enable(bool status);
 
-FrameDisplayChannelsData4 * bldc_get_scope_4ch_frame(uint32_t index);
-
-bool bldc_get_frame_ready(uint32_t index);
-
-void bldc_get_frame_ready_clear(uint32_t index);
-
 void bldc_stop_sig(void);
 
 void bldc_start_sig(void);
 
 void bldc_increase_motor_speed_rps(float speed_rps);
-
-void bldc_scope_send_data(int16_t ch1, int16_t ch2, int16_t ch3, int16_t ch4);
 
 #endif

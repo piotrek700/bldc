@@ -173,9 +173,23 @@ typedef struct __attribute__((__packed__)){
 }ParamServo;
 
 typedef struct __attribute__((__packed__)){
+	int16_t iq_current;									//   -50	-	50		A
+	int16_t rps;										//	-500	-	500		rps
+}ParamMotor;
+
+typedef struct __attribute__((__packed__)){
+	int16_t pitch_e;									//  -180 	-  	180		deg
+	int16_t roll_e;										//  -180 	-  	180		deg
+	int16_t yaw_e;										//  -180 	-  	180		deg
+	int16_t height_e;									//	-50		-	50 		m
+}ParamPid;
+
+typedef struct __attribute__((__packed__)){
 	ParamAhrs ahrs;										//	  8B
 	ParamServo servo;									//	  8B
-}FrameFastParamsSlave;									//	25/s 	 400B/s		3200b/s
+	ParamMotor motor;									//	  4B
+	ParamPid pid;										//	  8B
+}FrameFastParamsSlave;									//	25/s 	 	700B/s		5600b/s
 
 //6
 typedef struct __attribute__((__packed__)){
@@ -219,8 +233,9 @@ typedef struct __attribute__((__packed__)){
 //10
 typedef struct __attribute__((__packed__)){
 	uint32_t system_local_time;							//	   0	-  0xFF
-	uint8_t critical_deh;								//     0	-	255
+	uint8_t critical_deph;								//     0	-	255
 	uint8_t spi_tran_deph;								//	   0	-	255
+	uint8_t	scope_deph;									//	   0	- 	255
 }FrameSystemParamSlave;									//  1/5s		1.2B/s		9.6b/s
 
 //11
