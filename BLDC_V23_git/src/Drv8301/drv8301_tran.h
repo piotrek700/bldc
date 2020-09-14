@@ -2,8 +2,8 @@
 #define DRV8301_TRAN_H_
 
 #include "drv8301_reg.h"
-#include "../Spi/spi.h"
-#include "utils.h"
+#include "Spi/spi.h"
+#include <sdk/utils.h>
 
 //1----------------------------------------------------------------------------
 static const uint16_t tx_stat_reg_1[1] = { SWAP_UINT16(DRV8301_SPI_READ | DRV8301_ADDR0_SR1) };

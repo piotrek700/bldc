@@ -37,8 +37,8 @@
 #include <time.h>
 #include <sys/time.h>
 #include <sys/times.h>
-#include "Log/log.h"
-#include "utils.h"
+#include <sdk/log.h>
+#include <sdk/utils.h>
 
 /* Variables */
 #undef errno

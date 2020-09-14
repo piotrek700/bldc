@@ -1,5 +1,5 @@
 #include "led.h"
-#include "../Debug/debug.h"
+#include <sdk/debug.h>
 
 static bool init_status = false;
 

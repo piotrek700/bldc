@@ -2,7 +2,7 @@
 #define ADC_H_
 
 #include "platform.h"
-#include "utils.h"
+#include <sdk/utils.h>
 
 #define ADC_SAMPLING_CYCLES 		ADC_SampleTime_19Cycles5
 

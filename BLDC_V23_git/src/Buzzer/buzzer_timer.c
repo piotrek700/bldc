@@ -1,6 +1,6 @@
 #include "buzzer_timer.h"
-#include "../Tick/tick.h"
-#include "../Debug/debug.h"
+#include <sdk/tick.h>
+#include <sdk/debug.h>
 
 static bool init_status = false;
 

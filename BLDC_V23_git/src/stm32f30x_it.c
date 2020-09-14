@@ -29,7 +29,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f30x_it.h"
-#include "Debug/debug.h"
+#include <sdk/debug.h>
 //TODO add debug support
 
 

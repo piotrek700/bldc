@@ -1,10 +1,10 @@
 #include "platform.h"
 #include <stdio.h>
-#include "../Bldc/bldc.h"
-#include "../Led/led.h"
-#include "../Log/log.h"
-#include "utils.h"
-#include "debug.h"
+#include "Bldc/bldc.h"
+#include "Led/led.h"
+#include <sdk/log.h>
+#include <sdk/utils.h>
+#include <sdk/debug.h>
 
 void debug_critical_error(DebugError error, uint8_t *file, int32_t line) {
 	LED_RED_ON;

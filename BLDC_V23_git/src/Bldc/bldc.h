@@ -2,8 +2,8 @@
 #define BLDC_H_
 
 #include "platform.h"
-#include "../Pid/pid.h"
-#include "../Frame/frame.h"
+#include <sdk/pid.h>
+#include <sdk/frame.h>
 
 typedef enum {
 	BLDC_STATE_CALIBRATE_I,

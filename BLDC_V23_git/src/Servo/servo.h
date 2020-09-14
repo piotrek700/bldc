@@ -2,7 +2,7 @@
 #define SERVO_H_
 
 #include "platform.h"
-#include "../Tick/tick.h"
+#include <sdk/tick.h>
 
 #define SERVO_CLOCK_PRESCALER		22
 #define SERVO_FREQUENCY_HZ			50

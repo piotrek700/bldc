@@ -2,7 +2,7 @@
 #define UART_H_
 
 #include "platform.h"
-#include "../Frame/frame.h"
+#include <sdk/frame.h>
 
 #define UART_FRAME_QUEUE_SIZE			16
 #define UART_DMA_RX_BUFFER_LENGTH		256U

@@ -1,9 +1,9 @@
 #include "uart.h"
-#include "../Atomic/atomic.h"
-#include "../Debug/debug.h"
-#include "../Cyclic/cyclic.h"
-#include "../Frame/frame.h"
-#include "../Rybos/rybos.h"
+#include <sdk/atomic.h>
+#include <sdk/debug.h>
+#include <sdk/cyclic.h>
+#include <sdk/frame.h>
+#include <sdk/rybos.h>
 #include <stdio.h>
 #include <string.h>
 

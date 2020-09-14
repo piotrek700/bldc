@@ -1,8 +1,8 @@
 #include "spi.h"
-#include "../Debug/debug.h"
-#include "../Rybos/rybos.h"
-#include "../Cyclic/cyclic_ptr.h"
-#include "../Atomic/atomic.h"
+#include <sdk/debug.h>
+#include <sdk/rybos.h>
+#include <sdk/cyclic_ptr.h>
+#include <sdk/atomic.h>
 
 static bool init_status = false;
 static volatile SpiTransactionRecord *previous_transaction = 0;

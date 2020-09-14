@@ -1,9 +1,9 @@
 #include "si4468.h"
 #include "si4468_tran.h"
-#include "../Rybos/rybos.h"
-#include "../Debug/debug.h"
-#include "../Tick/tick.h"
-#include "../Spi/spi.h"
+#include <sdk/rybos.h>
+#include <sdk/debug.h>
+#include <sdk/tick.h>
+#include "Spi/spi.h"
 #include "si4468_wds/bsp.h"
 #include "si4468_wds/Si446x/si446x_cmd.h"
 

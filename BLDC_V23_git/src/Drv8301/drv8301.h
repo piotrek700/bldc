@@ -3,7 +3,7 @@
 
 #include "platform.h"
 #include "drv8301_reg.h"
-#include "../Tick/tick.h"
+#include <sdk/tick.h>
 
 #define DRV8301_PWM_3F_SWITCHING_FREQ_HZ			20000		//Can be even 22kHz
 #define DRV8301_PWM_PERIOD							(TICK_CPU_FREQUENCY_HZ / DRV8301_PWM_3F_SWITCHING_FREQ_HZ)

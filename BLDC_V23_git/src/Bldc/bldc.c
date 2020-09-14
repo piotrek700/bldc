@@ -1,14 +1,14 @@
 #include "bldc.h"
-#include "utils.h"
-#include "math.h"
-#include "arm_math.h"
+#include <sdk/utils.h>
+#include <math.h>
+#include <arm_math.h>
 #include <stdio.h>
-#include "../Debug/debug.h"
-#include "../Tick/tick.h"
-#include "../Rybos/rybos.h"
-#include "../Drv8301/drv8301.h"
-#include "../Adc/adc.h"
-#include "../Scope/scope.h"
+#include <sdk/debug.h>
+#include <sdk/tick.h>
+#include <sdk/rybos.h>
+#include "Drv8301/drv8301.h"
+#include "Adc/adc.h"
+#include <sdk/scope.h>
 
 //Constant
 #define ONE_BY_SQRT3							0.57735026919f
