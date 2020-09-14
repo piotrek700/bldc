@@ -1,11 +1,11 @@
 #include "si4468.h"
-#include "si4468_tran.h"
+#include <devices/si4468_tran.h>
 #include <sdk/rybos.h>
 #include <sdk/debug.h>
 #include <sdk/tick.h>
 #include "Spi/spi.h"
-#include "si4468_wds/bsp.h"
-#include "si4468_wds/Si446x/si446x_cmd.h"
+#include <devices/si4468_wds/bsp.h>
+#include <devices/si4468_wds/Si446x/si446x_cmd.h>
 
 static bool init_status = false;
 

@@ -1,8 +1,8 @@
 #ifndef SI4468_TRAN_H_
 #define SI4468_TRAN_H_
 
-#include "Si4468/si4468_wds/Si446x/si446x_cmd.h"
-#include "Si4468/si4468_wds/radio_config.h"
+#include <devices/si4468_wds/Si446x/si446x_cmd.h>
+#include <devices/si4468_wds/radio_config.h>
 #include "Spi/spi.h"
 
 //1----------------------------------------------------------------------------

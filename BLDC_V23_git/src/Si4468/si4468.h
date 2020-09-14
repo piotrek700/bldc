@@ -9,8 +9,6 @@
 #define SI4468_IRQ_CHECK			GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_5)
 #define SI4468_CTS_CHECK			GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_10)
 
-typedef struct si446x_reply_FIFO_INFO_map si446x_reply_FIFO_INFO_map;
-
 typedef struct __attribute__((__packed__)){
 	uint8_t cmd;
 	uint8_t data[SI4468_TX_BUFF_MAX_SIZE];

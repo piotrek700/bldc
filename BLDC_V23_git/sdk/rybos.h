@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "settings/rybos_settings.h"
+#include <settings/rybos_settings.h>
 
 #define RYBOS_GENERATE_IRQ_ENUM(enum)  				RYBOS_MARKER_IRQ_##enum,
 #define RYBOS_GENERATE_TASK_ENUM(enum) 				RYBOS_MARKER_TASK_##enum,
