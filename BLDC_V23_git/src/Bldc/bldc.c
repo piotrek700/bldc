@@ -9,7 +9,7 @@
 #include "Drv8301/drv8301.h"
 #include "Adc/adc.h"
 #include <sdk/scope.h>
-#include "printf.h"
+#include <sdk/printf.h>
 
 //Constant
 #define ONE_BY_SQRT3							0.57735026919f

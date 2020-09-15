@@ -1,6 +1,6 @@
-#include <tick.h>
-#include <debug.h>
-#include <rybos.h>
+#include <sdk/tick.h>
+#include <sdk/debug.h>
+#include <sdk/rybos.h>
 
 CCMRAM_VARIABLE static volatile uint32_t tick_counter = 0;
 static bool init_status = false;

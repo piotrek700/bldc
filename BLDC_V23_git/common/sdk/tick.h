@@ -2,7 +2,7 @@
 #define TICK_H_
 
 #include "platform.h"
-#include <utils.h>
+#include <sdk/utils.h>
 
 #define TICK_FREQUENCY_HZ		1000
 #define TICK_MAX_TIME_RANGE_S	0xFFFFFFFF/TICK_FREQUENCY_HZ

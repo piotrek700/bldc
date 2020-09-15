@@ -1,7 +1,7 @@
 #ifndef SCOPE_H_
 #define SCOPE_H_
 
-#include <frame.h>
+#include <sdk/frame.h>
 
 #define SCOPE_FRAME_8CH_BUFF_SIZE		8
 

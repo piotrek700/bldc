@@ -1,5 +1,5 @@
-#include <scope.h>
-#include <debug.h>
+#include <sdk/scope.h>
+#include <sdk/debug.h>
 #include "Uart/uart.h"
 
 //Scope

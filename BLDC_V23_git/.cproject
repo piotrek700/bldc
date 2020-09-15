@@ -42,6 +42,7 @@
 									<listOptionValue builtIn="false" value="E:/D/Atollic/BLDC_V0/Libraries/CMSIS/Device/ST/STM32F30x/Include"/>
 									<listOptionValue builtIn="false" value="E:/D/Atollic/BLDC_V0/Libraries/STM32F30x_StdPeriph_Driver/inc"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/sdk}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/common}&quot;"/>
 								</option>
 								<option id="com.atollic.truestudio.common_options.target.fpucore.1944206509" name="FPU" superClass="com.atollic.truestudio.common_options.target.fpucore" useByScannerDiscovery="false" value="com.atollic.truestudio.common_options.target.fpucore.fpv4-sp-d16" valueType="enumerated"/>
 								<option id="com.atollic.truestudio.common_options.target.interwork.608783260" name="Mix ARM/Thumb" superClass="com.atollic.truestudio.common_options.target.interwork" useByScannerDiscovery="false"/>
@@ -70,6 +71,7 @@
 									<listOptionValue builtIn="false" value="D:/Git/BLDC_V23_git/git/bldc/BLDC_V23_git/Libraries/STM32F30x_StdPeriph_Driver/inc"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/sdk}&quot;"/>
 									<listOptionValue builtIn="false" value="D:/Git/BLDC_V23_git/git/bldc/BLDC_V23_git"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/common}&quot;"/>
 								</option>
 								<option id="com.atollic.truestudio.common_options.target.endianess.2018523067" name="Endianess" superClass="com.atollic.truestudio.common_options.target.endianess" useByScannerDiscovery="false"/>
 								<option id="com.atollic.truestudio.gcc.optimization.prep_garbage.1484625847" name="Prepare dead code removal " superClass="com.atollic.truestudio.gcc.optimization.prep_garbage" useByScannerDiscovery="false" value="true" valueType="boolean"/>
@@ -178,8 +180,7 @@
 					</folderInfo>
 					<sourceEntries>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Libraries"/>
-						<entry excluding="lps22hh.c" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="devices"/>
-						<entry excluding="vibrator.c" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="sdk"/>
+						<entry excluding="sdk/vibrator.c" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="common"/>
 						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="settings"/>
 						<entry excluding="tiny_printf.c|Si4468/si4468_wds/drivers/radio/radio_comm.c|Si4468/si4468_wds/application/radio.c|Si4468/si4468_wds/application/main.c|Si4468/si4468_wds/application/sample_code_func.c|Si4468/si4468_wds/application/isr.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
