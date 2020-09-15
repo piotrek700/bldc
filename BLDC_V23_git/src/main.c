@@ -12,7 +12,7 @@
 #include <sdk/ahrs.h>
 #include <sdk/rybos.h>
 #include "Adc/adc.h"
-#include "Si4468/si4468.h"
+#include <devices/si4468.h>
 #include <stdio.h>
 #include <string.h>
 #include <sdk/log.h>
@@ -875,6 +875,7 @@ void frame_received_error(void) {
  * TODO use ADC interrupt to measure time
  * TODO BLDC refactor to static inline functions
  * TODO BLDC refactor measurements functions
+ * TODO combine si4468 with radio
  */
 
 int main(void) {

@@ -6,13 +6,12 @@
 #define SI4468_CMD_ACK_VALUE		0xFF
 #define SI4468_TX_BUFF_MAX_SIZE		64
 
-#define SI4468_IRQ_CHECK			GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_5)
-#define SI4468_CTS_CHECK			GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_10)
-
 typedef struct __attribute__((__packed__)){
 	uint8_t cmd;
 	uint8_t data[SI4468_TX_BUFF_MAX_SIZE];
 }Si4468TxFrame;
+
+typedef struct si446x_reply_FIFO_INFO_map si446x_reply_FIFO_INFO_map;
 
 uint32_t si4468_get_packet_sent_time(void);
 

@@ -1,4 +1,4 @@
-#include "si4468.h"
+#include <devices/si4468.h>
 #include <devices/si4468_tran.h>
 #include <sdk/rybos.h>
 #include <sdk/debug.h>
@@ -6,6 +6,7 @@
 #include "Spi/spi.h"
 #include <devices/si4468_wds/bsp.h>
 #include <devices/si4468_wds/Si446x/si446x_cmd.h>
+#include "Si4468/si4468_drv.h"
 
 static bool init_status = false;
 
@@ -112,60 +113,7 @@ void si4468_read_frr_bcd_cb(uint8_t *rx) {
 	rybos_task_enable(RYBOS_MARKER_TASK_RF, true);
 }
 
-static void si4468_gpio_init(void) {
-	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOB, ENABLE);
-
-	GPIO_InitTypeDef GPIO_InitStructure;
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_5 | GPIO_Pin_10;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
-	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
-
-	GPIO_Init(GPIOB, &GPIO_InitStructure);
-}
-
-static void si4468_nvic_init(void) {
-	NVIC_InitTypeDef NVIC_InitStructure;
-
-	NVIC_InitStructure.NVIC_IRQChannel = EXTI9_5_IRQn;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 7;
-	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
-	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-	NVIC_Init(&NVIC_InitStructure);
-
-	NVIC_SetPriority(EXTI9_5_IRQn, 7);
-
-	NVIC_InitStructure.NVIC_IRQChannel = EXTI15_10_IRQn;
-	NVIC_Init(&NVIC_InitStructure);
-
-	NVIC_SetPriority(EXTI15_10_IRQn, 7);
-}
-
-static void si4468_exti_init(void) {
-	RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
-
-	SYSCFG_EXTILineConfig(EXTI_PortSourceGPIOB, EXTI_PinSource5);
-	SYSCFG_EXTILineConfig(EXTI_PortSourceGPIOB, EXTI_PinSource10);
-
-	EXTI_InitTypeDef EXTI_InitStructure;
-	EXTI_InitStructure.EXTI_Line = EXTI_Line5;
-	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
-	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling;
-	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
-	EXTI_Init(&EXTI_InitStructure);
-
-	EXTI_InitStructure.EXTI_Line = EXTI_Line10;
-	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;
-	EXTI_Init(&EXTI_InitStructure);
-}
-
-void EXTI9_5_IRQHandler(void) {
-	rybos_task_start_marker(RYBOS_MARKER_IRQ_SI4468_NIRQ);
-
-	//IRQ
-	EXTI_ClearITPendingBit(EXTI_Line5);
-
+void si4468_drv_nirq_cb(void) {
 	//Read fast registers IRQ
 	spi_add_transaction((SpiTransactionRecord *) &record_read_frr_bcd);
 
@@ -174,39 +122,20 @@ void EXTI9_5_IRQHandler(void) {
 	cmd_ready = false;
 
 	rybos_task_enable(RYBOS_MARKER_TASK_RF, true);
-	rybos_task_stop_marker(RYBOS_MARKER_IRQ_SI4468_NIRQ);
 }
 
-void EXTI15_10_IRQHandler(void) {
-	rybos_task_start_marker(RYBOS_MARKER_IRQ_SI4468_CTS);
-
-	//CTS
-	EXTI_ClearITPendingBit(EXTI_Line10);
-
+void si4468_drv_cts_cb(void) {
 	cmd_ready = true;
 
 	rybos_task_enable(RYBOS_MARKER_TASK_RF, true);
-	rybos_task_stop_marker(RYBOS_MARKER_IRQ_SI4468_CTS);
-}
-
-static void si4468_add_transaction_blocking(SpiTransactionRecord *record) {
-	EXTI_ClearITPendingBit(EXTI_Line10);
-	spi_add_transaction(record);
-	while (EXTI_GetITStatus(EXTI_Line10) == 0);
-	EXTI_ClearITPendingBit(EXTI_Line10);
-
-	while (SI4468_CTS_CHECK == 0) {
-		while (EXTI_GetITStatus(EXTI_Line10) == 0);
-		EXTI_ClearITPendingBit(EXTI_Line10);
-	}
 }
 
 static void si4468_chip_init(void) {
 	//Clear IRQ pending
-	si4468_add_transaction_blocking((SpiTransactionRecord *) &record_get_int_status);
+	si4468_drv_add_transaction_blocking((SpiTransactionRecord *) &record_get_int_status);
 
 	//Clear IRQ pending
-	si4468_add_transaction_blocking((SpiTransactionRecord *) &record_get_int_status);
+	si4468_drv_add_transaction_blocking((SpiTransactionRecord *) &record_get_int_status);
 
 	uint8_t const *init_data_ptr = radio_conf_array;
 	uint32_t cmd_length;
@@ -224,36 +153,31 @@ static void si4468_chip_init(void) {
 			tran_init.tx_buff[i] = *init_data_ptr;
 			init_data_ptr++;
 		}
-		si4468_add_transaction_blocking((SpiTransactionRecord *) &tran_init);
+		si4468_drv_add_transaction_blocking((SpiTransactionRecord *) &tran_init);
 
 		//Check if not CMD error
-		if (SI4468_IRQ_CHECK == 0) {
+		if (SI4468_DRV_IRQ_CHECK == 0) {
 			//Read fast registers IRQ
 			spi_add_transaction((SpiTransactionRecord *) &record_read_frr_bcd);
 
 			//Clear pending flags
-			si4468_add_transaction_blocking((SpiTransactionRecord *) &record_get_int_status);
+			si4468_drv_add_transaction_blocking((SpiTransactionRecord *) &record_get_int_status);
 		}
 	}
 
 	//Clear pending flags
-	si4468_add_transaction_blocking((SpiTransactionRecord *) &record_get_int_status);
+	si4468_drv_add_transaction_blocking((SpiTransactionRecord *) &record_get_int_status);
 
 	//Set RX
-	si4468_add_transaction_blocking((SpiTransactionRecord *) &record_start_rx);
+	si4468_drv_add_transaction_blocking((SpiTransactionRecord *) &record_start_rx);
 	//Set RX
-	si4468_add_transaction_blocking((SpiTransactionRecord *) &record_start_rx);
+	si4468_drv_add_transaction_blocking((SpiTransactionRecord *) &record_start_rx);
 }
 
 void si4468_init(void) {
-	if (!spi_get_init_status()) {
-		spi_init();
-	}
-
-	si4468_gpio_init();
-	si4468_exti_init();
+	si4468_drv_init();
 	si4468_chip_init();
-	si4468_nvic_init();
+	si4468_drv_nvic_init();
 
 	si4468_test();
 

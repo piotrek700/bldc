@@ -2,7 +2,6 @@
 #define BUZZER_H_
 
 #include "platform.h"
-#include "Buzzer/buzzer_timer.h"
 #include <settings/buzzer_settings.h>
 
 #define BUZZER_GENERATE_ENUM(str, sound) 			BUZZER_SOUND_##str,

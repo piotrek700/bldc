@@ -10,7 +10,4 @@
 	sound(TURN_OFF, 	 buzzer_sound_turn_off)			\
 	sound(DOUBLE_RISING, buzzer_sound_double_rising)
 
-//Define function which generate a frequency
-#define BUZZER_GENERATE_SOUND(freq)					buzzer_timer_set_frequency(freq)
-
 #endif

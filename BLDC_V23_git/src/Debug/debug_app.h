@@ -56,7 +56,9 @@
 		name(PID_TYPE_NOT_SUPPORTED)						\
 		name(SCOPE_MORE_THAN_ONE_MODE_USED)					\
 		name(SCOPE_SM_STATE_NOT_SUPPORTED)					\
-		name(SCOPE_BUFFER_OVERFLOW)
+		name(SCOPE_BUFFER_OVERFLOW)							\
+		name(SI4468_NIRQ_NOT_IMPLEMENTED)					\
+		name(SI4468_CTS_NOT_IMPLEMENTED)
 
 //Non critical error definition
 #define DEBUG_MESSAGE_ERROR_LIST(name)						\
