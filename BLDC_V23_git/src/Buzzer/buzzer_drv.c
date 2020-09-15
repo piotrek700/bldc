@@ -1,10 +1,10 @@
-#include "buzzer_timer.h"
+#include <Buzzer/buzzer_drv.h>
 #include <sdk/tick.h>
 #include <sdk/debug.h>
 
 static bool init_status = false;
 
-static void buzzer_timer_gpio_init(void) {
+static void buzzer_drv_gpio_init(void) {
 	GPIO_InitTypeDef GPIO_InitStruct;
 
 	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);
@@ -19,7 +19,7 @@ static void buzzer_timer_gpio_init(void) {
 	GPIO_PinAFConfig(GPIOA, GPIO_PinSource0, GPIO_AF_1);
 }
 
-static void buzzer_timer_timer_init(void) {
+static void buzzer_drv_timer_init(void) {
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
 
 	TIM_DeInit(TIM2);
@@ -48,27 +48,27 @@ static void buzzer_timer_timer_init(void) {
 	TIM_Cmd(TIM2, ENABLE);
 }
 
-void buzzer_timer_test(void) {
+void buzzer_drv_test(void) {
 	if (!DEBUG_TEST_ENABLE) {
 		return;
 	}
 	//TODO Test
 }
 
-void buzzer_timer_init(void) {
-	buzzer_timer_gpio_init();
-	buzzer_timer_timer_init();
+void buzzer_drv_init(void) {
+	buzzer_drv_gpio_init();
+	buzzer_drv_timer_init();
 
-	buzzer_timer_test();
+	buzzer_drv_test();
 
 	init_status = true;
 }
 
-bool buzzer_timer_get_init_status(void) {
+bool buzzer_drv_get_init_status(void) {
 	return init_status;
 }
 
-void buzzer_timer_set_frequency(uint16_t freq) {
+void buzzer_drv_set_frequency(uint16_t freq) {
 	if (freq == 0) {
 		TIM2->CCR1 = 0;
 	} else {

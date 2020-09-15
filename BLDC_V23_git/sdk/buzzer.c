@@ -1,9 +1,9 @@
+#include <Buzzer/buzzer_drv.h>
 #include <sdk/buzzer.h>
 #include <sdk/buzzer_sounds.h>
 #include <sdk/debug.h>
 #include <sdk/tick.h>
 #include <sdk/rybos.h>
-#include "Buzzer/buzzer_timer.h"
 
 static bool init_status = false;
 
@@ -23,7 +23,7 @@ void buzzer_test(void) {
 }
 
 void buzzer_init(void) {
-	buzzer_timer_init();
+	buzzer_drv_init();
 
 	buzzer_test();
 
@@ -48,17 +48,17 @@ void buzzer_state_machine(void) {
 	if (sound_step <= sound_length) {
 		if (sound_step == 0) {
 			next_time_step = tick_get_time_ms() + sound_ptr[sound_step].generation_time_ms;
-			buzzer_timer_set_frequency(sound_ptr[sound_step].frequency_hz);
+			buzzer_drv_set_frequency(sound_ptr[sound_step].frequency_hz);
 			sound_step++;
 		} else {
 			if (tick_get_time_ms() >= next_time_step) {
 				if (sound_step == sound_length) {
-					buzzer_timer_set_frequency(0);
+					buzzer_drv_set_frequency(0);
 					rybos_task_enable(RYBOS_MARKER_TASK_BUZZER, false);
 					return;
 				}
 				next_time_step += sound_ptr[sound_step].generation_time_ms;
-				buzzer_timer_set_frequency(sound_ptr[sound_step].frequency_hz);
+				buzzer_drv_set_frequency(sound_ptr[sound_step].frequency_hz);
 				sound_step++;
 			}
 		}
