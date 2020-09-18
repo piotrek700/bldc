@@ -26,7 +26,7 @@ CCMRAM_FUCNTION void exit_critical(void) {
 	}
 }
 
-uint32_t critiacl_get_max_queue_depth(void) {
+uint32_t critical_get_max_queue_depth(void) {
 	return critical_max;
 }
 

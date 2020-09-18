@@ -2,9 +2,11 @@
 #define DEBUG_APP_H_
 
 #define DEBUG_TEST_ENABLE	0
+#define DEBUG_ERROR_HISTORY_LEN		8
 
 //Critical error definition
 #define DEBUG_CRITICAL_ERROR_LIST(name)						\
+		name(NO_ERROR)										\
 		name(CLOCK_SPEED_ERROR)								\
 		name(CLOCK_SOURCE_ERROR)							\
 		name(NMI_ERROR)										\

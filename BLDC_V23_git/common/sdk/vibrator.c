@@ -44,9 +44,9 @@ void vibrator_generate_sound(VibratorSoundType sound_type) {
 
 static void vibrator_set_on_off(bool on) {
 	if (on) {
-		VIBRATOR_ON;
+		VIBRATOR_DRV_ON;
 	} else {
-		VIBRATOR_OFF;
+		VIBRATOR_DRV_OFF;
 	}
 }
 

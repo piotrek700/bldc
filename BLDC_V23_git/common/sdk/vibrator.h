@@ -5,7 +5,7 @@
 #include <settings/vibrator_settings.h>
 
 #define VIBRATOR_GENERATE_ENUM(str, sound) 				VIBRATOR_SOUND_##str,
-#define VIBRATOR_GENERATE_DICTIONARY(str, sound) 		{sound, sizeof(sound)/sizeof(VIBRATORSoundStep)},
+#define VIBRATOR_GENERATE_DICTIONARY(str, sound) 		{sound, sizeof(sound)/sizeof(VibratorSoundStep)},
 
 typedef struct {
 	uint16_t generation_time_ms;

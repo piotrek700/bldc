@@ -263,7 +263,7 @@ static void print_radio_parameters(void) {
 static void print_system_param(void) {
 	FrameSystemParamSlave frame;
 
-	frame.critical_deph = critiacl_get_max_queue_depth();
+	frame.critical_deph = critical_get_max_queue_depth();
 	frame.spi_tran_deph = spi_get_max_queue_depth();
 	frame.system_local_time = tick_get_time_ms();
 	frame.scope_deph = scope_get_max_queue_depth();
@@ -876,6 +876,7 @@ void frame_received_error(void) {
  * TODO BLDC refactor to static inline functions
  * TODO BLDC refactor measurements functions
  * TODO combine si4468 with radio
+ * TODO in all transaction replace size by sizeof
  */
 
 int main(void) {

@@ -20,4 +20,6 @@ const char * debug_get_error_string(DebugError error);
 
 void debug_error_handler(DebugError error, uint8_t *file, int32_t line);
 
+DebugError *debug_get_last_error(void);
+
 #endif

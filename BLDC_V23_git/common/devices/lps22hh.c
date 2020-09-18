@@ -47,7 +47,7 @@ void lps22hh_init(void) {
 	lps22hh_check_who_am_i();
 	lps22hh_lps22hh_init();
 
-	pressure_test();
+	lps22hh_test();
 
 	init_status = true;
 }

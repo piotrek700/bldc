@@ -6,7 +6,7 @@
 //TODO implement load size
 #if RADIO_MASTER == 1
 #define FRAME_SYSTEM_LOAD_LENGTH_MASTER	(RYBOS_TASK_AND_IRQ_SIZE)
-#define FRAME_SYSTEM_LOAD_LENGTH_SLAVE	(20+1)
+#define FRAME_SYSTEM_LOAD_LENGTH_SLAVE	(21+1)
 #else
 #define FRAME_SYSTEM_LOAD_LENGTH_MASTER	(20+1)
 #define FRAME_SYSTEM_LOAD_LENGTH_SLAVE	(RYBOS_TASK_AND_IRQ_SIZE)
@@ -116,7 +116,7 @@ typedef struct __attribute__((__packed__)){
 
 //2
 typedef struct __attribute__((__packed__)){
-	uint8_t error;
+	uint8_t error[8];
 }FrameErrorLog;
 
 //3
