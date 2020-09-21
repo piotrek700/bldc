@@ -350,6 +350,16 @@ static void print_slow_param(void) {
 	radio_send_frame(FRAME_TYPE_SLOW_PARAMS_SLAVE, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
 }
 
+
+static void print_error_history(void){
+	FrameErrorLog frame;
+
+	memcpy(frame.error, debug_get_last_error(), sizeof(FrameErrorLog));
+
+	//Slave->Master->PC
+	uart_send_frame(FRAME_TYPE_ERROR_LOG, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
+}
+
 void pid_to_frame_setting(Pid *pid, FrameSetPidSettings *frame) {
 	frame->kp = pid->kp;
 	frame->ki = pid->ki;
@@ -649,6 +659,7 @@ static void task_param_update(void) {
 	//5Hz
 	if (cnt == 0) {
 		print_slow_param();
+		print_error_history();
 	}
 
 	cnt++;

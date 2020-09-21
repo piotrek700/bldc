@@ -2,6 +2,7 @@
 #define DEBUG_H_
 
 #include <stdint.h>
+#include <settings/debug_error_list.h>
 #include "Debug/debug_app.h"
 
 #define DEBUG_GENERATE_ENUM(str) 							str,
