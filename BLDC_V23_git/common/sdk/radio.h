@@ -8,7 +8,7 @@
 #define RADIO_FRAME_TX_BUFF_SIZE				61
 #define RADIO_FRAME_QUEUE_SIZE					32
 #define RADIO_RETRANSMITION_LIMIT_CNT			3		//1 transmission(not included) + 3 retransmission
-#define RADIO_TX_TIMEOUT_CNT_MS					8		//TODO check minimum ~5ms = 50
+#define RADIO_TX_TIMEOUT_CNT_MS					16//8		//TODO check minimum ~5ms = 50
 #define RADIO_FRAME_PER_S_CONNECTION_LIMIT		10
 
 #define RADIO_PARAM_ACK_RESPONSE				0x80

@@ -65,10 +65,15 @@ bool si4468_get_rx_packet_pending(void) {
 
 //3----------------------------------------------------------------------------
 void si4468_read_frr_bcd_cb(uint8_t *rx) {
+	//	INVALID_PREAMBLE_PEND
 	static uint32_t cmd_error_counter = 0;
 	uint8_t ph_pend = rx[1];
-	//uint8_t modem_pend = rx[2];
+	uint8_t modem_pend = rx[2];
 	uint8_t chip_pend = rx[3];
+
+	uint8_t buff[16];
+	sprintf(buff, "IRQ %02X %02X %02X\n", rx[1], rx[2], rx[3]);
+	log_send_string(buff);
 
 	if (chip_pend & SI446X_CMD_GET_INT_STATUS_REP_CHIP_STATUS_CHIP_READY_BIT) {
 
@@ -86,7 +91,7 @@ void si4468_read_frr_bcd_cb(uint8_t *rx) {
 			cmd_error = true;
 			debug_error(SI4468_CMD_ERROR_IRQ);
 			rybos_task_enable(RYBOS_MARKER_TASK_RF, true);
-			return;
+			//return;
 		}
 	}
 
@@ -94,8 +99,15 @@ void si4468_read_frr_bcd_cb(uint8_t *rx) {
 		cmd_error = true;
 		debug_error(SI4468_PACKET_CRC_ERROR_IRQ);
 		rybos_task_enable(RYBOS_MARKER_TASK_RF, true);
-		return;
+		//return;
 	}
+
+	//if(modem_pend & SI446X_CMD_GET_INT_STATUS_REP_MODEM_PEND_INVALID_PREAMBLE_PEND_BIT){
+	//	cmd_error = true;
+	//	debug_error(SI4468_INVALID_PREAMBLE_PEND);
+	//	rybos_task_enable(RYBOS_MARKER_TASK_RF, true);
+	//	return;
+	//}
 
 	if (ph_pend & SI446X_CMD_GET_INT_STATUS_REP_PH_PEND_PACKET_RX_PEND_BIT) {
 		if (rx_packet_pending) {
@@ -113,18 +125,26 @@ void si4468_read_frr_bcd_cb(uint8_t *rx) {
 	rybos_task_enable(RYBOS_MARKER_TASK_RF, true);
 }
 
+volatile uint32_t xyx=0;
 void si4468_drv_nirq_cb(void) {
+	log_send_string("NIRQ\n");
+
 	//Read fast registers IRQ
 	spi_add_transaction((SpiTransactionRecord *) &record_read_frr_bcd);
 
 	//Clear pending flags
 	spi_add_transaction((SpiTransactionRecord *) &record_get_int_status);
-	cmd_ready = false;
+	if(cmd_ready == false){
+		xyx++;
+	}
+	//cmd_ready = false;
 
 	rybos_task_enable(RYBOS_MARKER_TASK_RF, true);
 }
 
 void si4468_drv_cts_cb(void) {
+	log_send_string("CTS\n");
+
 	cmd_ready = true;
 
 	rybos_task_enable(RYBOS_MARKER_TASK_RF, true);

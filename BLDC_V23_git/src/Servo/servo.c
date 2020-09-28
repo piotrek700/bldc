@@ -1,10 +1,10 @@
 #include "servo.h"
 #include <sdk/debug.h>
+#include <sdk/uuid.h>
 
 static bool init_status = false;
 
 static float servo_angle[4] = { 0, 0, 0, 0 };
-//static float servo_angle_offset[4] = { 11.0f, 2.0f, 12.0f, 9.0f };
 static float servo_angle_offset[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 
 void servo_test(void) {
@@ -69,9 +69,32 @@ static void servo_timer_init(void) {
 	TIM_Cmd(TIM4, ENABLE);
 }
 
+static void servo_offset_init(void) {
+	switch (STM32_UUID[0]) {
+	case 0x00400028:
+		servo_angle_offset[0] = -4.0f;
+		servo_angle_offset[1] = 2.0f;
+		servo_angle_offset[2] = 0.0f;
+		servo_angle_offset[3] = -2.0f;
+		break;
+
+	case 0x00350018:
+		servo_angle_offset[0] = 11.0f;
+		servo_angle_offset[1] = 2.0f;
+		servo_angle_offset[2] = 12.0f;
+		servo_angle_offset[3] = 9.0f;
+		break;
+
+	default:
+		//debug_error(SERVO_OFFSET_NOT_DEFINED);
+		break;
+	}
+}
+
 void servo_init(void) {
 	servo_gpio_init();
 	servo_timer_init();
+	servo_offset_init();
 
 	servo_test();
 
@@ -85,7 +108,18 @@ bool servo_get_init_status(void) {
 }
 
 void servo_set_position_angle(ServoPosition servo_position, float angle) {
+	//Save position
+	servo_angle[servo_position] = angle;
 
+	if (servo_angle[servo_position] < SERVO_MIN_ANGLE) {
+		servo_angle[servo_position] = SERVO_MIN_ANGLE;
+	}
+
+	if (servo_angle[servo_position] > SERVO_MAX_ANGLE) {
+		servo_angle[servo_position] = SERVO_MAX_ANGLE;
+	}
+
+	//Add offset
 	angle += servo_angle_offset[servo_position];
 
 	if (angle < SERVO_MIN_ANGLE) {
@@ -95,8 +129,6 @@ void servo_set_position_angle(ServoPosition servo_position, float angle) {
 	if (angle > SERVO_MAX_ANGLE) {
 		angle = SERVO_MAX_ANGLE;
 	}
-
-	servo_angle[servo_position] = angle;
 
 	float poistion_f = -angle / 90.0f * (float) SERVO_PERIOD / 20.0f + 1.5f * (float) SERVO_PERIOD / 20.0f;
 

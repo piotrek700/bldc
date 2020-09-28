@@ -70,11 +70,11 @@ static float vel_offset[3] = { 0, 0, 0 };
 static float vel_offset_tmp[3] = { 0, 0, 0 };
 static uint32_t gyro_offset_cnt = 0;
 
-#define PID_PITCH_ROLL_KP						0.0f
-#define PID_PITCH_ROLL_KI						0.0f
-#define PID_PITCH_ROLL_KD						0.0f
-#define PID_PITCH_ROLL_OUT_LIMIT				0.0f
-#define PID_PITCH_ROLL_D_FILTER					0.0f
+#define PID_PITCH_ROLL_KP						-1.5f	//-1.5
+#define PID_PITCH_ROLL_KI						0.0f	//0
+#define PID_PITCH_ROLL_KD						0.0f	//-50
+#define PID_PITCH_ROLL_OUT_LIMIT				30.0f	//30
+#define PID_PITCH_ROLL_D_FILTER					0.0f	//0
 
 #define PID_YAW_KP								0.5f
 #define PID_YAW_KI								0.001f
@@ -308,7 +308,7 @@ static void print_fast_param(void) {
 
 	//Motor
 	frame.motor.iq_current = SCALE_FLOAT_TO_INT16(bldc_get_i_q(), -50.0f, 50.0f);										//	-50 	-  	50		A
-	frame.motor.rps = SCALE_FLOAT_TO_INT16(bldc_get_speed_rps(), -500.0f, 500.0f);										//	-10 	-  	50		A
+	frame.motor.rps = SCALE_FLOAT_TO_INT16(bldc_get_speed_rps(), -500.0f, 500.0f);										//	-500 	-  	500		rps
 
 	//PID
 	frame.pid.pitch_e = SCALE_FLOAT_TO_INT16(0 - pitch_deg, -180.0f, 180.0f);											//	-180 	-  	180		deg
@@ -357,7 +357,7 @@ static void print_error_history(void){
 	memcpy(frame.error, debug_get_last_error(), sizeof(FrameErrorLog));
 
 	//Slave->Master->PC
-	uart_send_frame(FRAME_TYPE_ERROR_LOG, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
+	radio_send_frame(FRAME_TYPE_ERROR_LOG, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
 }
 
 void pid_to_frame_setting(Pid *pid, FrameSetPidSettings *frame) {
