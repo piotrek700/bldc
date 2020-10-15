@@ -45,6 +45,7 @@
 #define TASK_RF_TIMEOUT_MS							0
 #define TASK_PROTECTION_TIMEOUT_MS					10
 
+#define ROTATION_ANGLE_PROTECTION_DEG				30.0f
 #define UNDEVOLTAGE_SOUND_PERIOD_MS					1000
 #define OVERTEMPERATURE_SOUND_PERIOD_MS				1000
 #define START_BUTTON_LONG_PRESS_PERIOD_MS			2000
@@ -70,11 +71,11 @@ static float vel_offset[3] = { 0, 0, 0 };
 static float vel_offset_tmp[3] = { 0, 0, 0 };
 static uint32_t gyro_offset_cnt = 0;
 
-#define PID_PITCH_ROLL_KP						-1.5f	//-1.5
-#define PID_PITCH_ROLL_KI						0.0f	//0
-#define PID_PITCH_ROLL_KD						0.0f	//-50
-#define PID_PITCH_ROLL_OUT_LIMIT				30.0f	//30
-#define PID_PITCH_ROLL_D_FILTER					0.0f	//0
+#define PID_PITCH_ROLL_KP						0.75f
+#define PID_PITCH_ROLL_KI						0.000f
+#define PID_PITCH_ROLL_KD						100.0f
+#define PID_PITCH_ROLL_OUT_LIMIT				25.0f
+#define PID_PITCH_ROLL_D_FILTER					0.85f
 
 #define PID_YAW_KP								0.5f
 #define PID_YAW_KI								0.001f
@@ -368,6 +369,12 @@ void pid_to_frame_setting(Pid *pid, FrameSetPidSettings *frame) {
 	frame->d_filter_coeff = pid->d_filter_coeff;
 }
 
+void preventive_stop(void){
+	z_integrated_vel = 0;
+	pid_reset(&pid_yaw);
+	bldc_stop_sig();
+}
+
 void reponse_pid_settings(FramePidType type) {
 	//Response frame
 	FrameSetPidSettings response = {
@@ -439,10 +446,10 @@ static void control_drone(void) {
 	}
 
 	//Control pitch
-	pitch_control = -pid_control_pid(&pid_pitch, pitch_deg, (float)rc_roll * 25.0f / 2048.0f, dt);
+	pitch_control = -pid_control_pid(&pid_pitch, pitch_deg, (float) rc_pitch * 25.0f / 2048.0f, dt);
 
 	//Control roll
-	roll_control = -pid_control_pid(&pid_roll, roll_deg, (float)-rc_pitch * 25.0f / 2048.0f, dt);
+	roll_control = -pid_control_pid(&pid_roll, roll_deg, (float) rc_roll * 25.0f / 2048.0f, dt);
 
 	//Combine all together
 	float servo_top = 0;
@@ -461,12 +468,12 @@ static void control_drone(void) {
 	servo_left -= pitch_control;
 	servo_right += pitch_control;
 
-	//float ch1 = z_integrated_vel * 10.0f;
-	//float ch2 = pitch_control * 10.0f;
-	//float ch3 = roll_control * 10.0f;
-	//float ch4 = 0;
-
 	//scope_send_4ch((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
+
+	//servo_top = 0;
+	//servo_botom = 0;
+	//servo_left = 0;
+	//servo_right = 0;
 
 	//Set servo values
 	servo_set_position_angle(SERVO_POSITION_2_TOP, servo_top);
@@ -492,9 +499,7 @@ static void motor_start_stop_detection(uint16_t status) {
 
 		//Preventive stop
 		if (status & FRAME_STATUS_BUTTON_LB) {
-			z_integrated_vel = 0;
-			pid_reset(&pid_yaw);
-			bldc_stop_sig();
+			preventive_stop();
 		}
 
 		//Calibrate gyro
@@ -639,6 +644,7 @@ static void task_imu_read(void) {
 	ahrs_update(DEG_TO_RAD(vel_compensated[0]), DEG_TO_RAD(-vel_compensated[1]), DEG_TO_RAD(-vel_compensated[2]), acc[0], -acc[1], -acc[2]); //YPR 0 0 0
 
 	ahrs_rotate_45();
+	//ahrs_rotate_0();
 
 	//toll <--> yaw
 	roll_deg = ahrs_get_yaw();
@@ -686,6 +692,13 @@ static void task_protection(void) {
 		if (tick_get_time_ms() - time > OVERTEMPERATURE_SOUND_PERIOD_MS) {
 			time = tick_get_time_ms();
 			buzzer_generate_sound(BUZZER_SOUND_DOUBLE_PEAK);
+		}
+	}
+
+	//Rotation protection
+	if ((fabsf(pitch_deg) > ROTATION_ANGLE_PROTECTION_DEG) || (fabsf(roll_deg) > ROTATION_ANGLE_PROTECTION_DEG)) {
+		if (bldc_get_active_state() == BLDC_STATE_FOC) {
+			preventive_stop();
 		}
 	}
 }
@@ -895,7 +908,6 @@ int main(void) {
 	log_init();
 	print_reset_status();
 	tick_init();
-	led_init();
 	buzzer_init();
 	uart_init();
 	lsm6dsl_init();

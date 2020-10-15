@@ -167,6 +167,9 @@ void spi_slave_select(SpiSlaveSelect slave) {
 		asm volatile("nop");
 		asm volatile("nop");
 		asm volatile("nop");
+		asm volatile("nop");
+		asm volatile("nop");
+
 		SPI_IMU_NSS_SET_LOW;
 
 		break;
@@ -181,6 +184,9 @@ void spi_slave_select(SpiSlaveSelect slave) {
 		asm volatile("nop");
 		asm volatile("nop");
 		asm volatile("nop");
+		asm volatile("nop");
+		asm volatile("nop");
+
 		SPI_PRESSURE_NSS_SET_LOW;
 		break;
 
@@ -194,6 +200,9 @@ void spi_slave_select(SpiSlaveSelect slave) {
 		asm volatile("nop");
 		asm volatile("nop");
 		asm volatile("nop");
+		asm volatile("nop");
+		asm volatile("nop");
+
 		SPI_RF_NSS_SET_LOW;
 		break;
 
@@ -208,6 +217,9 @@ void spi_slave_select(SpiSlaveSelect slave) {
 		asm volatile("nop");
 		asm volatile("nop");
 		asm volatile("nop");
+		asm volatile("nop");
+		asm volatile("nop");
+
 		SPI_BLDC_NSS_SET_LOW;
 		break;
 
@@ -222,6 +234,9 @@ void spi_slave_select(SpiSlaveSelect slave) {
 		asm volatile("nop");
 		asm volatile("nop");
 		asm volatile("nop");
+		asm volatile("nop");
+		asm volatile("nop");
+
 		SPI_RF_NSS_SET_LOW;
 		break;
 

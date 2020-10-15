@@ -36,7 +36,7 @@ void si4468_drv_nvic_init(void) {
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
 	NVIC_Init(&NVIC_InitStructure);
 
-	NVIC_SetPriority(EXTI9_5_IRQn, 7);
+	NVIC_SetPriority(EXTI9_5_IRQn, 6);
 
 	NVIC_InitStructure.NVIC_IRQChannel = EXTI15_10_IRQn;
 	NVIC_Init(&NVIC_InitStructure);

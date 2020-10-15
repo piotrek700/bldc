@@ -72,7 +72,7 @@
 #define BLDC_DQ_LPF_ALPHA						(BLDC_DQ_LPF_CUTOFF_FREQ/(BLDC_DQ_LPF_CUTOFF_FREQ+((float)DRV8301_PWM_3F_SWITCHING_FREQ_HZ)/(2.0f*(float)M_PI)))
 #define BLDC_LDO_VCC_LPF_ALPHA					(BLDC_DQ_LPF_CUTOFF_FREQ/(BLDC_DQ_LPF_CUTOFF_FREQ+((float)DRV8301_PWM_3F_SWITCHING_FREQ_HZ)/(2.0f*(float)M_PI)))
 
-#define BLDC_IQ_MAX_FOR_RUN						25.0f
+#define BLDC_IQ_MAX_FOR_RUN						35.0f
 
 #define BLDC_STARTUP_TIME_MS					200
 #define BLDC_START_TIEMOUT_MS 					1000
@@ -1068,7 +1068,7 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 	float ch3 = motor_speed_target_rps * 10.0f;
 	float ch4 = p3_i * 1000.0f;
 
-	scope_send_4ch((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
+	//scope_send_4ch((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
 }
 
 CCMRAM_FUCNTION void bldc_adc_irq_hanlder(void) {

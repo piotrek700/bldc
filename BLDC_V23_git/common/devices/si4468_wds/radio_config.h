@@ -103,7 +103,7 @@
 //   FRR_CTL_C_MODE - Fast Response Register C Configuration.
 //   FRR_CTL_D_MODE - Fast Response Register D Configuration.
 */
-#define RF_FRR_CTL_A_MODE_4 0x11, 0x02, 0x04, 0x00, 0x0A, 0x04, 0x06, 0x08
+#define RF_FRR_CTL_A_MODE_4 0x11, 0x02, 0x04, 0x00, 0x0A, 0x04, 0x09, 0x08
 //6. ok RSSI, PH, MOD, CHIP
 
 /*
