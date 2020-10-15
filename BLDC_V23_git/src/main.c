@@ -58,7 +58,6 @@ static float roll_deg = 0;
 static bool rc_connected = false;
 static float z_integrated_vel = 0;
 
-static float yaw_start_ref_deg = 0;
 static float height_start_ref = 0;
 
 static int16_t rc_yaw = 0;
@@ -435,13 +434,16 @@ static void control_drone(void) {
 	float roll_control;
 	float dt = 1.0f / ((float) TASK_IMU_READ_PERIOD_MS);
 
+	//Control yaw
+	z_integrated_vel -= (float) rc_yaw * 0.05f / 2048.0f;
+
 	if (bldc_get_active_state() == BLDC_STATE_FOC) {
 		//Control YAW
 		z_integrated_vel += vel_compensated[2] * (float) TASK_IMU_READ_PERIOD_MS / 1000.0f;
 		yaw_control = -pid_control_pid(&pid_yaw, z_integrated_vel, 0, dt);
 		yaw_control -= pid_yaw.out_limit;
 	} else {
-		//Control YAW
+		//Control yaw
 		yaw_control = -pid_control_pid(&pid_yaw, 0, 0, dt);
 	}
 
@@ -490,7 +492,6 @@ static void motor_start_stop_detection(uint16_t status) {
 			bldc_start_sig();
 
 			//Take reference YAW angle
-			yaw_start_ref_deg = yaw_deg;
 			z_integrated_vel = 0;
 
 			//Take reference of height
