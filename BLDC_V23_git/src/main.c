@@ -45,7 +45,7 @@
 #define TASK_RF_TIMEOUT_MS							0
 #define TASK_PROTECTION_TIMEOUT_MS					10
 
-#define ROTATION_ANGLE_PROTECTION_DEG				30.0f
+#define ROTATION_ANGLE_PROTECTION_DEG				60.0f
 #define UNDEVOLTAGE_SOUND_PERIOD_MS					1000
 #define OVERTEMPERATURE_SOUND_PERIOD_MS				1000
 #define START_BUTTON_LONG_PRESS_PERIOD_MS			2000
@@ -56,7 +56,9 @@ static float yaw_deg = 0;
 static float pitch_deg = 0;
 static float roll_deg = 0;
 static bool rc_connected = false;
-static float z_integrated_vel = 0;
+static float yaw_ref_int = 0;
+
+static bool init_finished = false;
 
 static float height_start_ref = 0;
 
@@ -70,17 +72,17 @@ static float vel_offset[3] = { 0, 0, 0 };
 static float vel_offset_tmp[3] = { 0, 0, 0 };
 static uint32_t gyro_offset_cnt = 0;
 
-#define PID_PITCH_ROLL_KP						0.75f
-#define PID_PITCH_ROLL_KI						0.000f
-#define PID_PITCH_ROLL_KD						100.0f
-#define PID_PITCH_ROLL_OUT_LIMIT				25.0f
-#define PID_PITCH_ROLL_D_FILTER					0.85f
+#define PID_PITCH_ROLL_KP						1.0f		//1
+#define PID_PITCH_ROLL_KI						0.000f		//0
+#define PID_PITCH_ROLL_KD						500.0f		//500
+#define PID_PITCH_ROLL_OUT_LIMIT				20.0f		//20
+#define PID_PITCH_ROLL_D_FILTER					0.98f		//0.95
 
-#define PID_YAW_KP								0.5f
-#define PID_YAW_KI								0.001f
-#define PID_YAW_KD								100.0f
-#define PID_YAW_OUT_LIMIT						25.0f
-#define PID_YAW_D_FILTER						0.8f
+#define PID_YAW_KP								0.5f		//0.5
+#define PID_YAW_KI								0.001f		//0.001
+#define PID_YAW_KD								200.0f		//100
+#define PID_YAW_OUT_LIMIT						20.0f		//20
+#define PID_YAW_D_FILTER						0.98f		//0.95
 
 #define PID_HEIGHT_KP							0.0f
 #define PID_HEIGHT_KI							0.0f
@@ -313,7 +315,7 @@ static void print_fast_param(void) {
 	//PID
 	frame.pid.pitch_e = SCALE_FLOAT_TO_INT16(0 - pitch_deg, -180.0f, 180.0f);											//	-180 	-  	180		deg
 	frame.pid.roll_e = SCALE_FLOAT_TO_INT16(0 - roll_deg, -180.0f, 180.0f);												//	-180 	-  	180		deg
-	frame.pid.yaw_e = SCALE_FLOAT_TO_INT16(0 - z_integrated_vel, -180.0f, 180.0f);										//	-180 	-  	180		deg
+	frame.pid.yaw_e = SCALE_FLOAT_TO_INT16(0 - yaw_ref_int, -180.0f, 180.0f);										//	-180 	-  	180		deg
 	frame.pid.height_e = SCALE_FLOAT_TO_INT16((height_start_ref - height_compensated), -50.0f, 50.0f);					//	-50 	-  	50		m
 
 	//Slave->Master->PC
@@ -369,7 +371,7 @@ void pid_to_frame_setting(Pid *pid, FrameSetPidSettings *frame) {
 }
 
 void preventive_stop(void){
-	z_integrated_vel = 0;
+	yaw_ref_int = 0;
 	pid_reset(&pid_yaw);
 	bldc_stop_sig();
 }
@@ -433,49 +435,52 @@ static void control_drone(void) {
 	float pitch_control;
 	float roll_control;
 	float dt = 1.0f / ((float) TASK_IMU_READ_PERIOD_MS);
-
-	//Control yaw
-	z_integrated_vel -= (float) rc_yaw * 0.05f / 2048.0f;
-
-	if (bldc_get_active_state() == BLDC_STATE_FOC) {
-		//Control YAW
-		z_integrated_vel += vel_compensated[2] * (float) TASK_IMU_READ_PERIOD_MS / 1000.0f;
-		yaw_control = -pid_control_pid(&pid_yaw, z_integrated_vel, 0, dt);
-		yaw_control -= pid_yaw.out_limit;
-	} else {
-		//Control yaw
-		yaw_control = -pid_control_pid(&pid_yaw, 0, 0, dt);
-	}
-
-	//Control pitch
-	pitch_control = -pid_control_pid(&pid_pitch, pitch_deg, (float) rc_pitch * 25.0f / 2048.0f, dt);
-
-	//Control roll
-	roll_control = -pid_control_pid(&pid_roll, roll_deg, (float) rc_roll * 25.0f / 2048.0f, dt);
-
-	//Combine all together
 	float servo_top = 0;
 	float servo_botom = 0;
 	float servo_left = 0;
 	float servo_right = 0;
 
-	servo_top += yaw_control;
-	servo_botom += yaw_control;
-	servo_left += yaw_control;
-	servo_right += yaw_control;
+	if (init_finished) {
+		//Control yaw
+		yaw_ref_int -= (float) rc_yaw * 0.05f / 2048.0f;
 
-	servo_top -= roll_control;
-	servo_botom += roll_control;
+		if (bldc_get_active_state() == BLDC_STATE_FOC) {
+			yaw_control = -pid_control_pid(&pid_yaw, yaw_deg, yaw_ref_int, dt);
+			yaw_control -= pid_yaw.out_limit;
+		} else {
+			yaw_control = -pid_control_pid(&pid_yaw, 0, 0, dt);
+		}
 
-	servo_left -= pitch_control;
-	servo_right += pitch_control;
+		//Control pitch
+		pitch_control = pid_control_pid(&pid_pitch, pitch_deg, (float) rc_pitch * 20.0f / 2048.0f, dt) - rc_roll * pid_height.kp;
 
-	//scope_send_4ch((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
+		//Control roll
+		roll_control = pid_control_pid(&pid_roll, roll_deg, (float) rc_roll * 20.0f / 2048.0f, dt) - rc_pitch * pid_height.kp;
 
-	//servo_top = 0;
-	//servo_botom = 0;
-	//servo_left = 0;
-	//servo_right = 0;
+		//Combine all together
+		//Yaw
+		servo_top += yaw_control;
+		servo_botom += yaw_control;
+		servo_left += yaw_control;
+		servo_right += yaw_control;
+
+		//Roll
+		servo_top -= roll_control;
+		servo_botom += roll_control;
+
+		//Pitch
+		servo_left -= pitch_control;
+		servo_right += pitch_control;
+
+		//TODO add height control
+
+		//scope_send_4ch((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
+
+		//servo_top = 0;
+		//servo_botom = 0;
+		//servo_left = 0;
+		//servo_right = 0;
+	}
 
 	//Set servo values
 	servo_set_position_angle(SERVO_POSITION_2_TOP, servo_top);
@@ -492,7 +497,7 @@ static void motor_start_stop_detection(uint16_t status) {
 			bldc_start_sig();
 
 			//Take reference YAW angle
-			z_integrated_vel = 0;
+			yaw_ref_int = yaw_deg;
 
 			//Take reference of height
 			height_start_ref = height_compensated;
@@ -633,6 +638,7 @@ static void task_imu_read(void) {
 		gyro_offset_cnt++;
 		ahrs_set_beta(AHRS_BETA_FINAL);
 
+		init_finished = true;
 		//Finish calibration sound
 		buzzer_generate_sound(BUZZER_SOUND_DOUBLE_RISING);
 	}
@@ -740,7 +746,7 @@ void frame_cb_rc_control(void *buff, uint8_t params) {
 		rc_status = frame->status;
 
 		motor_start_stop_detection(rc_status);
-		bldc_increase_motor_speed_rps(rc_throttle / 2048.0f * 1.0f);
+		bldc_increase_motor_speed_rps(rc_throttle / 2048.0f * 0.5f);
 	} else {
 		rc_disconnected();
 	}

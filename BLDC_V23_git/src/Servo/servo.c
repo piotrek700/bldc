@@ -79,10 +79,10 @@ static void servo_offset_init(void) {
 		break;
 
 	case 0x00350018:
-		servo_angle_offset[0] = 11.0f;
-		servo_angle_offset[1] = 2.0f;
-		servo_angle_offset[2] = 12.0f;
-		servo_angle_offset[3] = 9.0f;
+		servo_angle_offset[0] = 7.0f;
+		servo_angle_offset[1] = -1.0f;
+		servo_angle_offset[2] = 11.0f;
+		servo_angle_offset[3] = 5.0f;
 		break;
 
 	default:

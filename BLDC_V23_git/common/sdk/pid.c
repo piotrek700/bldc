@@ -15,6 +15,8 @@ void pid_set_param(Pid *pid, float kp, float ki, float kd, float out_limit, floa
 	}
 
 	pid->d_filter_coeff = d_filter_coeff;
+
+	pid_reset(pid);
 }
 
 void pid_reset(Pid *pid) {

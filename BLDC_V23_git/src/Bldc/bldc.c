@@ -992,7 +992,7 @@ CCMRAM_FUCNTION static void bldc_state_foc(void) {
 	//Startup
 	if (tick_get_time_ms() - foc_start_time < BLDC_STARTUP_TIME_MS) {
 		//TODO add speed independent of the frequency
-		theta_over_deg = theta_over_deg - 0.08f * SIGN(motor_speed_target_rps);
+		theta_over_deg = theta_over_deg - 0.1f * SIGN(motor_speed_target_rps);
 		tetha_deg = fast_norm_angle_deg(theta_over_deg);
 	}
 
