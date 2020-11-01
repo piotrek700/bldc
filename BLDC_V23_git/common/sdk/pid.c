@@ -16,7 +16,9 @@ void pid_set_param(Pid *pid, float kp, float ki, float kd, float out_limit, floa
 
 	pid->d_filter_coeff = d_filter_coeff;
 
-	pid_reset(pid);
+	pid->integral = 0.0f;
+	//TODO uncomment
+	//pid_reset(pid);
 }
 
 void pid_reset(Pid *pid) {
@@ -40,12 +42,24 @@ float pid_control_pid(Pid *pid, float value, float ref, float dt) {
 	//PD
 	float pd = p + pid->d_filtered;
 
+	//PID
+	float out = pd + pid->integral + e * pid->ki * dt;
+
+	//PID wind-up
+	if (out > pid->out_limit) {
+		out = pid->out_limit;
+	} else if (out < -pid->out_limit) {
+		out = -pid->out_limit;
+	}else{
+		//I
+		pid->integral += e * pid->ki * dt;
+	}
+
+	/*
 	//I wind-up limit calculation MIN and MAX
 	float i_max = MAX(pid->out_limit - pd, 0.0f);
 	float i_min = MIN(-pid->out_limit - pd, 0.0f);
 
-	//I
-	pid->integral += e * pid->ki * dt;
 
 	//I wind-up
 	if (pid->integral > i_max) {
@@ -63,7 +77,7 @@ float pid_control_pid(Pid *pid, float value, float ref, float dt) {
 	} else if (out < -pid->out_limit) {
 		out = -pid->out_limit;
 	}
-
+*/
 	return out;
 }
 

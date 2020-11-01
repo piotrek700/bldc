@@ -72,17 +72,17 @@ static float vel_offset[3] = { 0, 0, 0 };
 static float vel_offset_tmp[3] = { 0, 0, 0 };
 static uint32_t gyro_offset_cnt = 0;
 
-#define PID_PITCH_ROLL_KP						1.0f		//1
-#define PID_PITCH_ROLL_KI						0.000f		//0
-#define PID_PITCH_ROLL_KD						500.0f		//500
+#define PID_PITCH_ROLL_KP						2.0f//1.0f		//1
+#define PID_PITCH_ROLL_KI						0.005f		//0
+#define PID_PITCH_ROLL_KD						250.0f		//500
 #define PID_PITCH_ROLL_OUT_LIMIT				20.0f		//20
 #define PID_PITCH_ROLL_D_FILTER					0.98f		//0.95
 
-#define PID_YAW_KP								0.5f		//0.5
-#define PID_YAW_KI								0.001f		//0.001
-#define PID_YAW_KD								200.0f		//100
-#define PID_YAW_OUT_LIMIT						20.0f		//20
-#define PID_YAW_D_FILTER						0.98f		//0.95
+#define PID_YAW_KP								0.5f		//0.5f		//0.5
+#define PID_YAW_KI								0.001f		//0.001f	//0.001
+#define PID_YAW_KD								250.0f		//250.0f	//100
+#define PID_YAW_OUT_LIMIT						20.0f		//20.0f		//20
+#define PID_YAW_D_FILTER						0.98f		//0.95f		//0.95
 
 #define PID_HEIGHT_KP							0.0f
 #define PID_HEIGHT_KI							0.0f
@@ -290,6 +290,8 @@ static void print_uart_param(void) {
 	radio_send_frame(FRAME_TYPE_UART_STAT, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
 }
 
+static volatile float yaw_err = 0;
+
 static void print_fast_param(void) {
 	FrameFastParamsSlave frame;
 
@@ -315,8 +317,10 @@ static void print_fast_param(void) {
 	//PID
 	frame.pid.pitch_e = SCALE_FLOAT_TO_INT16(0 - pitch_deg, -180.0f, 180.0f);											//	-180 	-  	180		deg
 	frame.pid.roll_e = SCALE_FLOAT_TO_INT16(0 - roll_deg, -180.0f, 180.0f);												//	-180 	-  	180		deg
-	frame.pid.yaw_e = SCALE_FLOAT_TO_INT16(0 - yaw_ref_int, -180.0f, 180.0f);										//	-180 	-  	180		deg
+	frame.pid.yaw_e = SCALE_FLOAT_TO_INT16(yaw_ref_int - yaw_deg, -180.0f, 180.0f);										//	-180 	-  	180		deg
 	frame.pid.height_e = SCALE_FLOAT_TO_INT16((height_start_ref - height_compensated), -50.0f, 50.0f);					//	-50 	-  	50		m
+
+	yaw_err = height_start_ref - height_compensated;
 
 	//Slave->Master->PC
 	radio_send_frame(FRAME_TYPE_FAST_PARAMS_SLAVE, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
@@ -442,29 +446,51 @@ static void control_drone(void) {
 
 	if (init_finished) {
 		//Control yaw
-		yaw_ref_int -= (float) rc_yaw * 0.05f / 2048.0f;
+		yaw_ref_int += (float) rc_yaw * 0.05f / 2048.0f;
 
 		if (bldc_get_active_state() == BLDC_STATE_FOC) {
 			yaw_control = -pid_control_pid(&pid_yaw, yaw_deg, yaw_ref_int, dt);
-			yaw_control -= pid_yaw.out_limit;
+			//yaw_control -= pid_yaw.out_limit;
 		} else {
 			yaw_control = -pid_control_pid(&pid_yaw, 0, 0, dt);
 		}
 
 		//Control pitch
-		pitch_control = pid_control_pid(&pid_pitch, pitch_deg, (float) rc_pitch * 20.0f / 2048.0f, dt) - rc_roll * pid_height.kp;
+		pitch_control = pid_control_pid(&pid_pitch, pitch_deg, (float) rc_pitch * 10.0f / 2048.0f + pid_height.kp, dt);
 
 		//Control roll
-		roll_control = pid_control_pid(&pid_roll, roll_deg, (float) rc_roll * 20.0f / 2048.0f, dt) - rc_pitch * pid_height.kp;
+		roll_control = pid_control_pid(&pid_roll, roll_deg, (float) rc_roll * 10.0f / 2048.0f + pid_height.ki, dt);
+
+		//YR
+		float scale_r_y = 1;
+		if(fabsf(yaw_control + roll_control) > 20.0f){
+			scale_r_y = 20.0f / fabsf(yaw_control + roll_control);
+		}
+
+		if(fabsf(yaw_control - roll_control) > 20.0f){
+			scale_r_y = 20.0f / fabsf(yaw_control - roll_control);
+		}
+
+		//YP
+		float scale_p_y = 1;
+		if(fabsf(yaw_control + pitch_control) > 20.0f){
+			scale_p_y = 20.0f / fabsf(yaw_control + pitch_control);
+		}
+
+		if(fabsf(yaw_control - pitch_control) > 20.0f){
+			scale_p_y = 20.0f / fabsf(yaw_control - pitch_control);
+		}
+
 
 		//Combine all together
 		//Yaw
-		servo_top += yaw_control;
-		servo_botom += yaw_control;
-		servo_left += yaw_control;
-		servo_right += yaw_control;
+		servo_top = (yaw_control - roll_control) * scale_r_y;
+		servo_botom = (yaw_control + roll_control) * scale_r_y;
+		servo_left = (yaw_control - pitch_control) * scale_p_y;
+		servo_right = (yaw_control + pitch_control) * scale_p_y;
 
-		//Roll
+		/*
+		 //Roll
 		servo_top -= roll_control;
 		servo_botom += roll_control;
 
@@ -472,14 +498,16 @@ static void control_drone(void) {
 		servo_left -= pitch_control;
 		servo_right += pitch_control;
 
+		*/
+
 		//TODO add height control
 
 		//scope_send_4ch((int16_t) ch1, (int16_t) ch2, (int16_t) ch3, (int16_t) ch4);
 
-		//servo_top = 0;
-		//servo_botom = 0;
-		//servo_left = 0;
-		//servo_right = 0;
+		servo_top = 0;
+		servo_botom = 0;
+		servo_left = 0;
+		servo_right = 0;
 	}
 
 	//Set servo values
@@ -621,9 +649,32 @@ static void task_read_pressure(void) {
 	height_compensated = lps22hb_get_height_m() - height_offset;
 }
 
+static volatile float coeff = 0.f;
+
+static volatile float acc_x_lpf = 0.0f;
+static volatile float acc_y_lpf = 0.0f;
+static volatile float acc_z_lpf = 0.0f;
+static volatile float acc_lpf_coeff = 0.95f;
+
+static volatile float gyro_x_lpf = 0.0f;
+static volatile float gyro_y_lpf = 0.0f;
+static volatile float gyro_z_lpf = 0.0f;
+static volatile float gyro_lpf_coeff = 0.9f;
+
+
 static void task_imu_read(void) {
 	float *acc = lsm6dsl_get_imu_acceleration();
 	float *vel = lsm6dsl_get_angular_velocity();
+	lsm6dsl_read_sensor();
+
+	//Calculate acc noise
+	acc_x_lpf = acc_x_lpf * acc_lpf_coeff + (1.0f - acc_lpf_coeff) * acc[0];
+	acc_y_lpf = acc_y_lpf * acc_lpf_coeff + (1.0f - acc_lpf_coeff) * acc[1];
+	acc_z_lpf = acc_z_lpf * acc_lpf_coeff + (1.0f - acc_lpf_coeff) * acc[2];
+
+	gyro_x_lpf = gyro_x_lpf * gyro_lpf_coeff + (1.0f - gyro_lpf_coeff) * vel[0];
+	gyro_y_lpf = gyro_y_lpf * gyro_lpf_coeff + (1.0f - gyro_lpf_coeff) * vel[1];
+	gyro_z_lpf = gyro_z_lpf * gyro_lpf_coeff + (1.0f - gyro_lpf_coeff) * vel[2];
 
 	//Offset compensation
 	if (gyro_offset_cnt < IMU_OFFSET_COUNTER) {
@@ -647,6 +698,14 @@ static void task_imu_read(void) {
 	vel_compensated[1] = vel[1] - vel_offset[1];
 	vel_compensated[2] = vel[2] - vel_offset[2];
 
+	acc[0] = acc_x_lpf;
+	acc[1] = acc_y_lpf;
+	acc[2] = acc_z_lpf;
+
+	vel_compensated[0] = gyro_x_lpf - vel_offset[0];
+	vel_compensated[1] = gyro_y_lpf - vel_offset[1];
+	vel_compensated[2] = gyro_z_lpf - vel_offset[2];
+
 	//AHRS update
 	ahrs_update(DEG_TO_RAD(vel_compensated[0]), DEG_TO_RAD(-vel_compensated[1]), DEG_TO_RAD(-vel_compensated[2]), acc[0], -acc[1], -acc[2]); //YPR 0 0 0
 
@@ -654,12 +713,12 @@ static void task_imu_read(void) {
 	//ahrs_rotate_0();
 
 	//toll <--> yaw
-	roll_deg = ahrs_get_yaw();
-	pitch_deg = ahrs_get_pitch();
-	yaw_deg = ahrs_get_roll();
+	roll_deg = roll_deg * coeff + ahrs_get_yaw() * (1.0f - coeff);
+	pitch_deg = pitch_deg * coeff + ahrs_get_pitch() * (1.0f - coeff);
+	yaw_deg = yaw_deg * coeff + ahrs_get_roll() * (1.0f - coeff);
 
-	lsm6dsl_read_sensor();
 
+	//Control
 	control_drone();
 }
 
@@ -908,6 +967,8 @@ void frame_received_error(void) {
  * TODO BLDC refactor measurements functions
  * TODO combine si4468 with radio
  * TODO in all transaction replace size by sizeof
+ * TODO replace barometer to BMP280
+ * TODO check http://pizer.wordpress.com/2008/10/12/fast-inverse-square-root
  */
 
 int main(void) {
