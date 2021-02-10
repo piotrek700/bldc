@@ -17,8 +17,6 @@
 
 void led_init(void);
 
-void led_test(void);
-
 bool led_get_init_status(void);
 
 #endif

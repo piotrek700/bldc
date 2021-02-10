@@ -84,9 +84,9 @@ void EXTI15_10_IRQHandler(void) {
 	rybos_task_stop_marker(RYBOS_MARKER_IRQ_SI4468_CTS);
 }
 
-void si4468_drv_add_transaction_blocking(SpiTransactionRecord_t *record) {
+void si4468_drv_add_transaction_blocking(SpiTransactionRecord_t *p_record) {
 	EXTI_ClearITPendingBit(EXTI_Line10);
-	spi_add_transaction(record);
+	spi_add_transaction(p_record);
 	while (EXTI_GetITStatus(EXTI_Line10) == 0);
 	EXTI_ClearITPendingBit(EXTI_Line10);
 
@@ -104,16 +104,7 @@ void si4468_drv_init(void) {
 	si4468_drv_gpio_init();
 	si4468_drv_exti_init();
 
-	si4468_drv_test();
-
 	init_status = true;
-}
-
-void si4468_drv_test(void) {
-	if (!DEBUG_TEST_ENABLE) {
-		return;
-	}
-	//TODO Test
 }
 
 bool si4468_drv_get_init_status(void) {

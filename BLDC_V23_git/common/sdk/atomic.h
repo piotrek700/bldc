@@ -9,8 +9,8 @@ void exit_critical(void);
 
 uint32_t critical_get_max_queue_depth(void);
 
-void safe_increment(uint32_t *addr);
+void safe_increment(uint32_t *p_addr);
 
-void safe_decrement(uint32_t *addr);
+void safe_decrement(uint32_t *p_addr);
 
 #endif

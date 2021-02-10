@@ -7,7 +7,7 @@
 
 static bool init_status = false;
 
-static const VibratorSoundStep_t *sound_ptr;
+static const VibratorSoundStep_t *p_sound;
 static uint32_t sound_length = 0;
 static uint32_t sound_step = 1;
 
@@ -15,17 +15,8 @@ static const VibratorDictionaryRow_t sound_dictionary[] = {
 		VIBRATOR_SOUNDS_LIST(VIBRATOR_GENERATE_DICTIONARY)
 };
 
-void vibrator_test(void) {
-	if (!DEBUG_TEST_ENABLE) {
-		return;
-	}
-	//TODO Test
-}
-
 void vibrator_init(void) {
 	vibrator_drv_init();
-
-	vibrator_test();
 
 	init_status = true;
 }
@@ -35,7 +26,7 @@ bool vibrator_get_init_status(void) {
 }
 
 void vibrator_generate_sound(VibratorSoundType_t sound_type) {
-	sound_ptr = sound_dictionary[sound_type].sound_ptr;
+	p_sound = sound_dictionary[sound_type].p_sound;
 	sound_length = sound_dictionary[sound_type].sound_length;
 	sound_step = 0;
 
@@ -55,8 +46,8 @@ void vibrator_state_machine(void) {
 
 	if (sound_step <= sound_length) {
 		if (sound_step == 0) {
-			next_time_step = tick_get_time_ms() + sound_ptr[sound_step].generation_time_ms;
-			vibrator_set_on_off(sound_ptr[sound_step].vibrator_on);
+			next_time_step = tick_get_time_ms() + p_sound[sound_step].generation_time_ms;
+			vibrator_set_on_off(p_sound[sound_step].vibrator_on);
 			sound_step++;
 		} else {
 			if (tick_get_time_ms() >= next_time_step) {
@@ -65,8 +56,8 @@ void vibrator_state_machine(void) {
 					rybos_task_enable(RYBOS_MARKER_TASK_VIBRATOR, false);
 					return;
 				}
-				next_time_step += sound_ptr[sound_step].generation_time_ms;
-				vibrator_set_on_off(sound_ptr[sound_step].vibrator_on);
+				next_time_step += p_sound[sound_step].generation_time_ms;
+				vibrator_set_on_off(p_sound[sound_step].vibrator_on);
 				sound_step++;
 			}
 		}

@@ -4,7 +4,9 @@
 #include <sdk/debug.h>
 #include <sdk/tick.h>
 #include "Spi/spi.h"
-#include <devices/si4468_wds/bsp.h>
+#include <devices/si4468_wds/compiler_defs.h>
+#include <devices/si4468_wds/radio_config.h>
+#include <devices/si4468_wds/Si446x/si446x_prop.h>
 #include <devices/si4468_wds/Si446x/si446x_cmd.h>
 #include "Si4468/si4468_drv.h"
 #include <sdk/atomic.h>
@@ -12,11 +14,10 @@
 static bool init_status = false;
 
 static volatile bool frame_send = false;
-volatile bool cmd_ready = true;
+static volatile bool cmd_ready = true;
 static volatile bool rx_packet_pending = false;
 static volatile bool cmd_error = false;
 static volatile uint32_t nirq_ready = 0;
-
 
 static const uint8_t radio_conf_array[] = RADIO_CONFIGURATION_DATA_ARRAY;
 
@@ -71,14 +72,13 @@ bool si4468_get_rx_packet_pending(void) {
 	return rx_packet_pending;
 }
 
-//3----------------------------------------------------------------------------
-void si4468_read_frr_bcd_cb(uint8_t *rx) {
+void si4468_read_frr_bcd_cb(uint8_t *p_rx) {
 
 	//	INVALID_PREAMBLE_PEND
 	static uint32_t cmd_error_counter = 0;
-	uint8_t ph_pend = rx[1];
-	uint8_t modem_pend = rx[2];
-	uint8_t chip_pend = rx[3];
+	uint8_t ph_pend = p_rx[1];
+	uint8_t modem_pend = p_rx[2];
+	uint8_t chip_pend = p_rx[3];
 
 
 	//tx_get_int_status[1] = ~rx[1];
@@ -87,7 +87,7 @@ void si4468_read_frr_bcd_cb(uint8_t *rx) {
 
 
 	uint8_t buff[16];
-	sprintf(buff, "IRQ %02X %02X %02X\n", rx[1], rx[2], rx[3]);
+	sprintf(buff, "IRQ %02X %02X %02X\n", p_rx[1], p_rx[2], p_rx[3]);
 	log_send_string(buff);
 
 
@@ -144,9 +144,9 @@ void si4468_read_frr_bcd_cb(uint8_t *rx) {
 #include <devices/si4468_wds/Si446x/si446x_cmd.h>
 
 volatile uint32_t si4468_zero_error=0;
-void si4468_resp_int_status_cb(uint8_t *rx) {
-	if (rx[1] == SI4468_CMD_ACK_VALUE) {
-		struct si446x_reply_GET_INT_STATUS_map *int_status = (struct si446x_reply_GET_INT_STATUS_map *) (rx + 2);
+void si4468_resp_int_status_cb(uint8_t *p_rx) {
+	if (p_rx[1] == SI4468_CMD_ACK_VALUE) {
+		struct si446x_reply_GET_INT_STATUS_map *int_status = (struct si446x_reply_GET_INT_STATUS_map *) (p_rx + 2);
 
 		uint8_t buff[4];
 		buff[0] = 0;
@@ -178,8 +178,8 @@ void si4468_clear_ready_state(void){
 
 volatile uint32_t si4468_error_cnt = 0;
 
-void si4468_read_frr_c_cb(uint8_t *rx){
-	if(rx[1] != 0x08){
+void si4468_read_frr_c_cb(uint8_t *p_rx){
+	if(p_rx[1] != 0x08){
 		if(rx_packet_pending == 0){
 			ready_state = true;
 			si4468_error_cnt++;
@@ -187,7 +187,7 @@ void si4468_read_frr_c_cb(uint8_t *rx){
 	}
 
 	uint8_t buff[8];
-	sprintf(buff, "FFC %02X\n", rx[1]);
+	sprintf(buff, "FFC %02X\n", p_rx[1]);
 	log_send_string(buff);
 }
 
@@ -238,9 +238,7 @@ void si4468_drv_nirq_cb(void) {
 	log_send_string("NIRQ\n");
 
 	//todo safe increment
-
 	nirq_ready++;
-
 
 	rybos_task_enable(RYBOS_MARKER_TASK_RF, true);
 }
@@ -273,7 +271,7 @@ static void si4468_chip_init(void) {
 		}
 
 		for (i = 0; i < cmd_length; i++) {
-			tran_init.tx_buff[i] = *init_data_ptr;
+			tran_init.p_tx_buff[i] = *init_data_ptr;
 			init_data_ptr++;
 		}
 		si4468_drv_add_transaction_blocking((SpiTransactionRecord_t *) &tran_init);
@@ -302,16 +300,7 @@ void si4468_init(void) {
 	si4468_chip_init();
 	si4468_drv_nvic_init();
 
-	si4468_test();
-
 	init_status = true;
-}
-
-void si4468_test(void) {
-	if (!DEBUG_TEST_ENABLE) {
-		return;
-	}
-	//TODO Test
 }
 
 bool si4468_get_init_status(void) {

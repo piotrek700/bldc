@@ -140,15 +140,15 @@ static void radio_read_fifo_length(si446x_reply_FIFO_INFO_map_t *buff) {
 }
 
 //1----------------------------------------------------------------------------
-void radio_read_frr_a_cb(uint8_t *rx) {
+void radio_read_frr_a_cb(uint8_t *p_rx) {
 	//Calculate RSSI
-	rssi_global = ((rx[1] / 2) - 134);
+	rssi_global = ((p_rx[1] / 2) - 134);
 }
 
 //3----------------------------------------------------------------------------
-void radio_resp_fifo_info_cb(uint8_t *rx) {
-	if (rx[1] == SI4468_CMD_ACK_VALUE) {
-		radio_read_fifo_length((si446x_reply_FIFO_INFO_map_t *) (rx + 2));
+void radio_resp_fifo_info_cb(uint8_t *p_rx) {
+	if (p_rx[1] == SI4468_CMD_ACK_VALUE) {
+		radio_read_fifo_length((si446x_reply_FIFO_INFO_map_t *) (p_rx + 2));
 		si4468_set_cmd_ready(true);
 	} else {
 		debug_error(SI4468_CMD_ERROR_RESP);
@@ -329,7 +329,7 @@ static void radio_send_radio_frame(uint8_t ack_response, uint8_t ack_request, bo
 		uint32_t i;
 		//TODO implement memcpy_not_aligned
 		for (i = 0; i < frame->length + 1U; i++) {
-			record_fill_fifo.tx_buff[i + 1] = ((uint8_t *) frame)[i];
+			record_fill_fifo.p_tx_buff[i + 1] = ((uint8_t *) frame)[i];
 		}
 		//memcpy(record_fill_fifo.tx_buff + 1, (uint8_t *) frame, frame->length + 1);			//+ LEN + RX_TX_PARAM + FRAME_TYPE
 
@@ -364,11 +364,11 @@ static void radio_send_radio_frame(uint8_t ack_response, uint8_t ack_request, bo
 		//| 1B CMD | 1B LEN | 1B RX_TX_PARAM |
 
 		//RX_TX_PARAMETERS
-		record_fill_fifo.tx_buff[2] = tx_cnt & RADIO_PARAM_DATA_CNT;
-		record_fill_fifo.tx_buff[2] |= ack_response;
-		record_fill_fifo.tx_buff[2] |= ack_request;
+		record_fill_fifo.p_tx_buff[2] = tx_cnt & RADIO_PARAM_DATA_CNT;
+		record_fill_fifo.p_tx_buff[2] |= ack_response;
+		record_fill_fifo.p_tx_buff[2] |= ack_request;
 		//LEN
-		record_fill_fifo.tx_buff[1] = 1;													//+CMD + LEN + RX_TX_PARAM
+		record_fill_fifo.p_tx_buff[1] = 1;													//+CMD + LEN + RX_TX_PARAM
 
 		record_fill_fifo.data_length = 3;
 
@@ -541,7 +541,7 @@ void radio_master_sm(void) {
 		log_send_string("MS3\n");
 
 		if (radio_rx_sm()) {
-			RadioFrame_t * rx_frame = (RadioFrame_t *) (record_read_rx_fifo.rx_buff + 1);
+			RadioFrame_t * rx_frame = (RadioFrame_t *) (record_read_rx_fifo.p_rx_buff + 1);
 
 			//Timeout disable
 			if (rx_frame->rx_tx_parameters & RADIO_PARAM_ACK_RESPONSE) {
@@ -724,7 +724,7 @@ void radio_slave_sm(void) {
 		//TODO check periodically if stack here, if no frame rx read ffr to be sure that RX is enable - ugly but i not see any other option
 
 		if (radio_rx_sm()) {
-			RadioFrame_t * rx_frame = (RadioFrame_t *) (record_read_rx_fifo.rx_buff + 1);
+			RadioFrame_t * rx_frame = (RadioFrame_t *) (record_read_rx_fifo.p_rx_buff + 1);
 
 			//Timeout disable
 			if (rx_frame->rx_tx_parameters & RADIO_PARAM_ACK_RESPONSE) {
@@ -836,7 +836,7 @@ void radio_slave_sm(void) {
 	}
 }
 
-void radio_send_frame(FrameType_t frame_type, uint8_t *frame, uint8_t params) {
+void radio_send_frame(FrameType_t frame_type, uint8_t *p_frame, uint8_t params) {
 	RadioFrame_t *frame_buff;
 	enter_critical();
 
@@ -847,7 +847,7 @@ void radio_send_frame(FrameType_t frame_type, uint8_t *frame, uint8_t params) {
 
 	uint32_t i;
 	for (i = 0; i < frame_buff->length; i++) {
-		frame_buff->tx_buff[i] = frame[i];	//TODO memcopy
+		frame_buff->tx_buff[i] = p_frame[i];	//TODO memcopy
 	}
 
 	cyclic_move((CyclicBuffer_t *) &radio_cyclic);
@@ -858,7 +858,7 @@ void radio_send_frame(FrameType_t frame_type, uint8_t *frame, uint8_t params) {
 
 	if(RADIO_MASTER == 0){
 		//Forward message via UART
-		uart_send_frame(frame_type, frame, params);
+		uart_send_frame(frame_type, p_frame, params);
 	}
 }
 
@@ -869,17 +869,7 @@ uint32_t radio_get_max_queue_depth(void) {
 void radio_init(void) {
 	si4468_init();
 
-	radio_test();
-
 	init_status = true;
-}
-
-void radio_test(void) {
-	if (!DEBUG_TEST_ENABLE) {
-		return;
-	}
-
-	//TODO Test
 }
 
 bool radio_get_init_status(void) {

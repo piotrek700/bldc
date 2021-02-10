@@ -11,7 +11,7 @@ typedef struct {
 	uint32_t element_size;
 	uint32_t length;
 	uint32_t max_elements;
-	uint8_t *buffer;
+	uint8_t *p_buffer;
 	bool overflow_allowed;
 } CyclicBuffer_t;
 
@@ -24,22 +24,22 @@ static volatile CyclicBuffer_t _cyclic_name ={              					    	\
 	.element_size = _element_size,					            						\
 	.length = _queue_length,								                  			\
 	.max_elements = 0,					                  								\
-	.buffer = (uint8_t *)_cyclic_name##_buff,									        \
+	.p_buffer = (uint8_t *)_cyclic_name##_buff,									        \
 	.overflow_allowed = _overflow_allowed,					          					\
 };
 
-void cyclic_clear(CyclicBuffer_t *cyclic);
+void cyclic_clear(CyclicBuffer_t *p_cyclic);
 
-void cyclic_add(CyclicBuffer_t *cyclic, uint8_t *data);
+void cyclic_add(CyclicBuffer_t *p_cyclic, uint8_t *data);
 
-bool cyclic_get(CyclicBuffer_t *cyclic, uint8_t **data);
+bool cyclic_get(CyclicBuffer_t *p_cyclic, uint8_t **pp_data);
 
-uint32_t cyclic_get_elements(CyclicBuffer_t *cyclic);
+uint32_t cyclic_get_elements(CyclicBuffer_t *p_cyclic);
 
-uint32_t cyclic_get_max_elements(CyclicBuffer_t *cyclic);
+uint32_t cyclic_get_max_elements(CyclicBuffer_t *p_cyclic);
 
-uint8_t* cyclic_get_to_add(CyclicBuffer_t *cyclic); //always call in critical section
+uint8_t* cyclic_get_to_add(CyclicBuffer_t *p_cyclic); //always call in critical section
 
-void cyclic_move(CyclicBuffer_t *cyclic); //always call in critical section
+void cyclic_move(CyclicBuffer_t *p_cyclic); //always call in critical section
 
 #endif

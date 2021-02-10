@@ -17,8 +17,6 @@ typedef enum {
 	SERVO_POSITION_4_BOTTOM
 } ServoPosition_t;
 
-void servo_test(void);
-
 void servo_init(void);
 
 bool servo_get_init_status(void);

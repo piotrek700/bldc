@@ -209,7 +209,7 @@ CCMRAM_VARIABLE static BldcStateDictionaryRow_t state_dictionary[] = {
 };
 
 //BLDC state
-CCMRAM_VARIABLE static void (*bldc_active_state_cb)(void) = bldc_state_do_nothing;
+CCMRAM_VARIABLE static void (*p_bldc_active_state_cb)(void) = bldc_state_do_nothing;
 CCMRAM_VARIABLE static BldcStateMachine_t bldc_active_state = BLDC_STATE_DO_NOTHING;
 
 BldcStateMachine_t bldc_get_active_state(void){
@@ -268,8 +268,8 @@ float bldc_get_up_temperature_c(void) {
 	return up_temperature_c;
 }
 
-CCMRAM_FUCNTION static void bldc_svm(float alpha, float beta, uint32_t half_period, uint32_t* t_a_out, uint32_t* t_b_out, uint32_t* t_c_out,
-		uint32_t *svm_sector) {
+CCMRAM_FUCNTION static void bldc_svm(float alpha, float beta, uint32_t half_period, uint32_t* p_t_a_out, uint32_t* p_t_b_out, uint32_t* p_t_c_out,
+		uint32_t *p_svm_sector) {
 	uint32_t sector;
 
 	if (beta >= 0.0f) {
@@ -388,10 +388,10 @@ CCMRAM_FUCNTION static void bldc_svm(float alpha, float beta, uint32_t half_peri
 		debug_error(BLDC_SECTOR_NOT_SUPPORTED);
 	}
 
-	*t_a_out = t_a;
-	*t_b_out = t_b;
-	*t_c_out = t_c;
-	*svm_sector = sector;
+	*p_t_a_out = t_a;
+	*p_t_b_out = t_b;
+	*p_t_c_out = t_c;
+	*p_svm_sector = sector;
 }
 
 static void bldc_enable_all_pwm_output(void) {
@@ -866,7 +866,7 @@ static void bldc_state_measure_l(void) {
 	}
 }
 
-CCMRAM_FUCNTION void observer_update(float v_alpha, float v_beta, float i_alpha, float i_beta, /*volatile*/float *phase) {
+CCMRAM_FUCNTION void observer_update(float v_alpha, float v_beta, float i_alpha, float i_beta, /*volatile*/float *p_phase) {
 	float L = MOTOR_L * 3.0f / 3.0f;
 	float R = MOTOR_R * 3.0f / 3.0f;
 	float lambda = MOTOR_LAMBDA;
@@ -885,15 +885,15 @@ CCMRAM_FUCNTION void observer_update(float v_alpha, float v_beta, float i_alpha,
 	x1 += x1_dot * BLDC_DT;
 	x2 += x2_dot * BLDC_DT;
 
-	*phase = fast_atan2f_sec(x2 - L_ib, x1 - L_ia);
+	*p_phase = fast_atan2f_sec(x2 - L_ib, x1 - L_ia);
 }
 
-CCMRAM_FUCNTION static void pll_run(float phase, float dt, float *phase_var, float *speed_var) {
-	float delta_theta = phase - *phase_var;
+CCMRAM_FUCNTION static void pll_run(float phase, float dt, float *p_phase_var, float *p_speed_var) {
+	float delta_theta = phase - *p_phase_var;
 	delta_theta = fast_norm_angle_rad(delta_theta);
-	*phase_var += (*speed_var + BLDC_PLL_KP * delta_theta) * dt;
-	*phase_var = fast_norm_angle_rad(*phase_var);
-	*speed_var += BLDC_PLL_KI * delta_theta * dt;
+	*p_phase_var += (*p_speed_var + BLDC_PLL_KP * delta_theta) * dt;
+	*p_phase_var = fast_norm_angle_rad(*p_phase_var);
+	*p_speed_var += BLDC_PLL_KI * delta_theta * dt;
 }
 
 void bldc_init(void) {
@@ -907,9 +907,9 @@ void bldc_set_i_q_ref(float iq) {
 	i_q_ref_rc = iq;
 }
 
-CCMRAM_FUCNTION void bldc_2d_saturation_limit(float *x, float *y, float max) {
+CCMRAM_FUCNTION void bldc_2d_saturation_limit(float *p_x, float *p_y, float max) {
 	float mag;
-	arm_sqrt_f32((*x) * (*x) + (*y) * (*y), &mag);
+	arm_sqrt_f32((*p_x) * (*p_x) + (*p_y) * (*p_y), &mag);
 
 	//Prevent division by zero
 	if (mag < 1e-10f) {
@@ -918,8 +918,8 @@ CCMRAM_FUCNTION void bldc_2d_saturation_limit(float *x, float *y, float max) {
 
 	if (mag > max) {
 		float f = max / mag;
-		(*x) *= f;
-		(*y) *= f;
+		(*p_x) *= f;
+		(*p_y) *= f;
 	}
 }
 
@@ -1088,7 +1088,7 @@ CCMRAM_FUCNTION void bldc_adc_irq_hanlder(void) {
 	tmp = ((float) ADC_INJ_VCC) * v_ldo_v * (ADC_V_GAIN / ADC_MAX_VALUE);
 	v_vcc_v = v_vcc_v * (1.0f - BLDC_LDO_VCC_LPF_ALPHA) + tmp * BLDC_LDO_VCC_LPF_ALPHA;
 
-	bldc_active_state_cb();
+	p_bldc_active_state_cb();
 }
 
 static void bldc_state_calibrate_finish(void) {
@@ -1171,7 +1171,7 @@ static void bldc_state_do_nothing(void) {
 
 void bldc_set_active_state(BldcStateMachine_t state) {
 	bldc_active_state = state;
-	bldc_active_state_cb = state_dictionary[state].state_cb;
+	p_bldc_active_state_cb = state_dictionary[state].p_state_cb;
 }
 
 static void bldc_flux_linkage_measurement(float v_d, float v_q, float i_d, float i_q) {

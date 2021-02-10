@@ -53,28 +53,28 @@ void log_send_byte(uint8_t data) {
 	}
 }
 
-void log_send_string(uint8_t *string) {
+void log_send_string(uint8_t *p_string) {
 	// ITM enabled and Port #0 enabled
 	if ((ITM->TCR & ITM_TCR_ITMENA_Msk) && (ITM->TER & (1UL << 0))) {
-		while (*string) {
-			cyclic_byte_add((CyclicByteBuffer_t *) &tx_cyclic, *string++);
+		while (*p_string) {
+			cyclic_byte_add((CyclicByteBuffer_t *) &tx_cyclic, *p_string++);
 		}
 		//rybos_task_enable(RYBOS_MARKER_TASK_LOGGER, true);
 	}
 }
 
-void log_send_string_len(uint8_t *string, uint32_t len) {
+void log_send_string_len(uint8_t *p_string, uint32_t len) {
 	// ITM enabled and Port #0 enabled
 	if ((ITM->TCR & ITM_TCR_ITMENA_Msk) && (ITM->TER & (1UL << 0))) {
 		while (len--) {
-			cyclic_byte_add((CyclicByteBuffer_t *) &tx_cyclic, *string++);
+			cyclic_byte_add((CyclicByteBuffer_t *) &tx_cyclic, *p_string++);
 		}
 		//rybos_task_enable(RYBOS_MARKER_TASK_LOGGER, true);
 	}
 }
 
-bool log_get_byte(uint8_t *data) {
-	return cyclic_byte_get((CyclicByteBuffer_t *) &rx_cyclic, data);
+bool log_get_byte(uint8_t *p_data) {
+	return cyclic_byte_get((CyclicByteBuffer_t *) &rx_cyclic, p_data);
 }
 
 void log_clear_rx_buff(void) {
@@ -86,15 +86,6 @@ bool log_get_init_status(void) {
 }
 
 void log_init(void) {
-	log_test();
-
 	init_status = true;
-}
-
-void log_test(void) {
-	if (!DEBUG_TEST_ENABLE) {
-		return;
-	}
-	//TODO Test
 }
 

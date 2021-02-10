@@ -10,11 +10,11 @@ static const uint16_t tx_stat_reg_1[1] = { SWAP_UINT16(DRV8301_SPI_READ | DRV830
 static volatile uint16_t rx_stat_reg_1[1];
 
 static const SpiTransactionRecord_t read_stat_reg1 = {
-		.tx_buff = (uint8_t *) tx_stat_reg_1,
-		.rx_buff = (uint8_t *) rx_stat_reg_1,
+		.p_tx_buff = (uint8_t *) tx_stat_reg_1,
+		.p_rx_buff = (uint8_t *) rx_stat_reg_1,
 		.slave = SPI_SLAVE_SELECT_BLDC,
 		.data_length = 2,
-		.cb = drv8301_status_register2_cb
+		.p_cb = drv8301_status_register2_cb
 };
 
 //2----------------------------------------------------------------------------
@@ -22,11 +22,11 @@ static const uint16_t tx_stat_reg_2[1] = { SWAP_UINT16(DRV8301_SPI_READ | DRV830
 static volatile uint16_t rx_stat_reg_2[1];
 
 static const SpiTransactionRecord_t read_stat_reg2 = {
-		.tx_buff = (uint8_t *) tx_stat_reg_2,
-		.rx_buff = (uint8_t *) rx_stat_reg_2,
+		.p_tx_buff = (uint8_t *) tx_stat_reg_2,
+		.p_rx_buff = (uint8_t *) rx_stat_reg_2,
 		.slave = SPI_SLAVE_SELECT_BLDC,
 		.data_length = 2,
-		.cb = drv8301_status_register1_cb
+		.p_cb = drv8301_status_register1_cb
 };
 
 //3----------------------------------------------------------------------------
@@ -34,11 +34,11 @@ static const uint16_t tx_ctrl_reg_1[1] = { SWAP_UINT16(DRV8301_SPI_WRITE| DRV830
 static volatile uint16_t rx_ctrl_reg_1[1];
 
 static const SpiTransactionRecord_t write_ctrl_reg1 = {
-		.tx_buff = (uint8_t *) tx_ctrl_reg_1,
-		.rx_buff = (uint8_t *) rx_ctrl_reg_1,
+		.p_tx_buff = (uint8_t *) tx_ctrl_reg_1,
+		.p_rx_buff = (uint8_t *) rx_ctrl_reg_1,
 		.slave = SPI_SLAVE_SELECT_BLDC,
 		.data_length = 2,
-		.cb = drv8301_control_register1_cb
+		.p_cb = drv8301_control_register1_cb
 };
 
 //4----------------------------------------------------------------------------
@@ -46,22 +46,22 @@ static const uint16_t tx_ctrl_reg_2[1] = { SWAP_UINT16(DRV8301_SPI_WRITE|DRV8301
 static volatile uint16_t rx_ctrl_reg_2[1];
 
 static const SpiTransactionRecord_t write_ctrl_reg2 = {
-		.tx_buff = (uint8_t *) tx_ctrl_reg_2,
-		.rx_buff = (uint8_t *) rx_ctrl_reg_2,
+		.p_tx_buff = (uint8_t *) tx_ctrl_reg_2,
+		.p_rx_buff = (uint8_t *) rx_ctrl_reg_2,
 		.slave = SPI_SLAVE_SELECT_BLDC,
 		.data_length = 2,
-		.cb = drv8301_control_register2_cb
+		.p_cb = drv8301_control_register2_cb
 };
 
 //5----------------------------------------------------------------------------
 static const uint16_t tx_clear[1];
 
 static const SpiTransactionRecord_t clear_trans = {
-		.tx_buff = (uint8_t *) tx_clear,
-		.rx_buff = 0,
+		.p_tx_buff = (uint8_t *) tx_clear,
+		.p_rx_buff = 0,
 		.slave = SPI_SLAVE_SELECT_BLDC,
 		.data_length = 2,
-		.cb = 0
+		.p_cb = 0
 };
 
 //6----------------------------------------------------------------------------
@@ -70,11 +70,11 @@ static const uint16_t tx_calib_enable[1] = { SWAP_UINT16(
 static volatile uint16_t rx_calib_enable[1];
 
 static const SpiTransactionRecord_t write_calib_enable = {
-		.tx_buff = (uint8_t *) tx_calib_enable,
-		.rx_buff = (uint8_t *) rx_calib_enable,
+		.p_tx_buff = (uint8_t *) tx_calib_enable,
+		.p_rx_buff = (uint8_t *) rx_calib_enable,
 		.slave = SPI_SLAVE_SELECT_BLDC,
 		.data_length = 2,
-		.cb = drv8301_calib_enable_cb
+		.p_cb = drv8301_calib_enable_cb
 };
 
 //7----------------------------------------------------------------------------
@@ -82,11 +82,11 @@ static const uint16_t tx_calib_disable[1] = { SWAP_UINT16(DRV8301_SPI_WRITE|DRV8
 static volatile uint16_t rx_calib_disable[1];
 
 static const SpiTransactionRecord_t write_calib_disable = {
-		.tx_buff = (uint8_t *) tx_calib_disable,
-		.rx_buff = (uint8_t *) rx_calib_disable,
+		.p_tx_buff = (uint8_t *) tx_calib_disable,
+		.p_rx_buff = (uint8_t *) rx_calib_disable,
 		.slave = SPI_SLAVE_SELECT_BLDC,
 		.data_length = 2,
-		.cb = drv8301_calib_disable_cb
+		.p_cb = drv8301_calib_disable_cb
 };
 
 #endif

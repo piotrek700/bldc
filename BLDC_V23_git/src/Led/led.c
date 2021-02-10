@@ -21,17 +21,7 @@ void led_init(void) {
 	LED_RED_OFF;
 	//LED_BLUE_OFF;
 
-	led_test();
-
 	init_status = true;
-}
-
-void led_test(void) {
-	if (!DEBUG_TEST_ENABLE) {
-		return;
-	}
-
-	//TODO Test
 }
 
 bool led_get_init_status(void) {

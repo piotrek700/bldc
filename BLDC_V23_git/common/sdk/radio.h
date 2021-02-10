@@ -84,21 +84,19 @@ uint32_t radio_get_retransmition_cnt(void);
 
 float radio_get_avarage_rssi(void);
 
-void radio_read_frr_a_cb(uint8_t *rx);
+void radio_read_frr_a_cb(uint8_t *p_rx);
 
-void radio_resp_fifo_info_cb(uint8_t *rx);
+void radio_resp_fifo_info_cb(uint8_t *p_rx);
 
 void radio_master_sm(void);
 
 void radio_slave_sm(void);
 
-void radio_send_frame(FrameType_t frame_type, uint8_t *frame, uint8_t params);
+void radio_send_frame(FrameType_t frame_type, uint8_t *p_frame, uint8_t params);
 
 uint32_t radio_get_max_queue_depth(void);
 
 void radio_init(void);
-
-void radio_test(void);
 
 bool radio_get_init_status(void);
 

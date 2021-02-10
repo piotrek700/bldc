@@ -19,7 +19,7 @@ typedef enum {
 
 const char * debug_get_error_string(DebugError_t error);
 
-void debug_error_handler(DebugError_t error, uint8_t *file, int32_t line);
+void debug_error_handler(DebugError_t error, uint8_t *p_file, int32_t line);
 
 DebugError_t *debug_get_last_error(void);
 

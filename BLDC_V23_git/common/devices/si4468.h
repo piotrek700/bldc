@@ -33,15 +33,15 @@ void si4468_set_rx_packet_pending(bool cmd);
 
 bool si4468_get_rx_packet_pending(void);
 
-void si4468_read_frr_bcd_cb(uint8_t *rx);
+void si4468_read_frr_bcd_cb(uint8_t *p_rx);
 
 bool si4468_get_ready_state(void);
 
 void si4468_clear_ready_state(void);
 
-void si4468_read_frr_c_cb(uint8_t *rx);
+void si4468_read_frr_c_cb(uint8_t *p_rx);
 
-void si4468_resp_int_status_cb(uint8_t *rx);
+void si4468_resp_int_status_cb(uint8_t *p_rx);
 
 void si4468_call_record_read_frr_c(void);
 
@@ -52,8 +52,6 @@ void si4468_call_record_chenge_state_to_rx(void);
 void si4468_call_record_resp_int_status(void);
 
 void si4468_init(void);
-
-void si4468_test(void);
 
 bool si4468_get_init_status(void);
 

@@ -14,18 +14,16 @@ void log_rx_state_mashine(void);
 
 void log_send_byte(uint8_t data);
 
-void log_send_string(uint8_t *string);
+void log_send_string(uint8_t *p_string);
 
-void log_send_string_len(uint8_t *string, uint32_t len);
+void log_send_string_len(uint8_t *p_string, uint32_t len);
 
-bool log_get_byte(uint8_t *data);
+bool log_get_byte(uint8_t *p_data);
 
 void log_clear_rx_buff(void);
 
 bool log_get_init_status(void);
 
 void log_init(void);
-
-void log_test(void);
 
 #endif

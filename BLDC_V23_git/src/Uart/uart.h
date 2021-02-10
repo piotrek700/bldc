@@ -31,16 +31,14 @@ void uart_increment_reveived_frame_cnt(void);
 
 void uart_init(void);
 
-void uart_test(void);
-
 bool uart_get_init_status(void);
 
-bool uart_get_byte_dma(uint8_t *data);
+bool uart_get_byte_dma(uint8_t *p_data);
 
-void uart_send_frame(FrameType_t type, uint8_t *frame, FrameParams_t params);
+void uart_send_frame(FrameType_t type, uint8_t *p_frame, FrameParams_t params);
 
 uint32_t uart_get_max_queue_depth(void);
 
-void uart_send_scope_frame(FrameType_t type, uint8_t *frame, FrameParams_t params);
+void uart_send_scope_frame(FrameType_t type, uint8_t *p_frame, FrameParams_t params);
 
 #endif

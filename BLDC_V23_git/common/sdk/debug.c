@@ -9,9 +9,9 @@ static const char *debug_error_string[] = {
 
 static DebugError_t last_error[DEBUG_ERROR_HISTORY_LEN];
 
-void __attribute__((weak)) debug_critical_error(DebugError_t error, uint8_t *file, int32_t line) {
+void __attribute__((weak)) debug_critical_error(DebugError_t error, uint8_t *p_file, int32_t line) {
 	UNUSED(error);
-	UNUSED(file);
+	UNUSED(p_file);
 	UNUSED(line);
 
 	while (1) {
@@ -19,9 +19,9 @@ void __attribute__((weak)) debug_critical_error(DebugError_t error, uint8_t *fil
 	}
 }
 
-void __attribute__((weak)) debug_message_error(DebugError_t error, uint8_t *file, int32_t line) {
+void __attribute__((weak)) debug_message_error(DebugError_t error, uint8_t *p_file, int32_t line) {
 	UNUSED(error);
-	UNUSED(file);
+	UNUSED(p_file);
 	UNUSED(line);
 }
 
@@ -29,7 +29,7 @@ const char * debug_get_error_string(DebugError_t error) {
 	return debug_error_string[error];
 }
 
-void debug_error_handler(DebugError_t error, uint8_t *file, int32_t line) {
+void debug_error_handler(DebugError_t error, uint8_t *p_file, int32_t line) {
 	//Update error history
 	uint32_t i;
 	for (i = DEBUG_ERROR_HISTORY_LEN - 1; i > 0; i--) {
@@ -38,12 +38,12 @@ void debug_error_handler(DebugError_t error, uint8_t *file, int32_t line) {
 	last_error[0] = error;
 
 	if (error < DEBUG_CRITICAL_NOT_CRITICAL_PTR) {
-		debug_critical_error(error, file, line);
+		debug_critical_error(error, p_file, line);
 		return;
 	}
 
 	if (error > DEBUG_CRITICAL_NOT_CRITICAL_PTR) {
-		debug_message_error(error, file, line);
+		debug_message_error(error, p_file, line);
 		return;
 	}
 }

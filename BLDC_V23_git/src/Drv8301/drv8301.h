@@ -33,8 +33,6 @@ void drv8301_init(void);
 
 bool drv8301_get_init_status(void);
 
-void drv8301_test(void);
-
 void drv8301_set_pwm(uint16_t ch1, uint16_t ch2, uint16_t ch3);
 
 void drv8301_read_status(void);
@@ -49,16 +47,16 @@ void drv8301_i_calibration_enable(void);
 
 void drv8301_i_calibration_disable(void);
 
-void drv8301_status_register1_cb(uint8_t *rx);
+void drv8301_status_register1_cb(uint8_t *p_rx);
 
-void drv8301_status_register2_cb(uint8_t *rx);
+void drv8301_status_register2_cb(uint8_t *p_rx);
 
-void drv8301_control_register1_cb(uint8_t *rx);
+void drv8301_control_register1_cb(uint8_t *p_rx);
 
-void drv8301_control_register2_cb(uint8_t *rx);
+void drv8301_control_register2_cb(uint8_t *p_rx);
 
-void drv8301_calib_enable_cb(uint8_t *rx);
+void drv8301_calib_enable_cb(uint8_t *p_rx);
 
-void drv8301_calib_disable_cb(uint8_t *rx);
+void drv8301_calib_disable_cb(uint8_t *p_rx);
 
 #endif

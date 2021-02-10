@@ -14,8 +14,6 @@
 
 void lps22hh_init(void);
 
-void lps22hh_test(void);
-
 bool lps22hh_get_init_status(void);
 
 float lps22hh_get_pressure_pa(void);
@@ -26,8 +24,8 @@ float lps22hh_get_height_m(void);
 
 void lps22hh_read_sensor(void);
 
-void lps22hh_check_who_am_i_cb(uint8_t *rx);
+void lps22hh_check_who_am_i_cb(uint8_t *p_rx);
 
-void lps22hh_read_sensor_cb(uint8_t *rx);
+void lps22hh_read_sensor_cb(uint8_t *p_rx);
 
 #endif

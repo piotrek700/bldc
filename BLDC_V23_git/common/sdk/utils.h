@@ -27,7 +27,6 @@
 #define DEG_TO_RAD(x)								(x * ((float)M_PI / 180.0f))
 
 //Functions
-//TODO inline
 float fast_inv_sqrtf(float x);
 float fast_atan2f(float y, float x);
 float fast_atan2f_sec(float y, float x);

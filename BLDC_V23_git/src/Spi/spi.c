@@ -5,8 +5,8 @@
 #include <sdk/atomic.h>
 
 static bool init_status = false;
-static volatile SpiTransactionRecord_t *previous_transaction = 0;
-static volatile SpiTransactionRecord_t *active_transaction = 0;
+static volatile SpiTransactionRecord_t *p_previous_transaction = 0;
+static volatile SpiTransactionRecord_t *p_active_transaction = 0;
 
 CYCLIC_BUFFER_PTR_DEF(spi_cyclic, false, SPI_TRANSACTION_BUFF_SIZE);
 
@@ -139,8 +139,6 @@ void spi_init(void) {
 
 	spi_slave_select(SPI_SLAVE_SELECT_NONE);
 
-	spi_test();
-
 	init_status = true;
 }
 
@@ -164,6 +162,7 @@ void spi_slave_select(SpiSlaveSelect_t slave) {
 		//SPI Enable
 		SPI1->CR1 |= SPI_CR1_SPE;
 
+		//TODO do we really need this delay
 		asm volatile("nop");
 		asm volatile("nop");
 		asm volatile("nop");
@@ -250,13 +249,6 @@ bool spi_get_init_status(void) {
 	return init_status;
 }
 
-void spi_test(void) {
-	if (!DEBUG_TEST_ENABLE) {
-		return;
-	}
-	//TODO Test
-}
-
 static void spi_dma_start_next_transation(void) {
 	//DMA clear flag
 	DMA1->IFCR = DMA1_FLAG_GL2 | DMA1_FLAG_GL3;
@@ -271,29 +263,29 @@ static void spi_dma_start_next_transation(void) {
 	//DMA1_Channel2->CNDTR = active_transaction->data_length;
 	//DMA1_Channel2->CMAR = (uint32_t) active_transaction->rx_buff;
 
-	DMA1_Channel3->CNDTR = active_transaction->data_length;
-	DMA1_Channel3->CMAR = (uint32_t) active_transaction->tx_buff;
+	DMA1_Channel3->CNDTR = p_active_transaction->data_length;
+	DMA1_Channel3->CMAR = (uint32_t) p_active_transaction->p_tx_buff;
 
 	//Handle null rx buffer
-	if (active_transaction->rx_buff == 0) {
+	if (p_active_transaction->p_rx_buff == 0) {
 		static uint8_t null[1];
 
 		//Redirect received data to null
-		DMA1_Channel2->CNDTR = active_transaction->data_length;
+		DMA1_Channel2->CNDTR = p_active_transaction->data_length;
 		DMA1_Channel2->CMAR = (uint32_t) null;
 
 		//memory increment off
 		DMA1_Channel2->CCR &= ~ DMA_CCR_MINC;
 	} else {
-		DMA1_Channel2->CNDTR = active_transaction->data_length;
-		DMA1_Channel2->CMAR = (uint32_t) active_transaction->rx_buff;
+		DMA1_Channel2->CNDTR = p_active_transaction->data_length;
+		DMA1_Channel2->CMAR = (uint32_t) p_active_transaction->p_rx_buff;
 
 		//memory increment on
 		DMA1_Channel2->CCR |= DMA_CCR_MINC;
 	}
 
 	//Slave select
-	spi_slave_select(active_transaction->slave);
+	spi_slave_select(p_active_transaction->slave);
 
 	//SPI DMA enable
 	SPI1->CR2 |= SPI_I2S_DMAReq_Rx | SPI_I2S_DMAReq_Tx;
@@ -307,14 +299,14 @@ uint32_t spi_get_max_queue_depth(void) {
 	return cyclic_ptr_get_max_elements((CyclicPtrBuffer_t *) &spi_cyclic);
 }
 
-void spi_add_transaction(SpiTransactionRecord_t *record) {
+void spi_add_transaction(SpiTransactionRecord_t *p_record) {
 	enter_critical();
 
-	cyclic_ptr_add((CyclicPtrBuffer_t *) &spi_cyclic, record);
+	cyclic_ptr_add((CyclicPtrBuffer_t *) &spi_cyclic, p_record);
 
 	//Check if DMA disabled
 	if (!(DMA1_Channel3->CCR & DMA_CCR_EN)) {
-		cyclic_ptr_get((CyclicPtrBuffer_t *) &spi_cyclic, (BuffType_t *) &active_transaction);
+		cyclic_ptr_get((CyclicPtrBuffer_t *) &spi_cyclic, (BuffType_t *) &p_active_transaction);
 		spi_dma_start_next_transation();
 	}
 	exit_critical();
@@ -335,25 +327,25 @@ void DMA1_Channel2_IRQHandler(void) {
 			DMA_Cmd(DMA1_Channel2, DISABLE);
 			DMA_Cmd(DMA1_Channel3, DISABLE);
 
-			if (active_transaction->cb != 0) {
-				active_transaction->cb(active_transaction->rx_buff);
+			if (p_active_transaction->p_cb != 0) {
+				p_active_transaction->p_cb(p_active_transaction->p_rx_buff);
 			}
 		} else {
-			previous_transaction = active_transaction;
-			cyclic_ptr_get((CyclicPtrBuffer_t *) &spi_cyclic, (BuffType_t *) &active_transaction);
+			p_previous_transaction = p_active_transaction;
+			cyclic_ptr_get((CyclicPtrBuffer_t *) &spi_cyclic, (BuffType_t *) &p_active_transaction);
 
 			//Execute cb
-			if (previous_transaction == active_transaction) {
-				if (previous_transaction->cb != 0) {
-					previous_transaction->cb(previous_transaction->rx_buff);
+			if (p_previous_transaction == p_active_transaction) {
+				if (p_previous_transaction->p_cb != 0) {
+					p_previous_transaction->p_cb(p_previous_transaction->p_rx_buff);
 				}
 
 				spi_dma_start_next_transation();
 			} else {
 
 				spi_dma_start_next_transation();
-				if (previous_transaction->cb != 0) {
-					previous_transaction->cb(previous_transaction->rx_buff);
+				if (p_previous_transaction->p_cb != 0) {
+					p_previous_transaction->p_cb(p_previous_transaction->p_rx_buff);
 				}
 			}
 		}

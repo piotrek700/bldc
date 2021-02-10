@@ -42,7 +42,7 @@ CCMRAM_FUCNTION float fast_atan2f(float y, float x) {
 }
 
 float fast_atan2f_sec(float y, float x) {
-	float abs_y = fabsf(y) + 1e-20f; // kludge to prevent 0/0 condition
+	float abs_y = fabsf(y) + 1e-20f; //to prevent 0/0 condition
 	float angle;
 
 	if (x >= 0) {

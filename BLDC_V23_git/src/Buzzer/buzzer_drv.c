@@ -48,18 +48,9 @@ static void buzzer_drv_timer_init(void) {
 	TIM_Cmd(TIM2, ENABLE);
 }
 
-void buzzer_drv_test(void) {
-	if (!DEBUG_TEST_ENABLE) {
-		return;
-	}
-	//TODO Test
-}
-
 void buzzer_drv_init(void) {
 	buzzer_drv_gpio_init();
 	buzzer_drv_timer_init();
-
-	buzzer_drv_test();
 
 	init_status = true;
 }

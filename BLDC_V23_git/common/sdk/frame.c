@@ -116,65 +116,61 @@ void frame_decoding_state_mashine(uint8_t data) {
 	}
 }
 
-void frame_call_received_cb(FrameType_t type, FrameParams_t params, uint8_t *buff) {
-	frame_dictionary[type].callback((void *) buff, params);
+void frame_call_received_cb(FrameType_t type, FrameParams_t params, uint8_t *p_buff) {
+	frame_dictionary[type].callback((void *) p_buff, params);
 }
 
 uint32_t frame_get_type_length(FrameType_t type) {
 	return frame_dictionary[type].frame_size;
 }
 
-CCMRAM_FUCNTION static inline bool frame_code_symbol(uint8_t source, uint8_t *dest, uint32_t *len, uint8_t *crc, uint32_t dest_size_max) {
+CCMRAM_FUCNTION static inline bool frame_code_symbol(uint8_t source, uint8_t *p_dest, uint32_t *p_len, uint8_t *p_crc, uint32_t dest_size_max) {
 	if (source == FRAME_START_SYMBOL) {
-		*(dest + *len) = source;
-		(*len)++;
+		*(p_dest + *p_len) = source;
+		(*p_len)++;
 
-		if ((*len) >= dest_size_max) {
+		if ((*p_len) >= dest_size_max) {
 			debug_error(FRAME_TX_BUFFER_OVERFLOW);
 			return false;
 		}
 	}
-	*(dest + *len) = source;
-	(*len)++;
-	*crc += (uint8_t) source;
+	*(p_dest + *p_len) = source;
+	(*p_len)++;
+	*p_crc += (uint8_t) source;
 
-	if ((*len) >= dest_size_max) {
+	if ((*p_len) >= dest_size_max) {
 		debug_error(FRAME_TX_BUFFER_OVERFLOW);
 		return false;
 	}
 	return true;
 }
 
-CCMRAM_FUCNTION uint32_t frame_send_coded(FrameType_t type, FrameParams_t params, uint8_t *source, uint8_t *dest, uint32_t dest_size_max) {
+CCMRAM_FUCNTION uint32_t frame_send_coded(FrameType_t type, FrameParams_t params, uint8_t *p_source, uint8_t *p_dest, uint32_t dest_size_max) {
 	uint32_t len = 0;
 	uint8_t crc_tmp = 0;
 
 	//Start symbol
-	dest[len] = FRAME_START_SYMBOL;
+	p_dest[len] = FRAME_START_SYMBOL;
 	len++;
 
 	//Type
-	if (!frame_code_symbol(type | params, dest, &len, &crc_tmp, dest_size_max)) {
+	if (!frame_code_symbol(type | params, p_dest, &len, &crc_tmp, dest_size_max)) {
 		return 0;
 	}
 
 	//Payload
 	uint32_t i;
 	for (i = 0; i < frame_dictionary[type].frame_size; i++) {
-		if (!frame_code_symbol(source[i], dest, &len, &crc_tmp, dest_size_max)) {
+		if (!frame_code_symbol(p_source[i], p_dest, &len, &crc_tmp, dest_size_max)) {
 			return 0;
 		}
 	}
 
 	//CRC
-	if (!frame_code_symbol(crc_tmp, dest, &len, &crc_tmp, dest_size_max)) {
+	if (!frame_code_symbol(crc_tmp, p_dest, &len, &crc_tmp, dest_size_max)) {
 		return 0;
 	}
 
 	//Return length
 	return len;
-}
-
-void frame_test(void) {
-	//TODO Test
 }

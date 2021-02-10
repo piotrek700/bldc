@@ -30,16 +30,16 @@ uint32_t critical_get_max_queue_depth(void) {
 	return critical_max;
 }
 
-void safe_increment(uint32_t *addr) {
+void safe_increment(uint32_t *p_addr) {
 	uint32_t new_value;
 	do {
-		new_value = __LDREXW(addr) + 1;
-	} while (__STREXW(new_value, addr));
+		new_value = __LDREXW(p_addr) + 1;
+	} while (__STREXW(new_value, p_addr));
 }
 
-void safe_decrement(uint32_t *addr) {
+void safe_decrement(uint32_t *p_addr) {
 	uint32_t new_value;
 	do {
-		new_value = __LDREXW(addr) - 1;
-	} while (__STREXW(new_value, addr));
+		new_value = __LDREXW(p_addr) - 1;
+	} while (__STREXW(new_value, p_addr));
 }

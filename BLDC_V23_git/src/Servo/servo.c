@@ -7,13 +7,6 @@ static bool init_status = false;
 static float servo_angle[4] = { 0, 0, 0, 0 };
 static float servo_angle_offset[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 
-void servo_test(void) {
-	if (!DEBUG_TEST_ENABLE) {
-		return;
-	}
-	//TODO Test
-}
-
 static void servo_gpio_init(void) {
 	GPIO_InitTypeDef GPIO_InitStruct;
 
@@ -95,8 +88,6 @@ void servo_init(void) {
 	servo_gpio_init();
 	servo_timer_init();
 	servo_offset_init();
-
-	servo_test();
 
 	servo_set_all(0);
 

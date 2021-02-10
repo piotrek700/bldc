@@ -295,20 +295,20 @@ static volatile float yaw_err = 0;
 static void print_fast_param(void) {
 	FrameFastParamsSlave_t frame;
 
-	float *q = ahrs_get_q2();
-	float *angle = servo_get_angle();
+	float *p_q = ahrs_get_q2();
+	float *p_angle = servo_get_angle();
 
 	//AHRS
-	frame.ahrs.q[0] = SCALE_FLOAT_TO_INT16(q[0], -1.0f, 1.0f);															//	  -1 	-     1
-	frame.ahrs.q[1] = SCALE_FLOAT_TO_INT16(q[1], -1.0f, 1.0f);															//	  -1 	-     1
-	frame.ahrs.q[2] = SCALE_FLOAT_TO_INT16(q[2], -1.0f, 1.0f);															//	  -1 	-     1
-	frame.ahrs.q[3] = SCALE_FLOAT_TO_INT16(q[3], -1.0f, 1.0f);															//	  -1 	-     1
+	frame.ahrs.q[0] = SCALE_FLOAT_TO_INT16(p_q[0], -1.0f, 1.0f);															//	  -1 	-     1
+	frame.ahrs.q[1] = SCALE_FLOAT_TO_INT16(p_q[1], -1.0f, 1.0f);															//	  -1 	-     1
+	frame.ahrs.q[2] = SCALE_FLOAT_TO_INT16(p_q[2], -1.0f, 1.0f);															//	  -1 	-     1
+	frame.ahrs.q[3] = SCALE_FLOAT_TO_INT16(p_q[3], -1.0f, 1.0f);															//	  -1 	-     1
 
 	//Servo
-	frame.servo.angle[0] = SCALE_FLOAT_TO_INT16(angle[0], -180.0f, 180.0f);												//	-180 	-  	180		deg
-	frame.servo.angle[1] = SCALE_FLOAT_TO_INT16(angle[1], -180.0f, 180.0f);												//	-180 	-  	180		deg
-	frame.servo.angle[2] = SCALE_FLOAT_TO_INT16(angle[2], -180.0f, 180.0f);												//	-180 	-  	180		deg
-	frame.servo.angle[3] = SCALE_FLOAT_TO_INT16(angle[3], -180.0f, 180.0f);												//	-180 	-  	180		deg
+	frame.servo.angle[0] = SCALE_FLOAT_TO_INT16(p_angle[0], -180.0f, 180.0f);												//	-180 	-  	180		deg
+	frame.servo.angle[1] = SCALE_FLOAT_TO_INT16(p_angle[1], -180.0f, 180.0f);												//	-180 	-  	180		deg
+	frame.servo.angle[2] = SCALE_FLOAT_TO_INT16(p_angle[2], -180.0f, 180.0f);												//	-180 	-  	180		deg
+	frame.servo.angle[3] = SCALE_FLOAT_TO_INT16(p_angle[3], -180.0f, 180.0f);												//	-180 	-  	180		deg
 
 	//Motor
 	frame.motor.iq_current = SCALE_FLOAT_TO_INT16(bldc_get_i_q(), -50.0f, 50.0f);										//	-50 	-  	50		A
@@ -336,11 +336,11 @@ static void print_slow_param(void) {
 	frame.adc.ldo_v = SCALE_FLOAT_TO_UINT16(bldc_get_v_ldo_v(), 0.0f, 4.0f);											//	   0 	-     4		V
 
 	//IMU
-	float *acc = lsm6dsl_get_imu_acceleration();
+	float *p_acc = lsm6dsl_get_imu_acceleration();
 
-	frame.imu.acc[0] = SCALE_FLOAT_TO_INT16(acc[0], -80.0f, 80.0f);														//	 -80 	-    80		m/s2
-	frame.imu.acc[1] = SCALE_FLOAT_TO_INT16(acc[1], -80.0f, 80.0f);														//	 -80 	-    80		m/s2
-	frame.imu.acc[2] = SCALE_FLOAT_TO_INT16(acc[2], -80.0f, 80.0f);														//	 -80 	-    80		m/s2
+	frame.imu.acc[0] = SCALE_FLOAT_TO_INT16(p_acc[0], -80.0f, 80.0f);														//	 -80 	-    80		m/s2
+	frame.imu.acc[1] = SCALE_FLOAT_TO_INT16(p_acc[1], -80.0f, 80.0f);														//	 -80 	-    80		m/s2
+	frame.imu.acc[2] = SCALE_FLOAT_TO_INT16(p_acc[2], -80.0f, 80.0f);														//	 -80 	-    80		m/s2
 
 	frame.imu.vel[0] = SCALE_FLOAT_TO_INT16(vel_compensated[0], -2000.0f, 2000.0f);										//   -2k 	-  	 2k		deg/s
 	frame.imu.vel[1] = SCALE_FLOAT_TO_INT16(vel_compensated[1], -2000.0f, 2000.0f);										//   -2k 	-  	 2k		deg/s
@@ -366,12 +366,12 @@ static void print_error_history(void){
 	radio_send_frame(FRAME_TYPE_ERROR_LOG, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
 }
 
-void pid_to_frame_setting(Pid_t *pid, FrameSetPidSettings_t *frame) {
-	frame->kp = pid->kp;
-	frame->ki = pid->ki;
-	frame->kd = pid->kd;
-	frame->out_limit = pid->out_limit;
-	frame->d_filter_coeff = pid->d_filter_coeff;
+void pid_to_frame_setting(Pid_t *p_pid, FrameSetPidSettings_t *p_frame) {
+	p_frame->kp = p_pid->kp;
+	p_frame->ki = p_pid->ki;
+	p_frame->kd = p_pid->kd;
+	p_frame->out_limit = p_pid->out_limit;
+	p_frame->d_filter_coeff = p_pid->d_filter_coeff;
 }
 
 void preventive_stop(void){
@@ -663,24 +663,24 @@ static volatile float gyro_lpf_coeff = 0.9f;
 
 
 static void task_imu_read(void) {
-	float *acc = lsm6dsl_get_imu_acceleration();
-	float *vel = lsm6dsl_get_angular_velocity();
+	float *p_acc = lsm6dsl_get_imu_acceleration();
+	float *p_vel = lsm6dsl_get_angular_velocity();
 	lsm6dsl_read_sensor();
 
 	//Calculate acc noise
-	acc_x_lpf = acc_x_lpf * acc_lpf_coeff + (1.0f - acc_lpf_coeff) * acc[0];
-	acc_y_lpf = acc_y_lpf * acc_lpf_coeff + (1.0f - acc_lpf_coeff) * acc[1];
-	acc_z_lpf = acc_z_lpf * acc_lpf_coeff + (1.0f - acc_lpf_coeff) * acc[2];
+	acc_x_lpf = acc_x_lpf * acc_lpf_coeff + (1.0f - acc_lpf_coeff) * p_acc[0];
+	acc_y_lpf = acc_y_lpf * acc_lpf_coeff + (1.0f - acc_lpf_coeff) * p_acc[1];
+	acc_z_lpf = acc_z_lpf * acc_lpf_coeff + (1.0f - acc_lpf_coeff) * p_acc[2];
 
-	gyro_x_lpf = gyro_x_lpf * gyro_lpf_coeff + (1.0f - gyro_lpf_coeff) * vel[0];
-	gyro_y_lpf = gyro_y_lpf * gyro_lpf_coeff + (1.0f - gyro_lpf_coeff) * vel[1];
-	gyro_z_lpf = gyro_z_lpf * gyro_lpf_coeff + (1.0f - gyro_lpf_coeff) * vel[2];
+	gyro_x_lpf = gyro_x_lpf * gyro_lpf_coeff + (1.0f - gyro_lpf_coeff) * p_vel[0];
+	gyro_y_lpf = gyro_y_lpf * gyro_lpf_coeff + (1.0f - gyro_lpf_coeff) * p_vel[1];
+	gyro_z_lpf = gyro_z_lpf * gyro_lpf_coeff + (1.0f - gyro_lpf_coeff) * p_vel[2];
 
 	//Offset compensation
 	if (gyro_offset_cnt < IMU_OFFSET_COUNTER) {
-		vel_offset_tmp[0] += vel[0];
-		vel_offset_tmp[1] += vel[1];
-		vel_offset_tmp[2] += vel[2];
+		vel_offset_tmp[0] += p_vel[0];
+		vel_offset_tmp[1] += p_vel[1];
+		vel_offset_tmp[2] += p_vel[2];
 		gyro_offset_cnt++;
 	} else if (gyro_offset_cnt == IMU_OFFSET_COUNTER) {
 		vel_offset[0] = vel_offset_tmp[0] / (float) gyro_offset_cnt;
@@ -694,20 +694,20 @@ static void task_imu_read(void) {
 		buzzer_generate_sound(BUZZER_SOUND_DOUBLE_RISING);
 	}
 
-	vel_compensated[0] = vel[0] - vel_offset[0];
-	vel_compensated[1] = vel[1] - vel_offset[1];
-	vel_compensated[2] = vel[2] - vel_offset[2];
+	vel_compensated[0] = p_vel[0] - vel_offset[0];
+	vel_compensated[1] = p_vel[1] - vel_offset[1];
+	vel_compensated[2] = p_vel[2] - vel_offset[2];
 
-	acc[0] = acc_x_lpf;
-	acc[1] = acc_y_lpf;
-	acc[2] = acc_z_lpf;
+	p_acc[0] = acc_x_lpf;
+	p_acc[1] = acc_y_lpf;
+	p_acc[2] = acc_z_lpf;
 
 	vel_compensated[0] = gyro_x_lpf - vel_offset[0];
 	vel_compensated[1] = gyro_y_lpf - vel_offset[1];
 	vel_compensated[2] = gyro_z_lpf - vel_offset[2];
 
 	//AHRS update
-	ahrs_update(DEG_TO_RAD(vel_compensated[0]), DEG_TO_RAD(-vel_compensated[1]), DEG_TO_RAD(-vel_compensated[2]), acc[0], -acc[1], -acc[2]); //YPR 0 0 0
+	ahrs_update(DEG_TO_RAD(vel_compensated[0]), DEG_TO_RAD(-vel_compensated[1]), DEG_TO_RAD(-vel_compensated[2]), p_acc[0], -p_acc[1], -p_acc[2]); //YPR 0 0 0
 
 	ahrs_rotate_45();
 	//ahrs_rotate_0();
@@ -776,7 +776,7 @@ static void task_load_monitor(void) {
 	print_uart_param();
 }
 
-void frame_cb_req_init_data(void *buff, uint8_t params) {
+void frame_cb_req_init_data(void *p_buff, uint8_t params) {
 	FrameRespInitData_t frame;
 
 	memcpy(frame.compilation_date, __DATE__, 11);
@@ -790,12 +790,12 @@ void frame_cb_req_init_data(void *buff, uint8_t params) {
 	//Slave->Master->PC
 	radio_send_frame(FRAME_TYPE_RESP_INIT_DATA, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
 
-	UNUSED(buff);
+	UNUSED(p_buff);
 	UNUSED(params);
 }
 
-void frame_cb_rc_control(void *buff, uint8_t params) {
-	FrameRcControl_t *frame = (FrameRcControl_t *) buff;
+void frame_cb_rc_control(void *p_buff, uint8_t params) {
+	FrameRcControl_t *frame = (FrameRcControl_t *) p_buff;
 
 	if (rc_connected) {
 		rc_yaw = frame->yaw;
@@ -813,16 +813,16 @@ void frame_cb_rc_control(void *buff, uint8_t params) {
 	UNUSED(params);
 }
 
-void frame_cb_get_pid_settings(void *buff, uint8_t params) {
-	FrameGetPidSettings_t *frame = (FrameGetPidSettings_t *) buff;
+void frame_cb_get_pid_settings(void *p_buff, uint8_t params) {
+	FrameGetPidSettings_t *frame = (FrameGetPidSettings_t *) p_buff;
 
 	reponse_pid_settings(frame->pid_type);
 
 	UNUSED(params);
 }
 
-void frame_cb_set_pid_settings(void *buff, uint8_t params) {
-	FrameSetPidSettings_t *frame = (FrameSetPidSettings_t *) buff;
+void frame_cb_set_pid_settings(void *p_buff, uint8_t params) {
+	FrameSetPidSettings_t *frame = (FrameSetPidSettings_t *) p_buff;
 
 	switch (frame->pid_type) {
 	case FRAME_PID_TYPE_PITCH_ROLL:
@@ -857,14 +857,14 @@ void frame_cb_set_pid_settings(void *buff, uint8_t params) {
 	UNUSED(params);
 }
 
-void frame_received_complete(FrameType_t type, FrameParams_t params, uint8_t *buff, void (*cb_handler)(void *, uint8_t)) {
+void frame_received_complete(FrameType_t type, FrameParams_t params, uint8_t *p_buff, void (*p_cb_handler)(void *, uint8_t)) {
 	uart_increment_reveived_frame_cnt();
 	if (params & FRAME_DESTINATION_MASTER_PC) {
 		//Forward received frame to slave not allowed
 		//radio_send_frame(type, (uint8_t *) (buff), params);
 	} else {
 		//Call original frame VB
-		cb_handler((void *) (buff), params);
+		p_cb_handler((void *) (p_buff), params);
 	}
 
 	UNUSED(type);
@@ -969,6 +969,16 @@ void frame_received_error(void) {
  * TODO in all transaction replace size by sizeof
  * TODO replace barometer to BMP280
  * TODO check http://pizer.wordpress.com/2008/10/12/fast-inverse-square-root
+ * TODO add assert to check if sensor data are lost- transaction ++, read --
+ * TODO add logger
+ * TODO add timer api
+ * TODO add static assert
+ * TODO frame_frames.h each frame must be checked by static assert, radio frame 5x and uart frames 25x
+ * TODO attribute pack attribute weak macro
+ * TODO move print function from main
+ * TODO add asserts
+ * TODO implement  assert_param(expr) ((void)0) in stm32f30x_conf.h
+ * TODO remove debug heder from files
  */
 
 int main(void) {

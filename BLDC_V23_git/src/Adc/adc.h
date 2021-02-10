@@ -56,8 +56,6 @@ UNUSED_WARNING_DISABLE static volatile uint16_t *ADC_TEMP30_CAL_ADDR = (uint16_t
 
 void adc_init(void);
 
-void adc_test(void);
-
 bool adc_get_init_status(void);
 
 void adc_dma_reinit(void);

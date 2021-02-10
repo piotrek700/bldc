@@ -5,17 +5,13 @@
 CCMRAM_VARIABLE static volatile uint32_t tick_counter = 0;
 static bool init_status = false;
 
-void tick_test(void) {
+static void tick_test(void) {
 	if ((RCC->CFGR & RCC_CFGR_SWS) != 0x08) {
 		debug_error(CLOCK_SOURCE_ERROR);
 	}
 
 	if (SystemCoreClock != TICK_CPU_FREQUENCY_HZ) {
 		debug_error(CLOCK_SPEED_ERROR);
-	}
-
-	if (!DEBUG_TEST_ENABLE) {
-		return;
 	}
 }
 
@@ -52,4 +48,9 @@ CCMRAM_FUCNTION void SysTick_Handler(void) {
 bool tick_get_init_status(void) {
 	return init_status;
 }
+
+uint32_t tick_get_clock_tick(void) {
+	return *DWT_CYCCNT;
+}
+
 

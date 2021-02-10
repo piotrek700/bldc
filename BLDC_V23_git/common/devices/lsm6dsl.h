@@ -27,12 +27,10 @@ float lsm6dsl_get_temperature_c(void);
 
 void lsm6dsl_read_sensor(void);
 
-void lsm6dsl_test(void);
-
 bool lsm6dsl_get_init_status(void);
 
-void lsm6dsl_check_who_am_i_cb(uint8_t *rx);
+void lsm6dsl_check_who_am_i_cb(uint8_t *p_rx);
 
-void lsm6dsl_read_sensor_cb(uint8_t *rx);
+void lsm6dsl_read_sensor_cb(uint8_t *p_rx);
 
 #endif

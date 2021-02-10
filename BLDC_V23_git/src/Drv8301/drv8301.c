@@ -10,16 +10,16 @@ static volatile bool calibration_status = false;
 static volatile uint16_t status_reg1 = 0;
 static volatile uint16_t status_reg2 = 0;
 
-static void drv8301_check_fault(uint16_t * value) {
-	if ((*value & DRV8301_READ_FAULT)) {
+static void drv8301_check_fault(uint16_t * p_value) {
+	if ((*p_value & DRV8301_READ_FAULT)) {
 		//TODO enable
 		//debug_error(DRV8301_READ_FRAME_FAULT);
 	}
 }
 
 //1
-void drv8301_status_register1_cb(uint8_t *rx) {
-	uint16_t *stat_reg1 = (uint16_t *) rx;
+void drv8301_status_register1_cb(uint8_t *p_rx) {
+	uint16_t *stat_reg1 = (uint16_t *) p_rx;
 	*stat_reg1 = FAST_SWAP_UINT16(*stat_reg1);
 
 	drv8301_check_fault(stat_reg1);
@@ -28,8 +28,8 @@ void drv8301_status_register1_cb(uint8_t *rx) {
 }
 
 //2
-void drv8301_status_register2_cb(uint8_t *rx) {
-	uint16_t *stat_reg2 = (uint16_t *) rx;
+void drv8301_status_register2_cb(uint8_t *p_rx) {
+	uint16_t *stat_reg2 = (uint16_t *) p_rx;
 	*stat_reg2 = FAST_SWAP_UINT16(*stat_reg2);
 
 	drv8301_check_fault(stat_reg2);
@@ -38,22 +38,22 @@ void drv8301_status_register2_cb(uint8_t *rx) {
 }
 
 //3
-void drv8301_control_register1_cb(uint8_t *rx) {
-	uint16_t *ctrl_reg1 = (uint16_t *) rx;
+void drv8301_control_register1_cb(uint8_t *p_rx) {
+	uint16_t *ctrl_reg1 = (uint16_t *) p_rx;
 
 	drv8301_check_fault(ctrl_reg1);
 }
 
 //4
-void drv8301_control_register2_cb(uint8_t *rx) {
-	uint16_t *ctrl_reg2 = (uint16_t *) rx;
+void drv8301_control_register2_cb(uint8_t *p_rx) {
+	uint16_t *ctrl_reg2 = (uint16_t *) p_rx;
 
 	drv8301_check_fault(ctrl_reg2);
 }
 
 //6
-void drv8301_calib_enable_cb(uint8_t *rx) {
-	uint16_t *ctrl_reg2 = (uint16_t *) rx;
+void drv8301_calib_enable_cb(uint8_t *p_rx) {
+	uint16_t *ctrl_reg2 = (uint16_t *) p_rx;
 
 	drv8301_check_fault(ctrl_reg2);
 
@@ -61,8 +61,8 @@ void drv8301_calib_enable_cb(uint8_t *rx) {
 }
 
 //7
-void drv8301_calib_disable_cb(uint8_t *rx) {
-	uint16_t *ctrl_reg2 = (uint16_t *) rx;
+void drv8301_calib_disable_cb(uint8_t *p_rx) {
+	uint16_t *ctrl_reg2 = (uint16_t *) p_rx;
 
 	drv8301_check_fault(ctrl_reg2);
 
@@ -263,8 +263,6 @@ void drv8301_init(void) {
 	//Calibrate current offset
 	drv8301_i_calibration_enable();
 
-	drv8301_test();
-
 	init_status = true;
 }
 
@@ -295,11 +293,4 @@ uint16_t drv8301_get_status_reg2(void) {
 
 bool drv8301_get_init_status(void) {
 	return init_status;
-}
-
-void drv8301_test(void) {
-	if (!DEBUG_TEST_ENABLE) {
-		return;
-	}
-	//TODO Test
 }

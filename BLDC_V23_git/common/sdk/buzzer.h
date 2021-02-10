@@ -17,13 +17,11 @@ typedef enum {
 } BuzzerSoundType_t;
 
 typedef struct {
-	const BuzzerSoundStep_t *sound_ptr;
+	const BuzzerSoundStep_t *p_sound;
 	uint32_t sound_length;
 } BuzzerDictionaryRow_t;
 
 void buzzer_init(void);
-
-void buzzer_test(void);
 
 bool buzzer_get_init_status(void);
 

@@ -17,13 +17,11 @@ typedef enum {
 } VibratorSoundType_t;
 
 typedef struct {
-	const VibratorSoundStep_t *sound_ptr;
+	const VibratorSoundStep_t *p_sound;
 	uint32_t sound_length;
 } VibratorDictionaryRow_t;
 
 void vibrator_init(void);
-
-void vibrator_test(void);
 
 bool vibrator_get_init_status(void);
 

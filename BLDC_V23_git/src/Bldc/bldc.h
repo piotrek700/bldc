@@ -18,7 +18,7 @@ typedef enum {
 
 typedef struct {
 	BldcStateMachine_t state;
-	void (*state_cb)(void);
+	void (*p_state_cb)(void);
 } BldcStateDictionaryRow_t;
 
 BldcStateMachine_t bldc_get_active_state(void);

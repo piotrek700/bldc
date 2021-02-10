@@ -13,8 +13,6 @@ UNUSED_WARNING_DISABLE static volatile uint32_t *DWT_CYCCNT = (uint32_t *) 0xE00
 UNUSED_WARNING_DISABLE static volatile uint32_t *DWT_CONTROL = (uint32_t *) 0xE0001000;
 UNUSED_WARNING_DISABLE static volatile uint32_t *SCB_DEMCR = (uint32_t *) 0xE000EDFC;
 
-void tick_test(void);
-
 uint32_t tick_get_time_ms(void);
 
 void tick_delay_ms(uint32_t time);
@@ -25,8 +23,6 @@ void tick_clear_clock_tick(void);
 
 bool tick_get_init_status(void);
 
-static inline uint32_t tick_get_clock_tick(void) {
-	return *DWT_CYCCNT;
-}
+uint32_t tick_get_clock_tick(void);
 
 #endif

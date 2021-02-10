@@ -12,7 +12,7 @@ CCMRAM_VARIABLE static volatile uint32_t exec_cnt[RYBOS_TASK_AND_IRQ_SIZE];
 CCMRAM_VARIABLE static volatile uint32_t stack_ptr = 0;
 CCMRAM_VARIABLE static volatile uint32_t iqr_execution_mask = 0;
 
-void rybos_add_task(uint32_t period, uint32_t priority, void (*cb)(void), RybosIrqTaskMarker_t marker, bool enable) {
+void rybos_add_task(uint32_t period, uint32_t priority, void (*p_cb)(void), RybosIrqTaskMarker_t marker, bool enable) {
 	//Cancel enum IRQ offset
 	uint32_t i = marker - RYBOS_MARKER_IRQ_SIZE;
 
@@ -24,7 +24,7 @@ void rybos_add_task(uint32_t period, uint32_t priority, void (*cb)(void), RybosI
 	task_list[i].priority = priority;
 	//TODO random start time generation
 	task_list[i].timer = period;
-	task_list[i].cb = cb;
+	task_list[i].p_cb = p_cb;
 	task_list[i].enable = enable;
 }
 
@@ -46,7 +46,7 @@ CCMRAM_FUCNTION void rybos_scheduler_run(void) {
 		}
 
 		//Check if period finished
-		if (task_list[active_task_ptr].enable && (task_list[active_task_ptr].cb != 0)) {
+		if (task_list[active_task_ptr].enable && (task_list[active_task_ptr].p_cb != 0)) {
 			if (tick_get_time_ms() > task_list[active_task_ptr].timer) {
 				if (task_list[active_task_ptr].priority < max_priority) {
 					max_priority = task_list[active_task_ptr].priority;
@@ -64,7 +64,7 @@ CCMRAM_FUCNTION void rybos_scheduler_run(void) {
 		task_list[active_task_ptr].timer += task_list[active_task_ptr].period;
 
 		rybos_task_start_marker(active_task_ptr + RYBOS_MARKER_IRQ_SIZE);
-		task_list[active_task_ptr].cb();
+		task_list[active_task_ptr].p_cb();
 		rybos_task_stop_marker(active_task_ptr + RYBOS_MARKER_IRQ_SIZE);
 	}
 	//Execution counter

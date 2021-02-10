@@ -33,16 +33,14 @@ typedef enum {
 } SpiSlaveSelect_t;
 
 typedef struct {
-	uint8_t *tx_buff;
-	uint8_t *rx_buff;
+	uint8_t *p_tx_buff;
+	uint8_t *p_rx_buff;
 	SpiSlaveSelect_t slave;
 	uint32_t data_length;
-	void (*cb)(uint8_t *rx);
+	void (*p_cb)(uint8_t *p_rx);
 } SpiTransactionRecord_t;
 
 void spi_init(void);
-
-void spi_test(void);
 
 bool spi_get_init_status(void);
 
@@ -50,6 +48,6 @@ void spi_slave_select(SpiSlaveSelect_t slave);
 
 uint32_t spi_get_max_queue_depth(void);
 
-void spi_add_transaction(SpiTransactionRecord_t *record);
+void spi_add_transaction(SpiTransactionRecord_t *p_record);
 
 #endif

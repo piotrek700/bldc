@@ -31,15 +31,15 @@ typedef struct {
 	float out_limit;
 } Pid_t;
 
-void pid_set_param(Pid_t *pid, float kp, float ki, float kd, float out_limit, float d_filter_coeff);
+void pid_set_param(Pid_t *p_pid, float kp, float ki, float kd, float out_limit, float d_filter_coeff);
 
-void pid_reset(Pid_t *pid);
+void pid_reset(Pid_t *p_pid);
 
-float pid_control_pid(Pid_t *pid, float value, float ref, float dt);
+float pid_control_pid(Pid_t *p_pid, float value, float ref, float dt);
 
-float pid_control_pi(Pid_t *pid, float value, float ref, float dt);
+float pid_control_pi(Pid_t *p_pid, float value, float ref, float dt);
 
-float pid_control_pd(Pid_t *pid, float value, float ref, float dt);
+float pid_control_pd(Pid_t *p_pid, float value, float ref, float dt);
 
 
 #endif

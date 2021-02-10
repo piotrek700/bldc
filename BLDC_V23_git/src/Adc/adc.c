@@ -329,16 +329,7 @@ void adc_init(void) {
 	ADC3->CR |= ADC_CR_JADSTART;
 	ADC4->CR |= ADC_CR_JADSTART;
 
-	adc_test();
-
 	init_status = true;
-}
-
-void adc_test(void) {
-	if (!DEBUG_TEST_ENABLE) {
-		return;
-	}
-	//TODO Test
 }
 
 bool adc_get_init_status(void) {

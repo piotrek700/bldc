@@ -157,27 +157,19 @@ void uart_init(void) {
 	uart_dma_init();
 	uart_nvic_init();
 	uart_uart2_init();
-	uart_test();
 
 	init_status = true;
-}
-
-void uart_test(void) {
-	if (!DEBUG_TEST_ENABLE) {
-		return;
-	}
-	//TODO Test
 }
 
 bool uart_get_init_status(void) {
 	return init_status;
 }
 
-bool uart_get_byte_dma(uint8_t *data) {
+bool uart_get_byte_dma(uint8_t *p_data) {
 	static uint32_t dma_read_ptr = 0;
 
 	if (UART_DMA_RX_BUFFER_LENGTH - DMA_GetCurrDataCounter(DMA1_Channel6) != dma_read_ptr) {
-		*data = uart_rx_dma_register[dma_read_ptr];
+		*p_data = uart_rx_dma_register[dma_read_ptr];
 		dma_read_ptr++;
 		if (dma_read_ptr == UART_DMA_RX_BUFFER_LENGTH) {
 			dma_read_ptr = 0;
@@ -218,14 +210,14 @@ static void uart_dma_start_next_transation(void) {
 	DMA1_Channel7->CCR |= DMA_CCR_EN;
 }
 
-void uart_send_frame(FrameType_t type, uint8_t *frame, FrameParams_t params) {
+void uart_send_frame(FrameType_t type, uint8_t *p_frame, FrameParams_t params) {
 	UartFrame_t *frame_buff;
 
 	enter_critical();
 
 	frame_buff = (UartFrame_t *) cyclic_get_to_add((CyclicBuffer_t *) &uart_cyclic);
 
-	frame_buff->length = frame_send_coded(type, params, frame, frame_buff->tx_buff, UART_FRAME_TX_BUFF_SIZE);
+	frame_buff->length = frame_send_coded(type, params, p_frame, frame_buff->tx_buff, UART_FRAME_TX_BUFF_SIZE);
 	if (frame_buff->length == 0) {
 		debug_error(UART_FRAME_MESSAGE_OVERLENGTH);
 		exit_critical();
@@ -241,10 +233,10 @@ void uart_send_frame(FrameType_t type, uint8_t *frame, FrameParams_t params) {
 
 	exit_critical();
 }
-void uart_send_scope_frame(FrameType_t type, uint8_t *frame, FrameParams_t params) {
+void uart_send_scope_frame(FrameType_t type, uint8_t *p_frame, FrameParams_t params) {
 	uint8_t tx_buff[UART_FRAME_TX_BUFF_SIZE];
 
-	uint32_t len = frame_send_coded(type, params, frame, tx_buff, UART_FRAME_TX_BUFF_SIZE);
+	uint32_t len = frame_send_coded(type, params, p_frame, tx_buff, UART_FRAME_TX_BUFF_SIZE);
 	if (len == 0) {
 		debug_error(UART_FRAME_MESSAGE_OVERLENGTH);
 		return;
