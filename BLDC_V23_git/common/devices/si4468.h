@@ -9,9 +9,9 @@
 typedef struct __attribute__((__packed__)){
 	uint8_t cmd;
 	uint8_t data[SI4468_TX_BUFF_MAX_SIZE];
-}Si4468TxFrame;
+} Si4468TxFrame_t;
 
-typedef struct si446x_reply_FIFO_INFO_map si446x_reply_FIFO_INFO_map;
+typedef struct si446x_reply_FIFO_INFO_map si446x_reply_FIFO_INFO_map_t;
 
 uint32_t si4468_get_packet_sent_time(void);
 

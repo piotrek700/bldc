@@ -2,13 +2,13 @@
 #include <sdk/debug.h>
 #include <sdk/atomic.h>
 
-void cyclic_ptr_clear(CyclicPtrBuffer *cyclic) {
+void cyclic_ptr_clear(CyclicPtrBuffer_t *cyclic) {
 	cyclic->elements = 0;
 	cyclic->read_ptr = 0;
 	cyclic->write_ptr = 0;
 }
 
-void cyclic_ptr_add(CyclicPtrBuffer *cyclic, type_buff data) {
+void cyclic_ptr_add(CyclicPtrBuffer_t *cyclic, BuffType_t data) {
 	enter_critical();
 
 	cyclic->elements++;
@@ -41,7 +41,7 @@ void cyclic_ptr_add(CyclicPtrBuffer *cyclic, type_buff data) {
 	exit_critical();
 }
 
-bool cyclic_ptr_get(CyclicPtrBuffer *cyclic, type_buff *data) {
+bool cyclic_ptr_get(CyclicPtrBuffer_t *cyclic, BuffType_t *data) {
 	enter_critical();
 	if (cyclic->elements > 0) {
 		*data = cyclic->buffer[cyclic->read_ptr];
@@ -60,11 +60,11 @@ bool cyclic_ptr_get(CyclicPtrBuffer *cyclic, type_buff *data) {
 	}
 }
 
-uint32_t cyclic_ptr_get_elements(CyclicPtrBuffer *cyclic) {
+uint32_t cyclic_ptr_get_elements(CyclicPtrBuffer_t *cyclic) {
 	return cyclic->elements;
 }
 
-uint32_t cyclic_ptr_get_max_elements(CyclicPtrBuffer *cyclic) {
+uint32_t cyclic_ptr_get_max_elements(CyclicPtrBuffer_t *cyclic) {
 	return cyclic->max_elements;
 }
 

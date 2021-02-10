@@ -197,7 +197,7 @@ static void bldc_state_do_nothing(void);
 
 static void bldc_flux_linkage_measurement(float v_d, float v_q, float i_d, float i_q);
 
-CCMRAM_VARIABLE static BldcStateDictionaryRow state_dictionary[] = {
+CCMRAM_VARIABLE static BldcStateDictionaryRow_t state_dictionary[] = {
 		{ BLDC_STATE_CALIBRATE_I, bldc_state_calibrate_i },
 		{ BLDC_STATE_CALIBRATE_V, bldc_state_calibrate_v },
 		{ BLDC_STATE_CALIBRATE_FINISH, bldc_state_calibrate_finish },
@@ -210,13 +210,13 @@ CCMRAM_VARIABLE static BldcStateDictionaryRow state_dictionary[] = {
 
 //BLDC state
 CCMRAM_VARIABLE static void (*bldc_active_state_cb)(void) = bldc_state_do_nothing;
-CCMRAM_VARIABLE static BldcStateMachine bldc_active_state = BLDC_STATE_DO_NOTHING;
+CCMRAM_VARIABLE static BldcStateMachine_t bldc_active_state = BLDC_STATE_DO_NOTHING;
 
-BldcStateMachine bldc_get_active_state(void){
+BldcStateMachine_t bldc_get_active_state(void){
 	return bldc_active_state;
 }
 
-Pid *bldc_get_pid(FramePidType type) {
+Pid_t *bldc_get_pid(FramePidType_t type) {
 	if (type == FRAME_PID_TYPE_BLDC_SPEED) {
 		return &pid_speed;
 	} else if (type == FRAME_PID_TYPE_BLDC_DQ) {
@@ -226,7 +226,7 @@ Pid *bldc_get_pid(FramePidType type) {
 	return 0;
 }
 
-void bldc_set_pid(FramePidType type, float kp, float ki, float kd, float out_limit, float d_filter_coeff) {
+void bldc_set_pid(FramePidType_t type, float kp, float ki, float kd, float out_limit, float d_filter_coeff) {
 	if (type == FRAME_PID_TYPE_BLDC_SPEED) {
 		pid_set_param(&pid_speed, kp, ki, kd, out_limit, d_filter_coeff);
 
@@ -1169,7 +1169,7 @@ static void bldc_state_do_nothing(void) {
 	//TODO consider disable the IRQ or reduce the switching frequency down to 1k
 }
 
-void bldc_set_active_state(BldcStateMachine state) {
+void bldc_set_active_state(BldcStateMachine_t state) {
 	bldc_active_state = state;
 	bldc_active_state_cb = state_dictionary[state].state_cb;
 }

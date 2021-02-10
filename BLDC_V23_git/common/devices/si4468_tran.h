@@ -8,7 +8,7 @@
 //1----------------------------------------------------------------------------
 static volatile uint8_t tx_init[16];
 
-static volatile SpiTransactionRecord tran_init = {
+static volatile SpiTransactionRecord_t tran_init = {
 		.tx_buff = (uint8_t *) tx_init,
 		.rx_buff = 0,
 		.slave = SPI_SLAVE_SELECT_RF,
@@ -19,7 +19,7 @@ static volatile SpiTransactionRecord tran_init = {
 //2----------------------------------------------------------------------------
 static uint8_t tx_get_int_status[4] = { SI446X_CMD_ID_GET_INT_STATUS, 0, 0, 0 };
 
-static SpiTransactionRecord record_get_int_status = {
+static SpiTransactionRecord_t record_get_int_status = {
 		.tx_buff = (uint8_t *) tx_get_int_status,
 		.rx_buff = 0,
 		.slave = SPI_SLAVE_SELECT_RF,
@@ -31,7 +31,7 @@ static SpiTransactionRecord record_get_int_status = {
 static const uint8_t tx_read_frr_bcd[4] = { SI446X_CMD_ID_FRR_B_READ };
 static volatile uint8_t rx_read_frr_bcd[4];
 
-static const SpiTransactionRecord record_read_frr_bcd = {
+static const SpiTransactionRecord_t record_read_frr_bcd = {
 		.tx_buff = (uint8_t *) tx_read_frr_bcd,
 		.rx_buff = (uint8_t *) rx_read_frr_bcd,
 		.slave = SPI_SLAVE_SELECT_RF,
@@ -45,7 +45,7 @@ static const uint8_t tx_start_rx[8] = { SI446X_CMD_ID_START_RX, RADIO_CONFIGURAT
 		SI446X_CMD_START_RX_ARG_NEXT_STATE2_RXVALID_STATE_ENUM_READY,
 		SI446X_CMD_START_RX_ARG_NEXT_STATE3_RXINVALID_STATE_ENUM_RX };
 
-static const SpiTransactionRecord record_start_rx = {
+static const SpiTransactionRecord_t record_start_rx = {
 		.tx_buff = (uint8_t *) tx_start_rx,
 		.rx_buff = 0,
 		.slave = SPI_SLAVE_SELECT_RF,
@@ -57,7 +57,7 @@ static const SpiTransactionRecord record_start_rx = {
 static uint8_t tx_resp_int_status[10+1] = { SI446X_CMD_ID_READ_CMD_BUFF};
 static uint8_t rx_resp_int_status[10+1];
 
-static SpiTransactionRecord record_resp_int_status = {
+static SpiTransactionRecord_t record_resp_int_status = {
 		.tx_buff = (uint8_t *) tx_resp_int_status,
 		.rx_buff = (uint8_t *) rx_resp_int_status,
 		.slave = SPI_SLAVE_SELECT_RF,
@@ -69,7 +69,7 @@ static SpiTransactionRecord record_resp_int_status = {
 static const uint8_t tx_read_frr_c[2] = { SI446X_CMD_ID_FRR_C_READ };
 static volatile uint8_t rx_read_frr_c[2];
 
-static const SpiTransactionRecord record_read_frr_c = {
+static const SpiTransactionRecord_t record_read_frr_c = {
 		.tx_buff = (uint8_t *) tx_read_frr_c,
 		.rx_buff = (uint8_t *) rx_read_frr_c,
 		.slave = SPI_SLAVE_SELECT_RF,
@@ -80,7 +80,7 @@ static const SpiTransactionRecord record_read_frr_c = {
 ///7
 static const uint8_t tx_chenge_state_to_rx[2] = { SI446X_CMD_ID_CHANGE_STATE, SI446X_CMD_CHANGE_STATE_ARG_NEXT_STATE1_NEW_STATE_ENUM_RX};
 
-static const SpiTransactionRecord record_chenge_state_to_rx = {
+static const SpiTransactionRecord_t record_chenge_state_to_rx = {
 		.tx_buff = (uint8_t *) tx_chenge_state_to_rx,
 		.rx_buff = 0,
 		.slave = SPI_SLAVE_SELECT_RF,

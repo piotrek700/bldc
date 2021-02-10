@@ -154,7 +154,7 @@ static void print_init(void) {
 	printf("Compilation time: %s\n", __TIME__);
 	printf("UUID0: %08X %08X %08X\n", (unsigned int) STM32_UUID[0], (unsigned int) STM32_UUID[1], (unsigned int) STM32_UUID[2]);
 
-	FrameReqDisplayChannels frame;
+	FrameReqDisplayChannels_t frame;
 
 	//Slave->Master->PC
 	uart_send_frame(FRAME_TYPE_REQ_DISPLAY_CHANNELS, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
@@ -163,7 +163,7 @@ static void print_init(void) {
 }
 
 static void print_cpu_load(void) {
-	FrameSystemLoadSlave frame;
+	FrameSystemLoadSlave_t frame;
 
 	uint32_t i;
 	float accumulate = 0;
@@ -242,7 +242,7 @@ static void print_reset_status(void) {
 }
 
 static void print_radio_parameters(void) {
-	FrameRadioStat frame;
+	FrameRadioStat_t frame;
 
 	frame.avarage_rssi = SCALE_FLOAT_TO_UINT16(radio_get_avarage_rssi(), -256.0f, 32.0f);						//Scale -256 - 32
 	frame.max_rssi = SCALE_FLOAT_TO_UINT16(radio_get_max_rssi(), -256.0f, 32.0f);								//Scale -256 - 32
@@ -263,7 +263,7 @@ static void print_radio_parameters(void) {
 }
 
 static void print_system_param(void) {
-	FrameSystemParamSlave frame;
+	FrameSystemParamSlave_t frame;
 
 	frame.critical_deph = critical_get_max_queue_depth();
 	frame.spi_tran_deph = spi_get_max_queue_depth();
@@ -275,7 +275,7 @@ static void print_system_param(void) {
 }
 
 static void print_uart_param(void) {
-	FrameUartStat frame;
+	FrameUartStat_t frame;
 
 	frame.tx_bytes = uart_get_transmitted_bytes();
 	frame.rx_bytes = uart_get_received_bytes();
@@ -293,7 +293,7 @@ static void print_uart_param(void) {
 static volatile float yaw_err = 0;
 
 static void print_fast_param(void) {
-	FrameFastParamsSlave frame;
+	FrameFastParamsSlave_t frame;
 
 	float *q = ahrs_get_q2();
 	float *angle = servo_get_angle();
@@ -327,7 +327,7 @@ static void print_fast_param(void) {
 }
 
 static void print_slow_param(void) {
-	FrameSlowParamSlave frame;
+	FrameSlowParamSlave_t frame;
 
 	//ADC
 	frame.adc.ntc_temp = SCALE_FLOAT_TO_UINT16(bldc_get_ntc_temperature_c(), -128.0f, 256.f);							//	-128 	- 	256		C
@@ -358,15 +358,15 @@ static void print_slow_param(void) {
 
 
 static void print_error_history(void){
-	FrameErrorLog frame;
+	FrameErrorLog_t frame;
 
-	memcpy(frame.error, debug_get_last_error(), sizeof(FrameErrorLog));
+	memcpy(frame.error, debug_get_last_error(), sizeof(FrameErrorLog_t));
 
 	//Slave->Master->PC
 	radio_send_frame(FRAME_TYPE_ERROR_LOG, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
 }
 
-void pid_to_frame_setting(Pid *pid, FrameSetPidSettings *frame) {
+void pid_to_frame_setting(Pid_t *pid, FrameSetPidSettings_t *frame) {
 	frame->kp = pid->kp;
 	frame->ki = pid->ki;
 	frame->kd = pid->kd;
@@ -380,9 +380,9 @@ void preventive_stop(void){
 	bldc_stop_sig();
 }
 
-void reponse_pid_settings(FramePidType type) {
+void reponse_pid_settings(FramePidType_t type) {
 	//Response frame
-	FrameSetPidSettings response = {
+	FrameSetPidSettings_t response = {
 			.pid_type = type,
 			.kp = 0,
 			.ki = 0,
@@ -777,7 +777,7 @@ static void task_load_monitor(void) {
 }
 
 void frame_cb_req_init_data(void *buff, uint8_t params) {
-	FrameRespInitData frame;
+	FrameRespInitData_t frame;
 
 	memcpy(frame.compilation_date, __DATE__, 11);
 	memcpy(frame.compilation_time, __TIME__, 8);
@@ -795,7 +795,7 @@ void frame_cb_req_init_data(void *buff, uint8_t params) {
 }
 
 void frame_cb_rc_control(void *buff, uint8_t params) {
-	FrameRcControl *frame = (FrameRcControl *) buff;
+	FrameRcControl_t *frame = (FrameRcControl_t *) buff;
 
 	if (rc_connected) {
 		rc_yaw = frame->yaw;
@@ -814,7 +814,7 @@ void frame_cb_rc_control(void *buff, uint8_t params) {
 }
 
 void frame_cb_get_pid_settings(void *buff, uint8_t params) {
-	FrameGetPidSettings *frame = (FrameGetPidSettings *) buff;
+	FrameGetPidSettings_t *frame = (FrameGetPidSettings_t *) buff;
 
 	reponse_pid_settings(frame->pid_type);
 
@@ -822,7 +822,7 @@ void frame_cb_get_pid_settings(void *buff, uint8_t params) {
 }
 
 void frame_cb_set_pid_settings(void *buff, uint8_t params) {
-	FrameSetPidSettings *frame = (FrameSetPidSettings *) buff;
+	FrameSetPidSettings_t *frame = (FrameSetPidSettings_t *) buff;
 
 	switch (frame->pid_type) {
 	case FRAME_PID_TYPE_PITCH_ROLL:
@@ -857,7 +857,7 @@ void frame_cb_set_pid_settings(void *buff, uint8_t params) {
 	UNUSED(params);
 }
 
-void frame_received_complete(FrameType type, FrameParams params, uint8_t *buff, void (*cb_handler)(void *, uint8_t)) {
+void frame_received_complete(FrameType_t type, FrameParams_t params, uint8_t *buff, void (*cb_handler)(void *, uint8_t)) {
 	uart_increment_reveived_frame_cnt();
 	if (params & FRAME_DESTINATION_MASTER_PC) {
 		//Forward received frame to slave not allowed

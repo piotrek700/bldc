@@ -32,11 +32,11 @@ void lps22hb_read_sensor_cb(uint8_t *rx) {
 }
 
 static void lps22hb_check_who_am_i(void) {
-	spi_add_transaction((SpiTransactionRecord *) &record_who_am_i);
+	spi_add_transaction((SpiTransactionRecord_t *) &record_who_am_i);
 }
 
 static void lps22hb_lps22hb_init(void) {
-	spi_add_transaction((SpiTransactionRecord *) &record_ctrl1_init);
+	spi_add_transaction((SpiTransactionRecord_t *) &record_ctrl1_init);
 }
 
 void lps22hb_init(void) {
@@ -65,7 +65,7 @@ float lps22hb_get_height_m(void) {
 }
 
 void lps22hb_read_sensor(void) {
-	spi_add_transaction((SpiTransactionRecord *) &record_read_sensor);
+	spi_add_transaction((SpiTransactionRecord_t *) &record_read_sensor);
 }
 
 void lps22hb_test(void) {

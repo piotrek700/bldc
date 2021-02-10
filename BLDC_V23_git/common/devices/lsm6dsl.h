@@ -15,7 +15,7 @@ typedef struct __attribute__((__packed__)){
 	int16_t temperature;
 	int16_t gyroscope[3];
 	int16_t accelerometer[3];
-}Lsm6dslDataOutput;
+}Lsm6dslDataOutput_t;
 
 void lsm6dsl_init(void);
 

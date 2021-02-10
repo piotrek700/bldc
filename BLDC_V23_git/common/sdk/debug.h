@@ -15,12 +15,12 @@ typedef enum {
 	DEBUG_CRITICAL_ERROR_LIST(DEBUG_GENERATE_ENUM)
 	DEBUG_CRITICAL_NOT_CRITICAL_PTR,
 	DEBUG_MESSAGE_ERROR_LIST(DEBUG_GENERATE_ENUM)
-} DebugError;
+} DebugError_t;
 
-const char * debug_get_error_string(DebugError error);
+const char * debug_get_error_string(DebugError_t error);
 
-void debug_error_handler(DebugError error, uint8_t *file, int32_t line);
+void debug_error_handler(DebugError_t error, uint8_t *file, int32_t line);
 
-DebugError *debug_get_last_error(void);
+DebugError_t *debug_get_last_error(void);
 
 #endif

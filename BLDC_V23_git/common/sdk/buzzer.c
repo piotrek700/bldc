@@ -7,11 +7,11 @@
 
 static bool init_status = false;
 
-static const BuzzerSoundStep *sound_ptr;
+static const BuzzerSoundStep_t *sound_ptr;
 static uint32_t sound_length = 0;
 static uint32_t sound_step = 1;
 
-static const BuzzerDictionaryRow sound_dictionary[] = {
+static const BuzzerDictionaryRow_t sound_dictionary[] = {
 		BUZZER_SOUNDS_LIST(BUZZER_GENERATE_DICTIONARY)
 };
 
@@ -34,7 +34,7 @@ bool buzzer_get_init_status(void) {
 	return init_status;
 }
 
-void buzzer_generate_sound(BuzzerSoundType sound_type) {
+void buzzer_generate_sound(BuzzerSoundType_t sound_type) {
 	sound_ptr = sound_dictionary[sound_type].sound_ptr;
 	sound_length = sound_dictionary[sound_type].sound_length;
 	sound_step = 0;

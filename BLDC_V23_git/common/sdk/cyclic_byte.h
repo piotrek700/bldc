@@ -12,11 +12,11 @@ typedef struct {
 	uint32_t max_elements;
 	uint8_t *buffer;
 	bool overflow_allowed;
-} CyclicByteBuffer;
+} CyclicByteBuffer_t;
 
 #define CYCLIC_BUFFER_BYTE_DEF(_cyclic_name, _overflow_allowed, _queue_length)	\
 static volatile uint8_t _cyclic_name##_buff[_queue_length];						\
-static volatile CyclicByteBuffer _cyclic_name ={              					\
+static volatile CyclicByteBuffer_t _cyclic_name ={              				\
 	.write_ptr = 0,                   			   								\
 	.read_ptr = 0,         		  												\
 	.elements	= 0,	    			   										\
@@ -26,14 +26,14 @@ static volatile CyclicByteBuffer _cyclic_name ={              					\
 	.overflow_allowed = _overflow_allowed,					          			\
 };
 
-void cyclic_byte_clear(CyclicByteBuffer *cyclic);
+void cyclic_byte_clear(CyclicByteBuffer_t *cyclic);
 
-void cyclic_byte_add(CyclicByteBuffer *cyclic, uint8_t data);
+void cyclic_byte_add(CyclicByteBuffer_t *cyclic, uint8_t data);
 
-bool cyclic_byte_get(CyclicByteBuffer *cyclic, uint8_t *data);
+bool cyclic_byte_get(CyclicByteBuffer_t *cyclic, uint8_t *data);
 
-uint32_t cyclic_byte_get_elements(CyclicByteBuffer *cyclic);
+uint32_t cyclic_byte_get_elements(CyclicByteBuffer_t *cyclic);
 
-uint32_t cyclic_byte_get_max_elements(CyclicByteBuffer *cyclic);
+uint32_t cyclic_byte_get_max_elements(CyclicByteBuffer_t *cyclic);
 
 #endif

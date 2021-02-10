@@ -4,13 +4,13 @@
 #include <stdint.h>
 #include <settings/frame_frames.h>
 
-#define FRAME_GENERATE_UNION(type, struct, cb)										struct cb;
-#define FRAME_GENERATE_FRAME_TYPE(type, struct, cb)									FRAME_TYPE_##type,
-#define FRAME_GENERATE_DITIONARY(type, struct, cb)									{frame_cb_##cb, FRAME_TYPE_##type, sizeof(struct)},
-#define FRAME_GENERATE_DEFINITION(type, struct, cb)									void frame_cb_##cb(void *buff, uint8_t params);
+#define FRAME_GENERATE_UNION(type, structure, cb)								structure cb;
+#define FRAME_GENERATE_FRAME_TYPE(type, structure, cb)							FRAME_TYPE_##type,
+#define FRAME_GENERATE_DITIONARY(type, structure, cb)							{frame_cb_##cb, FRAME_TYPE_##type, sizeof(structure)},
+#define FRAME_GENERATE_DEFINITION(type, structure, cb)							void frame_cb_##cb(void *buff, uint8_t params);
 
 //Frame callback function prototype
-#define FRAME_GENERATE_WEAK_DECLARATION(type, struct, cb)						\
+#define FRAME_GENERATE_WEAK_DECLARATION(type, structure, cb)					\
 		void __attribute__((weak)) frame_cb_##cb (void *buff, uint8_t params) {	\
 			UNUSED(buff);														\
 			UNUSED(params);														\
@@ -22,44 +22,44 @@ typedef struct __attribute__((__packed__)) {
 	union{
 		FRAME_DICTIONARY_DEFINITION(FRAME_GENERATE_UNION);
 	}payload;
-}FrameRxBuffer;
+} FrameRxBuffer_t;
 
 //Frame types enums
 typedef enum{
 	FRAME_DICTIONARY_DEFINITION(FRAME_GENERATE_FRAME_TYPE)
-}FrameType;
+} FrameType_t;
 
 //Decoder status
 typedef enum {
 	DATA_LOADING,
 	START_DETECTED,
 	WAIT_FOR_START,
-} FrameDecoderStatus;
+} FrameDecoderStatus_t;
 
 //Frame callback type
-typedef void (*FrameCb)(void *, uint8_t);
+typedef void (*FrameCb_t)(void *, uint8_t);
 
 //Frame dictionary row
 typedef struct {
-	FrameCb callback;
-	FrameType frame_type;
+	FrameCb_t callback;
+	FrameType_t frame_type;
 	uint32_t frame_size;
-} FrameDictonary;
+} FrameDictonary_t;
 
 //Generate all declarations
 FRAME_DICTIONARY_DEFINITION(FRAME_GENERATE_DEFINITION);
 
-void frame_received_complete(FrameType type, FrameParams params, uint8_t *buff, FrameCb cb);
+void frame_received_complete(FrameType_t type, FrameParams_t params, uint8_t *buff, FrameCb_t cb);
 
 void frame_received_error(void);
 
 void frame_decoding_state_mashine(uint8_t data);
 
-void frame_call_received_cb(FrameType type, FrameParams params, uint8_t *buff);
+void frame_call_received_cb(FrameType_t type, FrameParams_t params, uint8_t *buff);
 
-uint32_t frame_get_type_length(FrameType type);
+uint32_t frame_get_type_length(FrameType_t type);
 
-uint32_t frame_send_coded(FrameType type, FrameParams params, uint8_t *source, uint8_t *dest, uint32_t dest_size_max);
+uint32_t frame_send_coded(FrameType_t type, FrameParams_t params, uint8_t *source, uint8_t *dest, uint32_t dest_size_max);
 
 void frame_test(void);
 

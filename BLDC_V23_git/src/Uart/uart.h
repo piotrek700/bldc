@@ -11,7 +11,7 @@
 typedef struct __attribute__((__packed__)) {
 	uint32_t length;
 	uint8_t tx_buff[UART_FRAME_TX_BUFF_SIZE];
-} UartFrame;
+} UartFrame_t;
 
 void uart_reset_statistics(void);
 
@@ -37,10 +37,10 @@ bool uart_get_init_status(void);
 
 bool uart_get_byte_dma(uint8_t *data);
 
-void uart_send_frame(FrameType type, uint8_t *frame, FrameParams params);
+void uart_send_frame(FrameType_t type, uint8_t *frame, FrameParams_t params);
 
 uint32_t uart_get_max_queue_depth(void);
 
-void uart_send_scope_frame(FrameType type, uint8_t *frame, FrameParams params);
+void uart_send_scope_frame(FrameType_t type, uint8_t *frame, FrameParams_t params);
 
 #endif

@@ -3,13 +3,13 @@
 #include <sdk/debug.h>
 #include <sdk/atomic.h>
 
-void cyclic_clear(CyclicBuffer *cyclic) {
+void cyclic_clear(CyclicBuffer_t *cyclic) {
 	cyclic->elements = 0;
 	cyclic->read_ptr = 0;
 	cyclic->write_ptr = 0;
 }
 
-void cyclic_add(CyclicBuffer *cyclic, uint8_t *data) {
+void cyclic_add(CyclicBuffer_t *cyclic, uint8_t *data) {
 	enter_critical();
 
 	cyclic->elements++;
@@ -43,7 +43,7 @@ void cyclic_add(CyclicBuffer *cyclic, uint8_t *data) {
 	exit_critical();
 }
 
-bool cyclic_get(CyclicBuffer *cyclic, uint8_t **data) {
+bool cyclic_get(CyclicBuffer_t *cyclic, uint8_t **data) {
 	enter_critical();
 
 	if (cyclic->elements > 0) {
@@ -63,19 +63,19 @@ bool cyclic_get(CyclicBuffer *cyclic, uint8_t **data) {
 	}
 }
 
-uint32_t cyclic_get_elements(CyclicBuffer *cyclic) {
+uint32_t cyclic_get_elements(CyclicBuffer_t *cyclic) {
 	return cyclic->elements;
 }
 
-uint32_t cyclic_get_max_elements(CyclicBuffer *cyclic) {
+uint32_t cyclic_get_max_elements(CyclicBuffer_t *cyclic) {
 	return cyclic->max_elements;
 }
 
-uint8_t* cyclic_get_to_add(CyclicBuffer *cyclic) {
+uint8_t* cyclic_get_to_add(CyclicBuffer_t *cyclic) {
 	return cyclic->buffer + cyclic->write_ptr;
 }
 
-void cyclic_move(CyclicBuffer *cyclic) {
+void cyclic_move(CyclicBuffer_t *cyclic) {
 	cyclic->elements++;
 
 	if (cyclic->elements > cyclic->length) {

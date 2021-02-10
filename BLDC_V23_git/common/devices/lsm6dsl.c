@@ -23,7 +23,7 @@ void lsm6dsl_check_who_am_i_cb(uint8_t *rx) {
 
 //4
 void lsm6dsl_read_sensor_cb(uint8_t *rx) {
-	Lsm6dslDataOutput *rx_imu = (Lsm6dslDataOutput *) (rx + 1);
+	Lsm6dslDataOutput_t *rx_imu = (Lsm6dslDataOutput_t *) (rx + 1);
 
 	temperature = rx_imu->temperature * LSM6DSL_TEMPERATURE_SENSITIVITY + LSM6DSL_TEMPERATURE_OFFSET_C;
 	acceleration[0] = rx_imu->accelerometer[0] * LSM6DSL_8G_SENSITIVITY * LSM6DSL_1G_TO_MS2;
@@ -39,6 +39,7 @@ void lsm6dsl_read_sensor_cb(uint8_t *rx) {
 	acc_3d[acc_3d_cnt][1]=rx_imu->accelerometer[1];
 	acc_3d[acc_3d_cnt][2]=rx_imu->accelerometer[2];
 
+	/* TODO remove
 #include "Bldc/bldc.h"
 	if(acc_3d_cnt != ACC_SIZE_3D-1){
 		acc_3d_cnt++;
@@ -48,21 +49,22 @@ void lsm6dsl_read_sensor_cb(uint8_t *rx) {
 		}
 		asm("nop");
 	}
+	*/
 }
 
 static void lsm6dsl_check_who_am_i(void) {
-	spi_add_transaction((SpiTransactionRecord *) &record_who_am_i);
+	spi_add_transaction((SpiTransactionRecord_t *) &record_who_am_i);
 }
 
 static void lsm6dsl_lsm6dsl_init(void) {
-	spi_add_transaction((SpiTransactionRecord *) &record_ctrl1_init);
-	spi_add_transaction((SpiTransactionRecord *) &record_ctrl2_init);
-	spi_add_transaction((SpiTransactionRecord *) &record_ctrl3_init);
+	spi_add_transaction((SpiTransactionRecord_t *) &record_ctrl1_init);
+	spi_add_transaction((SpiTransactionRecord_t *) &record_ctrl2_init);
+	spi_add_transaction((SpiTransactionRecord_t *) &record_ctrl3_init);
 
 	//LPF enable
-	spi_add_transaction((SpiTransactionRecord *) &record_ctrl4_init);
-	spi_add_transaction((SpiTransactionRecord *) &record_ctrl6_init);
-	spi_add_transaction((SpiTransactionRecord *) &record_ctrl8_init);
+	spi_add_transaction((SpiTransactionRecord_t *) &record_ctrl4_init);
+	spi_add_transaction((SpiTransactionRecord_t *) &record_ctrl6_init);
+	spi_add_transaction((SpiTransactionRecord_t *) &record_ctrl8_init);
 }
 
 void lsm6dsl_init(void) {
@@ -91,7 +93,7 @@ float lsm6dsl_get_temperature_c(void) {
 }
 
 void lsm6dsl_read_sensor(void) {
-	spi_add_transaction((SpiTransactionRecord *) &record_read_sensor);
+	spi_add_transaction((SpiTransactionRecord_t *) &record_read_sensor);
 }
 
 void lsm6dsl_test(void) {

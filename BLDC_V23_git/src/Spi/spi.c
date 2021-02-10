@@ -5,8 +5,8 @@
 #include <sdk/atomic.h>
 
 static bool init_status = false;
-static volatile SpiTransactionRecord *previous_transaction = 0;
-static volatile SpiTransactionRecord *active_transaction = 0;
+static volatile SpiTransactionRecord_t *previous_transaction = 0;
+static volatile SpiTransactionRecord_t *active_transaction = 0;
 
 CYCLIC_BUFFER_PTR_DEF(spi_cyclic, false, SPI_TRANSACTION_BUFF_SIZE);
 
@@ -144,7 +144,7 @@ void spi_init(void) {
 	init_status = true;
 }
 
-void spi_slave_select(SpiSlaveSelect slave) {
+void spi_slave_select(SpiSlaveSelect_t slave) {
 	//Press, CPOL H, 2Edge
 	//IMU,   CPOL H, 2Edge
 	//RF,    CPOL L, 1Edge
@@ -304,17 +304,17 @@ static void spi_dma_start_next_transation(void) {
 }
 
 uint32_t spi_get_max_queue_depth(void) {
-	return cyclic_ptr_get_max_elements((CyclicPtrBuffer *) &spi_cyclic);
+	return cyclic_ptr_get_max_elements((CyclicPtrBuffer_t *) &spi_cyclic);
 }
 
-void spi_add_transaction(SpiTransactionRecord *record) {
+void spi_add_transaction(SpiTransactionRecord_t *record) {
 	enter_critical();
 
-	cyclic_ptr_add((CyclicPtrBuffer *) &spi_cyclic, record);
+	cyclic_ptr_add((CyclicPtrBuffer_t *) &spi_cyclic, record);
 
 	//Check if DMA disabled
 	if (!(DMA1_Channel3->CCR & DMA_CCR_EN)) {
-		cyclic_ptr_get((CyclicPtrBuffer *) &spi_cyclic, (type_buff *) &active_transaction);
+		cyclic_ptr_get((CyclicPtrBuffer_t *) &spi_cyclic, (BuffType_t *) &active_transaction);
 		spi_dma_start_next_transation();
 	}
 	exit_critical();
@@ -340,7 +340,7 @@ void DMA1_Channel2_IRQHandler(void) {
 			}
 		} else {
 			previous_transaction = active_transaction;
-			cyclic_ptr_get((CyclicPtrBuffer *) &spi_cyclic, (type_buff *) &active_transaction);
+			cyclic_ptr_get((CyclicPtrBuffer_t *) &spi_cyclic, (BuffType_t *) &active_transaction);
 
 			//Execute cb
 			if (previous_transaction == active_transaction) {

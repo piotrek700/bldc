@@ -15,7 +15,7 @@ typedef enum {
 	SERVO_POSITION_2_TOP,
 	SERVO_POSITION_3_RIGHT,
 	SERVO_POSITION_4_BOTTOM
-} ServoPosition;
+} ServoPosition_t;
 
 void servo_test(void);
 
@@ -23,7 +23,7 @@ void servo_init(void);
 
 bool servo_get_init_status(void);
 
-void servo_set_position_angle(ServoPosition servo_position, float angle);
+void servo_set_position_angle(ServoPosition_t servo_position, float angle);
 
 float *servo_get_angle(void);
 

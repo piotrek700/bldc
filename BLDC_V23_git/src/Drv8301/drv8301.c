@@ -236,9 +236,9 @@ void drv8301_set_pwm(uint16_t ch1, uint16_t ch2, uint16_t ch3) {
 }
 
 static void drv8301_register_init(void) {
-	spi_add_transaction((SpiTransactionRecord *) &clear_trans);
-	spi_add_transaction((SpiTransactionRecord *) &write_ctrl_reg1);
-	spi_add_transaction((SpiTransactionRecord *) &write_ctrl_reg2);
+	spi_add_transaction((SpiTransactionRecord_t *) &clear_trans);
+	spi_add_transaction((SpiTransactionRecord_t *) &write_ctrl_reg1);
+	spi_add_transaction((SpiTransactionRecord_t *) &write_ctrl_reg2);
 }
 
 void drv8301_init(void) {
@@ -269,8 +269,8 @@ void drv8301_init(void) {
 }
 
 void drv8301_read_status(void) {
-	spi_add_transaction((SpiTransactionRecord *) &read_stat_reg1);
-	spi_add_transaction((SpiTransactionRecord *) &read_stat_reg2);
+	spi_add_transaction((SpiTransactionRecord_t *) &read_stat_reg1);
+	spi_add_transaction((SpiTransactionRecord_t *) &read_stat_reg2);
 }
 
 bool drv8301_get_i_calibration_status(void) {
@@ -278,11 +278,11 @@ bool drv8301_get_i_calibration_status(void) {
 }
 
 void drv8301_i_calibration_enable(void) {
-	spi_add_transaction((SpiTransactionRecord *) &write_calib_enable);
+	spi_add_transaction((SpiTransactionRecord_t *) &write_calib_enable);
 }
 
 void drv8301_i_calibration_disable(void) {
-	spi_add_transaction((SpiTransactionRecord *) &write_calib_disable);
+	spi_add_transaction((SpiTransactionRecord_t *) &write_calib_disable);
 }
 
 uint16_t drv8301_get_status_reg1(void) {

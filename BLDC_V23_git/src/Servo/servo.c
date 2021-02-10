@@ -107,7 +107,7 @@ bool servo_get_init_status(void) {
 	return init_status;
 }
 
-void servo_set_position_angle(ServoPosition servo_position, float angle) {
+void servo_set_position_angle(ServoPosition_t servo_position, float angle) {
 	//Save position
 	servo_angle[servo_position] = angle;
 

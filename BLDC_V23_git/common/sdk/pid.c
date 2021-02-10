@@ -1,6 +1,6 @@
 #include <sdk/pid.h>
 
-void pid_set_param(Pid *pid, float kp, float ki, float kd, float out_limit, float d_filter_coeff) {
+void pid_set_param(Pid_t *pid, float kp, float ki, float kd, float out_limit, float d_filter_coeff) {
 	pid->kp = kp;
 	pid->ki = ki;
 	pid->kd = kd;
@@ -21,13 +21,13 @@ void pid_set_param(Pid *pid, float kp, float ki, float kd, float out_limit, floa
 	//pid_reset(pid);
 }
 
-void pid_reset(Pid *pid) {
+void pid_reset(Pid_t *pid) {
 	pid->d_filtered = 0.0f;
 	pid->deriv = 0.0f;
 	pid->integral = 0.0f;
 }
 
-float pid_control_pid(Pid *pid, float value, float ref, float dt) {
+float pid_control_pid(Pid_t *pid, float value, float ref, float dt) {
 	//Error, p
 	float e = ref - value;
 	float p = e * pid->kp;
@@ -81,7 +81,7 @@ float pid_control_pid(Pid *pid, float value, float ref, float dt) {
 	return out;
 }
 
-float pid_control_pi(Pid *pid, float value, float ref, float dt) {
+float pid_control_pi(Pid_t *pid, float value, float ref, float dt) {
 	//Error, p
 	float e = ref - value;
 	float p = e * pid->kp;
@@ -113,7 +113,7 @@ float pid_control_pi(Pid *pid, float value, float ref, float dt) {
 	return out;
 }
 
-float pid_control_pd(Pid *pid, float value, float ref, float dt) {
+float pid_control_pd(Pid_t *pid, float value, float ref, float dt) {
 	//Error, p
 	float e = ref - value;
 	float p = e * pid->kp;

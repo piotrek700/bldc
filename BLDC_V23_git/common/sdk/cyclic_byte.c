@@ -2,13 +2,13 @@
 #include <sdk/debug.h>
 #include <sdk/atomic.h>
 
-void cyclic_byte_clear(CyclicByteBuffer *cyclic) {
+void cyclic_byte_clear(CyclicByteBuffer_t *cyclic) {
 	cyclic->elements = 0;
 	cyclic->read_ptr = 0;
 	cyclic->write_ptr = 0;
 }
 
-void cyclic_byte_add(CyclicByteBuffer *cyclic, uint8_t data) {
+void cyclic_byte_add(CyclicByteBuffer_t *cyclic, uint8_t data) {
 	enter_critical();
 
 	cyclic->elements++;
@@ -41,7 +41,7 @@ void cyclic_byte_add(CyclicByteBuffer *cyclic, uint8_t data) {
 	exit_critical();
 }
 
-bool cyclic_byte_get(CyclicByteBuffer *cyclic, uint8_t *data) {
+bool cyclic_byte_get(CyclicByteBuffer_t *cyclic, uint8_t *data) {
 	enter_critical();
 	if (cyclic->elements > 0) {
 		*data = cyclic->buffer[cyclic->read_ptr];
@@ -60,10 +60,10 @@ bool cyclic_byte_get(CyclicByteBuffer *cyclic, uint8_t *data) {
 	}
 }
 
-uint32_t cyclic_byte_get_elements(CyclicByteBuffer *cyclic) {
+uint32_t cyclic_byte_get_elements(CyclicByteBuffer_t *cyclic) {
 	return cyclic->elements;
 }
 
-uint32_t cyclic_byte_get_max_elements(CyclicByteBuffer *cyclic) {
+uint32_t cyclic_byte_get_max_elements(CyclicByteBuffer_t *cyclic) {
 	return cyclic->max_elements;
 }

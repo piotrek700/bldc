@@ -12,12 +12,12 @@
 
 static bool init_status = false;
 
-CYCLIC_BUFFER_DEF(radio_cyclic, true, RADIO_FRAME_QUEUE_SIZE, sizeof(RadioFrame));
+CYCLIC_BUFFER_DEF(radio_cyclic, true, RADIO_FRAME_QUEUE_SIZE, sizeof(RadioFrame_t));
 
-static volatile RadioTxStateMachine tx_sm_state = RADIO_TX_SM_RESET_TX_FIFO;
-static volatile RadioRxStateMachine rx_sm_state = RADIO_RX_SM_GET_FIFO_INFO;
-static volatile RadioMasterStateMachine master_sm = RADIO_MASTER_SM_WAIT_FOR_ADD_FRAME;
-static volatile RadioSlaveStateMachine slave_sm = RADIO_SLAVE_SM_WAIT_FOR_FRAME;
+static volatile RadioTxStateMachine_t tx_sm_state = RADIO_TX_SM_RESET_TX_FIFO;
+static volatile RadioRxStateMachine_t rx_sm_state = RADIO_RX_SM_GET_FIFO_INFO;
+static volatile RadioMasterStateMachine_t master_sm = RADIO_MASTER_SM_WAIT_FOR_ADD_FRAME;
+static volatile RadioSlaveStateMachine_t slave_sm = RADIO_SLAVE_SM_WAIT_FOR_FRAME;
 static volatile bool wait_for_ack = false;
 
 static volatile int32_t rssi_global = 0;
@@ -128,7 +128,7 @@ float radio_get_avarage_rssi(void) {
 	return avarage_rssi / ((float) avarage_rssi_cnt);
 }
 
-static void radio_read_fifo_length(si446x_reply_FIFO_INFO_map *buff) {
+static void radio_read_fifo_length(si446x_reply_FIFO_INFO_map_t *buff) {
 	if(buff->RX_FIFO_COUNT<=RADIO_FRAME_TX_BUFF_SIZE){
 		//Read package
 		record_read_rx_fifo.data_length = buff->RX_FIFO_COUNT + 1;
@@ -148,7 +148,7 @@ void radio_read_frr_a_cb(uint8_t *rx) {
 //3----------------------------------------------------------------------------
 void radio_resp_fifo_info_cb(uint8_t *rx) {
 	if (rx[1] == SI4468_CMD_ACK_VALUE) {
-		radio_read_fifo_length((si446x_reply_FIFO_INFO_map *) (rx + 2));
+		radio_read_fifo_length((si446x_reply_FIFO_INFO_map_t *) (rx + 2));
 		si4468_set_cmd_ready(true);
 	} else {
 		debug_error(SI4468_CMD_ERROR_RESP);
@@ -165,7 +165,7 @@ static bool radio_tx_sm(void) {
 		case RADIO_TX_SM_RESET_TX_FIFO:
 			//log_send_string("TX1\n");
 			si4468_set_cmd_ready(false);
-			spi_add_transaction((SpiTransactionRecord *) &record_reset_tx_fifo);
+			spi_add_transaction((SpiTransactionRecord_t *) &record_reset_tx_fifo);
 			tx_sm_state = RADIO_TX_SM_FILL_FIFO;
 			break;
 
@@ -173,8 +173,8 @@ static bool radio_tx_sm(void) {
 			//log_send_string("TX2\n");
 			si4468_set_frame_send(false);
 			si4468_set_cmd_ready(false);
-			spi_add_transaction((SpiTransactionRecord *) &record_fill_fifo);
-			spi_add_transaction((SpiTransactionRecord *) &record_start_tx);
+			spi_add_transaction((SpiTransactionRecord_t *) &record_fill_fifo);
+			spi_add_transaction((SpiTransactionRecord_t *) &record_start_tx);
 			tx_sm_state = RADIO_TX_SM_SEND_COMPLETE;
 			break;
 
@@ -206,12 +206,12 @@ static bool radio_tx_sm(void) {
 	return false;
 }
 
-static void radio_frame_received(RadioFrame *frame, uint32_t frame_size, int32_t rssi) {
+static void radio_frame_received(RadioFrame_t *frame, uint32_t frame_size, int32_t rssi) {
 	//Statistics
 	radio_update_statistics(frame_size, rssi);
 
 	if (frame->rx_tx_parameters & RADIO_PARAM_MORE_DATA) {
-		FrameType type = frame->frame_type & FRAME_TYPE_MASK;
+		FrameType_t type = frame->frame_type & FRAME_TYPE_MASK;
 		uint8_t params = frame->frame_type & FRAME_PARAM_MASK;
 
 		if (RADIO_MASTER) {
@@ -265,24 +265,24 @@ static bool radio_rx_sm(void) {
 			case RADIO_RX_SM_GET_FIFO_INFO:
 				//log_send_string("RX1\n");
 				si4468_set_cmd_ready(false);
-				spi_add_transaction((SpiTransactionRecord *) &record_get_fifo_info);
+				spi_add_transaction((SpiTransactionRecord_t *) &record_get_fifo_info);
 				rx_sm_state = RADIO_RX_SM_RESP_FIFO_INFO;
 				break;
 
 			case RADIO_RX_SM_RESP_FIFO_INFO:
 				//log_send_string("RX2\n");
 				si4468_set_cmd_ready(false);
-				spi_add_transaction((SpiTransactionRecord *) &record_resp_fifo_info);
+				spi_add_transaction((SpiTransactionRecord_t *) &record_resp_fifo_info);
 				rx_sm_state = RADIO_RX_SM_READ_RX_FIFO;
 				break;
 
 			case RADIO_RX_SM_READ_RX_FIFO:
 				//log_send_string("RX3\n");
 				si4468_set_cmd_ready(false);
-				spi_add_transaction((SpiTransactionRecord *) &record_read_rx_fifo);
-				spi_add_transaction((SpiTransactionRecord *) &record_read_frr_a);
+				spi_add_transaction((SpiTransactionRecord_t *) &record_read_rx_fifo);
+				spi_add_transaction((SpiTransactionRecord_t *) &record_read_frr_a);
 				//TODO 130us avoid this stage, If TX buffer not empty go to TX state to transmit ACK
-				spi_add_transaction((SpiTransactionRecord *) &record_start_rx);
+				spi_add_transaction((SpiTransactionRecord_t *) &record_start_rx);
 				//TODO create a transaction which after TX go immediately to TX state to transmit ACK
 				rx_sm_state = RADIO_RX_SM_RECEVIE_COMPLETE;
 				break;
@@ -309,9 +309,9 @@ static bool radio_rx_sm(void) {
 
 static void radio_send_radio_frame(uint8_t ack_response, uint8_t ack_request, bool data) {
 	static volatile uint32_t tx_cnt = 0;	//TODO is really volatile required
-	RadioFrame *frame;
+	RadioFrame_t *frame;
 
-	if (data && cyclic_get((CyclicBuffer *) &radio_cyclic, (uint8_t **) &frame)) {
+	if (data && cyclic_get((CyclicBuffer_t *) &radio_cyclic, (uint8_t **) &frame)) {
 		//Prepare  transaction
 		//| 1B CMD | 1B LEN | 1B RX_TX_PARAM | 1B FRAME_TYPE | 1B x Length = PEYLOAD|
 		frame->rx_tx_parameters = tx_cnt & RADIO_PARAM_DATA_CNT;
@@ -399,7 +399,7 @@ static void radio_send_radio_frame(uint8_t ack_response, uint8_t ack_request, bo
 
 static void radio_error_sm(void) {
 	log_send_string("ERR\n");
-	static RadioErrorStateMachine error_sm = RADIO_ERROR_SM_RESET_FIFO;
+	static RadioErrorStateMachine_t error_sm = RADIO_ERROR_SM_RESET_FIFO;
 
 	if (si4468_get_cmd_ready()) {
 		switch (error_sm) {
@@ -407,13 +407,13 @@ static void radio_error_sm(void) {
 			//Reset FIFO
 			radio_reset_sm();
 			si4468_set_cmd_ready(false);
-			spi_add_transaction((SpiTransactionRecord *) &record_reset_fifo);
+			spi_add_transaction((SpiTransactionRecord_t *) &record_reset_fifo);
 			error_sm = RADIO_ERROR_SM_ENTER_RX;
 			break;
 
 		case RADIO_ERROR_SM_ENTER_RX:
 			si4468_set_cmd_ready(false);
-			spi_add_transaction((SpiTransactionRecord *) &record_start_rx);
+			spi_add_transaction((SpiTransactionRecord_t *) &record_start_rx);
 			error_sm = RADIO_ERROR_SM_ENTER_RX_COMPLETE;
 			break;
 
@@ -541,7 +541,7 @@ void radio_master_sm(void) {
 		log_send_string("MS3\n");
 
 		if (radio_rx_sm()) {
-			RadioFrame * rx_frame = (RadioFrame *) (record_read_rx_fifo.rx_buff + 1);
+			RadioFrame_t * rx_frame = (RadioFrame_t *) (record_read_rx_fifo.rx_buff + 1);
 
 			//Timeout disable
 			if (rx_frame->rx_tx_parameters & RADIO_PARAM_ACK_RESPONSE) {
@@ -637,7 +637,7 @@ void radio_master_sm(void) {
 						tx_sm_state = RADIO_TX_SM_SEND_COMPLETE;
 						si4468_set_frame_send(false);
 						si4468_set_cmd_ready(false);
-						spi_add_transaction((SpiTransactionRecord *) &record_start_retransmit);
+						spi_add_transaction((SpiTransactionRecord_t *) &record_start_retransmit);
 						//Statistics
 						retransmition_cnt++;
 						//transmiteded_bytes += tx_start_tx[4];
@@ -724,7 +724,7 @@ void radio_slave_sm(void) {
 		//TODO check periodically if stack here, if no frame rx read ffr to be sure that RX is enable - ugly but i not see any other option
 
 		if (radio_rx_sm()) {
-			RadioFrame * rx_frame = (RadioFrame *) (record_read_rx_fifo.rx_buff + 1);
+			RadioFrame_t * rx_frame = (RadioFrame_t *) (record_read_rx_fifo.rx_buff + 1);
 
 			//Timeout disable
 			if (rx_frame->rx_tx_parameters & RADIO_PARAM_ACK_RESPONSE) {
@@ -752,7 +752,7 @@ void radio_slave_sm(void) {
 					} else {
 						tx_sm_state = RADIO_TX_SM_SEND_COMPLETE;
 						si4468_set_frame_send(false);
-						spi_add_transaction((SpiTransactionRecord *) &record_start_retransmit);
+						spi_add_transaction((SpiTransactionRecord_t *) &record_start_retransmit);
 						//Statistics
 						retransmition_cnt++;
 						//transmiteded_bytes += tx_start_tx[4];
@@ -836,11 +836,11 @@ void radio_slave_sm(void) {
 	}
 }
 
-void radio_send_frame(FrameType frame_type, uint8_t *frame, uint8_t params) {
-	RadioFrame *frame_buff;
+void radio_send_frame(FrameType_t frame_type, uint8_t *frame, uint8_t params) {
+	RadioFrame_t *frame_buff;
 	enter_critical();
 
-	frame_buff = (RadioFrame *) cyclic_get_to_add((CyclicBuffer *) &radio_cyclic);
+	frame_buff = (RadioFrame_t *) cyclic_get_to_add((CyclicBuffer_t *) &radio_cyclic);
 
 	frame_buff->length = frame_get_type_length(frame_type);
 	frame_buff->frame_type = frame_type | params;
@@ -850,7 +850,7 @@ void radio_send_frame(FrameType frame_type, uint8_t *frame, uint8_t params) {
 		frame_buff->tx_buff[i] = frame[i];	//TODO memcopy
 	}
 
-	cyclic_move((CyclicBuffer *) &radio_cyclic);
+	cyclic_move((CyclicBuffer_t *) &radio_cyclic);
 
 	rybos_task_enable(RYBOS_MARKER_TASK_RF, true);
 
@@ -863,7 +863,7 @@ void radio_send_frame(FrameType frame_type, uint8_t *frame, uint8_t params) {
 }
 
 uint32_t radio_get_max_queue_depth(void) {
-	return cyclic_get_max_elements((CyclicBuffer *) &radio_cyclic);
+	return cyclic_get_max_elements((CyclicBuffer_t *) &radio_cyclic);
 }
 
 void radio_init(void) {

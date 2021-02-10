@@ -5,21 +5,21 @@
 #include <settings/vibrator_settings.h>
 
 #define VIBRATOR_GENERATE_ENUM(str, sound) 				VIBRATOR_SOUND_##str,
-#define VIBRATOR_GENERATE_DICTIONARY(str, sound) 		{sound, sizeof(sound)/sizeof(VibratorSoundStep)},
+#define VIBRATOR_GENERATE_DICTIONARY(str, sound) 		{sound, sizeof(sound)/sizeof(VibratorSoundStep_t)},
 
 typedef struct {
 	uint16_t generation_time_ms;
 	bool vibrator_on;
-} VibratorSoundStep;
+} VibratorSoundStep_t;
 
 typedef enum {
 	VIBRATOR_SOUNDS_LIST(VIBRATOR_GENERATE_ENUM)
-} VibratorSoundType;
+} VibratorSoundType_t;
 
 typedef struct {
-	const VibratorSoundStep *sound_ptr;
+	const VibratorSoundStep_t *sound_ptr;
 	uint32_t sound_length;
-} VibratorDictionaryRow;
+} VibratorDictionaryRow_t;
 
 void vibrator_init(void);
 
@@ -27,7 +27,7 @@ void vibrator_test(void);
 
 bool vibrator_get_init_status(void);
 
-void vibrator_generate_sound(VibratorSoundType sound_type);
+void vibrator_generate_sound(VibratorSoundType_t sound_type);
 
 void vibrator_state_machine(void);
 

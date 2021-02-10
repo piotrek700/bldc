@@ -3,7 +3,7 @@
 
 #include <sdk/buzzer.h>
 
-static const BuzzerSoundStep buzzer_sound_start[] = {
+static const BuzzerSoundStep_t buzzer_sound_start[] = {
 		{ 100, 2500 },
 		{ 100, 0 },
 		{ 100, 2800 },
@@ -11,7 +11,7 @@ static const BuzzerSoundStep buzzer_sound_start[] = {
 		{ 300, 3100 }
 };
 
-static const BuzzerSoundStep buzzer_sound_mario[] = {
+static const BuzzerSoundStep_t buzzer_sound_mario[] = {
 		{ 100, 330 }, { 100, 0 },
 		{ 100, 330 }, { 300, 0 },
 		{ 100, 330 }, { 300, 0 },
@@ -148,17 +148,17 @@ static const BuzzerSoundStep buzzer_sound_mario[] = {
 		{ 675, 1046 }
 };
 
-static const BuzzerSoundStep buzzer_sound_single_peak[] = {
+static const BuzzerSoundStep_t buzzer_sound_single_peak[] = {
 		{ 100, 3000 }
 };
 
-static const BuzzerSoundStep buzzer_sound_double_peak[] = {
+static const BuzzerSoundStep_t buzzer_sound_double_peak[] = {
 		{ 100, 3000 },
 		{ 100, 0 },
 		{ 100, 3000 }
 };
 
-static const BuzzerSoundStep buzzer_sound_triple_peak[] = {
+static const BuzzerSoundStep_t buzzer_sound_triple_peak[] = {
 		{ 100, 3000 },
 		{ 100, 0 },
 		{ 100, 3000 },
@@ -166,7 +166,7 @@ static const BuzzerSoundStep buzzer_sound_triple_peak[] = {
 		{ 100, 3000 }
 };
 
-static const BuzzerSoundStep buzzer_sound_turn_off[] = {
+static const BuzzerSoundStep_t buzzer_sound_turn_off[] = {
 		{ 100, 2100 },
 		{ 100, 0 },
 		{ 100, 1800 },
@@ -174,7 +174,7 @@ static const BuzzerSoundStep buzzer_sound_turn_off[] = {
 		{ 300, 1500 }
 };
 
-static const BuzzerSoundStep buzzer_sound_double_rising[] = {
+static const BuzzerSoundStep_t buzzer_sound_double_rising[] = {
 		{ 100, 2800 },
 		{ 100, 0 },
 		{ 300, 3100 }

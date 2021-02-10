@@ -7,11 +7,11 @@
 
 static bool init_status = false;
 
-static const VibratorSoundStep *sound_ptr;
+static const VibratorSoundStep_t *sound_ptr;
 static uint32_t sound_length = 0;
 static uint32_t sound_step = 1;
 
-static const VibratorDictionaryRow sound_dictionary[] = {
+static const VibratorDictionaryRow_t sound_dictionary[] = {
 		VIBRATOR_SOUNDS_LIST(VIBRATOR_GENERATE_DICTIONARY)
 };
 
@@ -34,7 +34,7 @@ bool vibrator_get_init_status(void) {
 	return init_status;
 }
 
-void vibrator_generate_sound(VibratorSoundType sound_type) {
+void vibrator_generate_sound(VibratorSoundType_t sound_type) {
 	sound_ptr = sound_dictionary[sound_type].sound_ptr;
 	sound_length = sound_dictionary[sound_type].sound_length;
 	sound_step = 0;

@@ -193,22 +193,22 @@ void si4468_read_frr_c_cb(uint8_t *rx){
 
 void si4468_call_record_read_frr_c(void){
 	log_send_string("RX?\n");
-	spi_add_transaction((SpiTransactionRecord *) &record_read_frr_c);
+	spi_add_transaction((SpiTransactionRecord_t *) &record_read_frr_c);
 
 }
 
 void si4468_call_record_get_int_status(void){
-	spi_add_transaction((SpiTransactionRecord *) &record_get_int_status);
+	spi_add_transaction((SpiTransactionRecord_t *) &record_get_int_status);
 
 }
 
 void si4468_call_record_resp_int_status(void){
-	spi_add_transaction((SpiTransactionRecord *) &record_resp_int_status);
+	spi_add_transaction((SpiTransactionRecord_t *) &record_resp_int_status);
 
 }
 
 void si4468_call_record_chenge_state_to_rx(void){
-	spi_add_transaction((SpiTransactionRecord *) &record_chenge_state_to_rx);
+	spi_add_transaction((SpiTransactionRecord_t *) &record_chenge_state_to_rx);
 }
 
 
@@ -219,7 +219,7 @@ void si4468_irq_process(void) {
 	//spi_add_transaction((SpiTransactionRecord *) &record_read_frr_bcd);
 
 	//Clear pending flags
-	spi_add_transaction((SpiTransactionRecord *) &record_get_int_status);
+	spi_add_transaction((SpiTransactionRecord_t *) &record_get_int_status);
 
 }
 
@@ -255,10 +255,10 @@ void si4468_drv_cts_cb(void) {
 
 static void si4468_chip_init(void) {
 	//Clear IRQ pending
-	si4468_drv_add_transaction_blocking((SpiTransactionRecord *) &record_get_int_status);
+	si4468_drv_add_transaction_blocking((SpiTransactionRecord_t *) &record_get_int_status);
 
 	//Clear IRQ pending
-	si4468_drv_add_transaction_blocking((SpiTransactionRecord *) &record_get_int_status);
+	si4468_drv_add_transaction_blocking((SpiTransactionRecord_t *) &record_get_int_status);
 
 	uint8_t const *init_data_ptr = radio_conf_array;
 	uint32_t cmd_length;
@@ -276,25 +276,25 @@ static void si4468_chip_init(void) {
 			tran_init.tx_buff[i] = *init_data_ptr;
 			init_data_ptr++;
 		}
-		si4468_drv_add_transaction_blocking((SpiTransactionRecord *) &tran_init);
+		si4468_drv_add_transaction_blocking((SpiTransactionRecord_t *) &tran_init);
 
 		//Check if not CMD error
 		if (SI4468_DRV_IRQ_CHECK == 0) {
 			//Read fast registers IRQ
-			spi_add_transaction((SpiTransactionRecord *) &record_read_frr_bcd);
+			spi_add_transaction((SpiTransactionRecord_t *) &record_read_frr_bcd);
 
 			//Clear pending flags
-			si4468_drv_add_transaction_blocking((SpiTransactionRecord *) &record_get_int_status);
+			si4468_drv_add_transaction_blocking((SpiTransactionRecord_t *) &record_get_int_status);
 		}
 	}
 
 	//Clear pending flags
-	si4468_drv_add_transaction_blocking((SpiTransactionRecord *) &record_get_int_status);
+	si4468_drv_add_transaction_blocking((SpiTransactionRecord_t *) &record_get_int_status);
 
 	//Set RX
-	si4468_drv_add_transaction_blocking((SpiTransactionRecord *) &record_start_rx);
+	si4468_drv_add_transaction_blocking((SpiTransactionRecord_t *) &record_start_rx);
 	//Set RX
-	si4468_drv_add_transaction_blocking((SpiTransactionRecord *) &record_start_rx);
+	si4468_drv_add_transaction_blocking((SpiTransactionRecord_t *) &record_start_rx);
 }
 
 void si4468_init(void) {

@@ -25,38 +25,38 @@ typedef enum {
 	RADIO_MASTER_SM_WAIT_FOR_ADD_FRAME,
 	RADIO_MASTER_SM_TRANSMITTING,
 	RADIO_MASTER_SM_WAIT_FOR_ACK,
-} RadioMasterStateMachine;
+} RadioMasterStateMachine_t;
 
 typedef enum {
 	RADIO_RX_SM_GET_FIFO_INFO,
 	RADIO_RX_SM_RESP_FIFO_INFO,
 	RADIO_RX_SM_READ_RX_FIFO,
 	RADIO_RX_SM_RECEVIE_COMPLETE
-} RadioRxStateMachine;
+} RadioRxStateMachine_t;
 
 typedef enum {
 	RADIO_ERROR_SM_RESET_FIFO,
 	RADIO_ERROR_SM_ENTER_RX,
 	RADIO_ERROR_SM_ENTER_RX_COMPLETE
-} RadioErrorStateMachine;
+} RadioErrorStateMachine_t;
 
 typedef enum {
 	RADIO_TX_SM_RESET_TX_FIFO,
 	RADIO_TX_SM_FILL_FIFO,
 	RADIO_TX_SM_SEND_COMPLETE
-} RadioTxStateMachine;
+} RadioTxStateMachine_t;
 
 typedef enum {
 	RADIO_SLAVE_SM_WAIT_FOR_FRAME,
 	RADIO_SLAVE_SM_TRANSMITTING,
-} RadioSlaveStateMachine;
+} RadioSlaveStateMachine_t;
 
 typedef struct __attribute__((__packed__)) {
 	uint8_t length;
 	uint8_t rx_tx_parameters;
 	uint8_t frame_type;
 	uint8_t tx_buff[RADIO_FRAME_TX_BUFF_SIZE];
-} RadioFrame;
+} RadioFrame_t;
 
 void radio_timeout_init(void);
 
@@ -92,7 +92,7 @@ void radio_master_sm(void);
 
 void radio_slave_sm(void);
 
-void radio_send_frame(FrameType frame_type, uint8_t *frame, uint8_t params);
+void radio_send_frame(FrameType_t frame_type, uint8_t *frame, uint8_t params);
 
 uint32_t radio_get_max_queue_depth(void);
 

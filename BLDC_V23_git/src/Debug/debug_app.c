@@ -6,7 +6,7 @@
 #include <sdk/utils.h>
 #include <sdk/debug.h>
 
-void debug_critical_error(DebugError error, uint8_t *file, int32_t line) {
+void debug_critical_error(DebugError_t error, uint8_t *file, int32_t line) {
 	LED_RED_ON;
 
 	bldc_set_active_state(BLDC_STATE_STOP);
@@ -17,7 +17,7 @@ void debug_critical_error(DebugError error, uint8_t *file, int32_t line) {
 	while (1);
 }
 
-void debug_message_error(DebugError error, uint8_t *file, int32_t line) {
+void debug_message_error(DebugError_t error, uint8_t *file, int32_t line) {
 	//LED_RED_ON;
 	//LED_RED_OFF;
 

@@ -11,7 +11,7 @@ static bool init_status = false;
 
 static uint8_t uart_rx_dma_register[UART_DMA_RX_BUFFER_LENGTH];
 
-CYCLIC_BUFFER_DEF(uart_cyclic, false, UART_FRAME_QUEUE_SIZE, sizeof(UartFrame));
+CYCLIC_BUFFER_DEF(uart_cyclic, false, UART_FRAME_QUEUE_SIZE, sizeof(UartFrame_t));
 
 static volatile uint32_t tx_bytes_cnt = 0;
 static volatile uint32_t rx_bytes_cnt = 0;
@@ -189,12 +189,12 @@ bool uart_get_byte_dma(uint8_t *data) {
 }
 
 uint32_t uart_get_max_queue_depth(void) {
-	return cyclic_get_max_elements((CyclicBuffer *) &uart_cyclic);
+	return cyclic_get_max_elements((CyclicBuffer_t *) &uart_cyclic);
 }
 
 static void uart_dma_start_next_transation(void) {
-	UartFrame *active_transaction = 0;
-	cyclic_get((CyclicBuffer *) &uart_cyclic, (uint8_t **) &active_transaction);
+	UartFrame_t *active_transaction = 0;
+	cyclic_get((CyclicBuffer_t *) &uart_cyclic, (uint8_t **) &active_transaction);
 
 	//DMA clear flag
 	DMA1->IFCR = DMA1_FLAG_GL7;
@@ -218,12 +218,12 @@ static void uart_dma_start_next_transation(void) {
 	DMA1_Channel7->CCR |= DMA_CCR_EN;
 }
 
-void uart_send_frame(FrameType type, uint8_t *frame, FrameParams params) {
-	UartFrame *frame_buff;
+void uart_send_frame(FrameType_t type, uint8_t *frame, FrameParams_t params) {
+	UartFrame_t *frame_buff;
 
 	enter_critical();
 
-	frame_buff = (UartFrame *) cyclic_get_to_add((CyclicBuffer *) &uart_cyclic);
+	frame_buff = (UartFrame_t *) cyclic_get_to_add((CyclicBuffer_t *) &uart_cyclic);
 
 	frame_buff->length = frame_send_coded(type, params, frame, frame_buff->tx_buff, UART_FRAME_TX_BUFF_SIZE);
 	if (frame_buff->length == 0) {
@@ -232,7 +232,7 @@ void uart_send_frame(FrameType type, uint8_t *frame, FrameParams params) {
 		return;
 	}
 
-	cyclic_move((CyclicBuffer *) &uart_cyclic);
+	cyclic_move((CyclicBuffer_t *) &uart_cyclic);
 
 	//Check if DMA disabled
 	if (!(DMA1_Channel7->CCR & DMA_CCR_EN)) {
@@ -241,7 +241,7 @@ void uart_send_frame(FrameType type, uint8_t *frame, FrameParams params) {
 
 	exit_critical();
 }
-void uart_send_scope_frame(FrameType type, uint8_t *frame, FrameParams params) {
+void uart_send_scope_frame(FrameType_t type, uint8_t *frame, FrameParams_t params) {
 	uint8_t tx_buff[UART_FRAME_TX_BUFF_SIZE];
 
 	uint32_t len = frame_send_coded(type, params, frame, tx_buff, UART_FRAME_TX_BUFF_SIZE);
@@ -252,13 +252,13 @@ void uart_send_scope_frame(FrameType type, uint8_t *frame, FrameParams params) {
 
 	enter_critical();
 
-	UartFrame *frame_buff = (UartFrame *) cyclic_get_to_add((CyclicBuffer *) &uart_cyclic);
+	UartFrame_t *frame_buff = (UartFrame_t *) cyclic_get_to_add((CyclicBuffer_t *) &uart_cyclic);
 
 	//Set length
 	frame_buff->length = len;
 	memcpy(frame_buff->tx_buff, tx_buff, len);
 
-	cyclic_move((CyclicBuffer *) &uart_cyclic);
+	cyclic_move((CyclicBuffer_t *) &uart_cyclic);
 
 	//Check if DMA disabled
 	if (!(DMA1_Channel7->CCR & DMA_CCR_EN)) {

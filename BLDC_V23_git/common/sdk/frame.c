@@ -2,24 +2,24 @@
 #include <sdk/debug.h>
 #include <sdk/utils.h>
 
-static uint8_t frame_buffer[sizeof(FrameRxBuffer) + 1];	//frame type + crc
-static FrameType frame_type;
-static FrameParams frame_params;
+static uint8_t frame_buffer[sizeof(FrameRxBuffer_t) + 1];	//frame type + crc
+static FrameType_t frame_type;
+static FrameParams_t frame_params;
 
 static uint32_t payload_ptr = 0;
 static uint8_t crc_rx = 0;
-static FrameDecoderStatus decoder_status = WAIT_FOR_START;
+static FrameDecoderStatus_t decoder_status = WAIT_FOR_START;
 
 //Generate all weak definitions
 FRAME_DICTIONARY_DEFINITION(FRAME_GENERATE_WEAK_DECLARATION);
 
 //Define dictionary
-static const FrameDictonary frame_dictionary[] = {
+static const FrameDictonary_t frame_dictionary[] = {
 		FRAME_DICTIONARY_DEFINITION(FRAME_GENERATE_DITIONARY)
 };
 
 //Frame received complete
-void __attribute__((weak)) frame_received_complete(FrameType type, FrameParams params, uint8_t *buff, FrameCb cb) {
+void __attribute__((weak)) frame_received_complete(FrameType_t type, FrameParams_t params, uint8_t *buff, FrameCb_t cb) {
 	//Call original frame callback
 	cb((void *) (buff), params);
 
@@ -33,7 +33,7 @@ void __attribute__((weak)) frame_received_error(void) {
 
 static void frame_check_decoding(void) {
 	static uint8_t payload_length = 0;
-	static FrameCb cb_handler = 0;
+	static FrameCb_t cb_handler = 0;
 
 	//Get frame type
 	if (payload_ptr == 1) {
@@ -41,7 +41,7 @@ static void frame_check_decoding(void) {
 		frame_params = frame_buffer[payload_ptr - 1] & FRAME_PARAM_MASK;
 
 		//Check frame type and get length
-		if (frame_type >= sizeof(frame_dictionary) / sizeof(FrameDictonary)) {
+		if (frame_type >= sizeof(frame_dictionary) / sizeof(FrameDictonary_t)) {
 			debug_error(FRAME_TYPE_NOT_SUPPORTED);
 			payload_ptr = 0;
 			decoder_status = WAIT_FOR_START;
@@ -54,7 +54,7 @@ static void frame_check_decoding(void) {
 	}
 
 	//Buffer overflow protection
-	if (payload_ptr > sizeof(FrameRxBuffer)) {
+	if (payload_ptr > sizeof(FrameRxBuffer_t)) {
 		debug_error(FRAME_BUFFER_OVERFLOW);
 		payload_ptr = 0;
 		decoder_status = WAIT_FOR_START;
@@ -116,11 +116,11 @@ void frame_decoding_state_mashine(uint8_t data) {
 	}
 }
 
-void frame_call_received_cb(FrameType type, FrameParams params, uint8_t *buff) {
+void frame_call_received_cb(FrameType_t type, FrameParams_t params, uint8_t *buff) {
 	frame_dictionary[type].callback((void *) buff, params);
 }
 
-uint32_t frame_get_type_length(FrameType type) {
+uint32_t frame_get_type_length(FrameType_t type) {
 	return frame_dictionary[type].frame_size;
 }
 
@@ -145,7 +145,7 @@ CCMRAM_FUCNTION static inline bool frame_code_symbol(uint8_t source, uint8_t *de
 	return true;
 }
 
-CCMRAM_FUCNTION uint32_t frame_send_coded(FrameType type, FrameParams params, uint8_t *source, uint8_t *dest, uint32_t dest_size_max) {
+CCMRAM_FUCNTION uint32_t frame_send_coded(FrameType_t type, FrameParams_t params, uint8_t *source, uint8_t *dest, uint32_t dest_size_max) {
 	uint32_t len = 0;
 	uint8_t crc_tmp = 0;
 

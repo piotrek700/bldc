@@ -14,18 +14,18 @@ typedef enum {
 	BLDC_STATE_STOP,
 	BLDC_STATE_FOC,
 	BLDC_STATE_DO_NOTHING
-} BldcStateMachine;
+} BldcStateMachine_t;
 
 typedef struct {
-	BldcStateMachine state;
+	BldcStateMachine_t state;
 	void (*state_cb)(void);
-} BldcStateDictionaryRow;
+} BldcStateDictionaryRow_t;
 
-BldcStateMachine bldc_get_active_state(void);
+BldcStateMachine_t bldc_get_active_state(void);
 
-Pid *bldc_get_pid(FramePidType type);
+Pid_t *bldc_get_pid(FramePidType_t type);
 
-void bldc_set_pid(FramePidType type, float kp, float ki, float kd, float out_limit, float d_filter_coeff);
+void bldc_set_pid(FramePidType_t type, float kp, float ki, float kd, float out_limit, float d_filter_coeff);
 
 void bldc_set_i_d(float i_d);
 
@@ -47,7 +47,7 @@ bool bldc_measure_r_init(void);
 
 bool bldc_measure_l_init(void);
 
-void bldc_set_active_state(BldcStateMachine state);
+void bldc_set_active_state(BldcStateMachine_t state);
 
 void bldc_set_i_q_ref(float iq);
 

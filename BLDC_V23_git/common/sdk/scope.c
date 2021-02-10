@@ -3,13 +3,13 @@
 #include "Uart/uart.h"
 
 //Scope
-static volatile ScopeFrameBuffer scope_frame_buff;
+static volatile ScopeFrameBuffer_t scope_frame_buff;
 static volatile uint32_t scope_write_ptr = 0;
 static volatile uint32_t scope_read_ptr = 0;
 static volatile uint32_t scope_frame_buff_elements = 0;
 static volatile uint32_t scope_frame_buff_max_elements = 0;
 
-static volatile ScopeMode scope_mode = SCOPE_MODE_NOT_SET;
+static volatile ScopeMode_t scope_mode = SCOPE_MODE_NOT_SET;
 
 static volatile uint32_t scope_frame_data_cnt = 0;
 static volatile uint32_t scope_frame_packet_cnt = 0;
@@ -18,16 +18,16 @@ uint32_t scope_get_max_queue_depth(void){
 	return scope_frame_buff_max_elements;
 }
 
-FrameDisplayChannelsData2 *scope_get_2ch_frame(uint32_t index) {
-	return (FrameDisplayChannelsData2 *)(scope_frame_buff.channels2 + index);
+FrameDisplayChannelsData2_t *scope_get_2ch_frame(uint32_t index) {
+	return (FrameDisplayChannelsData2_t *)(scope_frame_buff.channels2 + index);
 }
 
-FrameDisplayChannelsData4 *scope_get_4ch_frame(uint32_t index) {
-	return (FrameDisplayChannelsData4 *)(scope_frame_buff.channels4 + index);
+FrameDisplayChannelsData4_t *scope_get_4ch_frame(uint32_t index) {
+	return (FrameDisplayChannelsData4_t *)(scope_frame_buff.channels4 + index);
 }
 
-FrameDisplayChannelsData8 *scope_get_8ch_frame(uint32_t index) {
-	return (FrameDisplayChannelsData8 *)(scope_frame_buff.channels8 + index);
+FrameDisplayChannelsData8_t *scope_get_8ch_frame(uint32_t index) {
+	return (FrameDisplayChannelsData8_t *)(scope_frame_buff.channels8 + index);
 }
 
 void scope_send_2ch(int16_t ch1, int16_t ch2) {

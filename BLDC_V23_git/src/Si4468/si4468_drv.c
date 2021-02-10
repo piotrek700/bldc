@@ -84,7 +84,7 @@ void EXTI15_10_IRQHandler(void) {
 	rybos_task_stop_marker(RYBOS_MARKER_IRQ_SI4468_CTS);
 }
 
-void si4468_drv_add_transaction_blocking(SpiTransactionRecord *record) {
+void si4468_drv_add_transaction_blocking(SpiTransactionRecord_t *record) {
 	EXTI_ClearITPendingBit(EXTI_Line10);
 	spi_add_transaction(record);
 	while (EXTI_GetITStatus(EXTI_Line10) == 0);

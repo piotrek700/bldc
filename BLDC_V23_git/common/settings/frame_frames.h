@@ -28,28 +28,28 @@
 //3 parameter - callback generation - req_init_data -> frame_cb_req_init_data
 //Warning! - size of any type must be equal or lower then 255
 //Warning! - define all structures by using uint_xt or int_xt types
-#define FRAME_DICTIONARY_DEFINITION(row)                                                 \
-		row(REQ_INIT_DATA,           FrameReqInitData,          req_init_data		 	)\
-		row(RESP_INIT_DATA, 		 FrameRespInitData,         resp_init_data 		 	)\
-		row(ERROR_LOG,               FrameErrorLog,             error_log			  	)\
-		row(SLOW_PARAMS_SLAVE,       FrameSlowParamSlave,       slow_param_slave        )\
-		row(SLOW_PARAMS_MASTER,      FrameSlowParamMaster,      slow_param_master	  	)\
-		row(FAST_PARAMS_SLAVE,       FrameFastParamsSlave,      fast_param_slave       	)\
-		row(FAST_PARAMS_MASTER, 	 FrameFastParamsMaster,     fast_param_master	  	)\
-		row(RADIO_STAT, 			 FrameRadioStat,            radio_stat			 	)\
-		row(SYSTEM_LOAD_SLAVE,       FrameSystemLoadSlave,      system_load_slave	  	)\
-		row(SYSTEM_LOAD_MASTER, 	 FrameSystemLoadMaster,     system_load_master 	 	)\
-		row(SYSTEM_PARAMS_SLAVE, 	 FrameSystemParamSlave,     system_param_slave	  	)\
-		row(SYSTEM_PARAMS_MASTER,	 FrameSystemParamMaster,    system_param_master     )\
-		row(RC_CONTROL, 			 FrameRcControl,            rc_control 			 	)\
-		row(GET_PID_SETTINGS,		 FrameGetPidSettings,       get_pid_settings        )\
-		row(SET_PID_SETTINGS, 		 FrameSetPidSettings,       set_pid_settings        )\
-		row(REQ_DISPLAY_CHANNELS, 	 FrameReqDisplayChannels,   req_display_channels    )\
-		row(RESP_DISPLAY_CHANNELS,   FrameRespDisplayChannels,  resp_display_channels   )\
-		row(DISPLAY_CHANNELS_DATA_2, FrameDisplayChannelsData2, display_channels_data_2 )\
-		row(DISPLAY_CHANNELS_DATA_4, FrameDisplayChannelsData4, display_channels_data_4 )\
-		row(DISPLAY_CHANNELS_DATA_8, FrameDisplayChannelsData8, display_channels_data_8 )\
-		row(UART_STAT,               FrameUartStat,             uart_stat               )
+#define FRAME_DICTIONARY_DEFINITION(row)                                                   \
+		row(REQ_INIT_DATA,           FrameReqInitData_t,          req_init_data		 	  )\
+		row(RESP_INIT_DATA, 		 FrameRespInitData_t,         resp_init_data 		  )\
+		row(ERROR_LOG,               FrameErrorLog_t,             error_log			  	  )\
+		row(SLOW_PARAMS_SLAVE,       FrameSlowParamSlave_t,       slow_param_slave        )\
+		row(SLOW_PARAMS_MASTER,      FrameSlowParamMaster_t,      slow_param_master	  	  )\
+		row(FAST_PARAMS_SLAVE,       FrameFastParamsSlave_t,      fast_param_slave        )\
+		row(FAST_PARAMS_MASTER, 	 FrameFastParamsMaster_t,     fast_param_master	  	  )\
+		row(RADIO_STAT, 			 FrameRadioStat_t,            radio_stat			  )\
+		row(SYSTEM_LOAD_SLAVE,       FrameSystemLoadSlave_t,      system_load_slave	  	  )\
+		row(SYSTEM_LOAD_MASTER, 	 FrameSystemLoadMaster_t,     system_load_master 	  )\
+		row(SYSTEM_PARAMS_SLAVE, 	 FrameSystemParamSlave_t,     system_param_slave	  )\
+		row(SYSTEM_PARAMS_MASTER,	 FrameSystemParamMaster_t,    system_param_master     )\
+		row(RC_CONTROL, 			 FrameRcControl_t,            rc_control 			  )\
+		row(GET_PID_SETTINGS,		 FrameGetPidSettings_t,       get_pid_settings        )\
+		row(SET_PID_SETTINGS, 		 FrameSetPidSettings_t,       set_pid_settings        )\
+		row(REQ_DISPLAY_CHANNELS, 	 FrameReqDisplayChannels_t,   req_display_channels    )\
+		row(RESP_DISPLAY_CHANNELS,   FrameRespDisplayChannels_t,  resp_display_channels   )\
+		row(DISPLAY_CHANNELS_DATA_2, FrameDisplayChannelsData2_t, display_channels_data_2 )\
+		row(DISPLAY_CHANNELS_DATA_4, FrameDisplayChannelsData4_t, display_channels_data_4 )\
+		row(DISPLAY_CHANNELS_DATA_8, FrameDisplayChannelsData8_t, display_channels_data_8 )\
+		row(UART_STAT,               FrameUartStat_t,             uart_stat               )
 
 //Frame status masks
 typedef enum {
@@ -66,7 +66,7 @@ typedef enum {
 	FRAME_STATUS_NO_RC_BATTERY 		= (1<<10),
 
 	FRAME_STATUS_BUTTON_MASK 		= 0x0038
-} FrameStatus;
+} FrameStatus_t;
 
 //Parameters
 typedef enum{
@@ -76,7 +76,7 @@ typedef enum{
 	//Destination
 	FRAME_DESTINATION_MASTER_PC		= 0x40,
 	FRAME_DESTINATION_SLAVE			= 0x00
-}FrameParams;
+} FrameParams_t;
 
 //PID type
 typedef enum{
@@ -85,26 +85,26 @@ typedef enum{
 	FRAME_PID_TYPE_HEIGHT,
 	FRAME_PID_TYPE_BLDC_SPEED,
 	FRAME_PID_TYPE_BLDC_DQ
-}FramePidType;
+} FramePidType_t;
 
 typedef enum {
 	FRAME_DISPLAY_CHANNEL_I1,
 	FRAME_DISPLAY_CHANNEL_I2,
 	FRAME_DISPLAY_CHANNEL_I3,
-}FrameDisplayChannels;
+} FrameDisplayChannels_t;
 
 typedef enum {
 	FRAME_DISPLAY_MODE_2_CHANNELS,
 	FRAME_DISPLAY_MODE_4_CHANNELS,
 	FRAME_DISPLAY_MODE_8_CHANNELS,
-}FrameDisplayMode;
+} FrameDisplayMode_t;
 
 //Frame structures definition
 //0
 typedef struct __attribute__((__packed__)){
 	//Necessary for QT, no zero size structure possible at QT side
 	uint8_t none;
-}FrameReqInitData;
+} FrameReqInitData_t;
 
 //1
 typedef struct __attribute__((__packed__)){
@@ -112,12 +112,12 @@ typedef struct __attribute__((__packed__)){
 	uint32_t uuid[3];
 	uint8_t compilation_time[8];
 	uint8_t compilation_date[11];
-}FrameRespInitData;
+} FrameRespInitData_t;
 
 //2
 typedef struct __attribute__((__packed__)){
 	uint8_t error[8];
-}FrameErrorLog;
+} FrameErrorLog_t;
 
 //3
 typedef struct __attribute__((__packed__)){
@@ -125,25 +125,25 @@ typedef struct __attribute__((__packed__)){
 	uint16_t up_temp;									//	-128 	- 	256		C
 	uint16_t bat_v;										//	   0 	-  	 32 	V
 	uint16_t ldo_v;										//	   0 	-     4		V
-}ParamAdcSlave;
+} ParamAdcSlave_t;
 
 typedef struct __attribute__((__packed__)){
 	uint16_t temp;										//	-128 	- 	256		C
 	int16_t	acc[3];										//	 -80 	-    80		m/s2
 	int16_t vel[3];										//   -2k 	-  	 2k		deg/s
-}ParamImu;
+} ParamImu_t;
 
 typedef struct __attribute__((__packed__)){
 	uint16_t press;										//	 90k	-  110k 	Pa
 	uint16_t temp;										//	-128 	- 	256		C
 	int16_t height;										// -1000 	-  1000		m
-}ParamPressure;
+} ParamPressure_t;
 
 typedef struct __attribute__((__packed__)){
-	ParamAdcSlave adc;									// 	  8B
-	ParamImu imu;										//	 14B
-	ParamPressure pressure;								// 	  6B
-}FrameSlowParamSlave;									//	 1/s	28B/s		224b/s
+	ParamAdcSlave_t adc;								// 	  8B
+	ParamImu_t imu;										//	 14B
+	ParamPressure_t pressure;							// 	  6B
+} FrameSlowParamSlave_t;								//	 1/s	28B/s		224b/s
 
 //4
 typedef struct __attribute__((__packed__)){
@@ -152,44 +152,44 @@ typedef struct __attribute__((__packed__)){
 	uint16_t bat_v;										//	   0 	-  	  8 	V
 	uint16_t ldo_v;										//	   0 	-     4		V
 	uint16_t usb_v;										//	   0 	-     8		V
-}ParamAdcMaster;
+} ParamAdcMaster_t;
 
 typedef struct __attribute__((__packed__)){
-	ParamAdcMaster adc;									// 	12B
-	ParamImu imu;										// 	14B
-	ParamPressure pressure;								// 	6B
+	ParamAdcMaster_t adc;								// 	12B
+	ParamImu_t imu;										// 	14B
+	ParamPressure_t pressure;							// 	6B
 	uint16_t disp_brighntess;
-}FrameSlowParamMaster;									//	25/s 	 800B/s		6400b/s
+} FrameSlowParamMaster_t;								//	25/s 	 800B/s		6400b/s
 
 //5
 typedef struct __attribute__((__packed__)){
 	//[0w][1x][2y][3z]
 	int16_t	q[4];										//	  -1 	-     1
-}ParamAhrs;
+} ParamAhrs_t;
 
 typedef struct __attribute__((__packed__)){
 	//[0L][1T][2R][3L]
 	int16_t	angle[4];									//	-180 	-  	180		deg
-}ParamServo;
+} ParamServo_t;
 
 typedef struct __attribute__((__packed__)){
 	int16_t iq_current;									//   -50	-	50		A
 	int16_t rps;										//	-500	-	500		rps
-}ParamMotor;
+} ParamMotor_t;
 
 typedef struct __attribute__((__packed__)){
 	int16_t pitch_e;									//  -180 	-  	180		deg
 	int16_t roll_e;										//  -180 	-  	180		deg
 	int16_t yaw_e;										//  -180 	-  	180		deg
 	int16_t height_e;									//	-50		-	50 		m
-}ParamPid;
+} ParamPid_t;
 
 typedef struct __attribute__((__packed__)){
-	ParamAhrs ahrs;										//	  8B
-	ParamServo servo;									//	  8B
-	ParamMotor motor;									//	  4B
-	ParamPid pid;										//	  8B
-}FrameFastParamsSlave;									//	25/s 	 	700B/s		5600b/s
+	ParamAhrs_t ahrs;									//	  8B
+	ParamServo_t servo;									//	  8B
+	ParamMotor_t motor;									//	  4B
+	ParamPid_t pid;										//	  8B
+} FrameFastParamsSlave_t;								//	25/s 	 	700B/s		5600b/s
 
 //6
 typedef struct __attribute__((__packed__)){
@@ -199,12 +199,12 @@ typedef struct __attribute__((__packed__)){
 	int16_t joy_r_h;									//	-2048	-	+2047
 	uint16_t pot_l;										//		0	-	4095
 	uint16_t pot_r;										//		0	-	4095
-}ParamPotentiometers;
+}ParamPotentiometers_t;
 
 typedef struct __attribute__((__packed__)){
-	ParamAhrs ahrs;										//	8B
-	ParamPotentiometers pot;							//	12B
-}FrameFastParamsMaster;
+	ParamAhrs_t ahrs;									//	8B
+	ParamPotentiometers_t pot;							//	12B
+} FrameFastParamsMaster_t;
 
 //7
 typedef struct __attribute__((__packed__)){
@@ -218,17 +218,17 @@ typedef struct __attribute__((__packed__)){
 	uint16_t recived_frame;								//	   0	- 65534
 	uint16_t recived_frame_total;						//    0    - 0xFFFFFFFF
 	uint16_t transmitted_frame;							//	   0	- 65534
-}FrameRadioStat;										//	 13B
+} FrameRadioStat_t;										//	 13B
 														//  1/5s		 2.6B/s		20.8b/s
 //8
 typedef struct __attribute__((__packed__)){
 	uint16_t load[FRAME_SYSTEM_LOAD_LENGTH_SLAVE];		//	   0	-	100		%
-}FrameSystemLoadSlave;									//  1/5s		6,8B/s		54.4b/s
+} FrameSystemLoadSlave_t;								//  1/5s		6,8B/s		54.4b/s
 
 //9
 typedef struct __attribute__((__packed__)){
 	uint16_t load[FRAME_SYSTEM_LOAD_LENGTH_MASTER];		//	   0	-	100		%
-}FrameSystemLoadMaster;									//  1/5s		6,8B/s		54.4b/s
+} FrameSystemLoadMaster_t;								//  1/5s		6,8B/s		54.4b/s
 
 //10
 typedef struct __attribute__((__packed__)){
@@ -236,7 +236,7 @@ typedef struct __attribute__((__packed__)){
 	uint8_t critical_deph;								//     0	-	255
 	uint8_t spi_tran_deph;								//	   0	-	255
 	uint8_t	scope_deph;									//	   0	- 	255
-}FrameSystemParamSlave;									//  1/5s		1.2B/s		9.6b/s
+} FrameSystemParamSlave_t;									//  1/5s		1.2B/s		9.6b/s
 
 //11
 typedef struct __attribute__((__packed__)){
@@ -244,7 +244,7 @@ typedef struct __attribute__((__packed__)){
 	uint8_t critical_deh;								//     0	-	255
 	uint8_t spi_tran_deph;								//	   0	-	255
 	uint8_t display_tran_depth;							//	   0 	-	255
-}FrameSystemParamMaster;								//  1/5s		1.2B/s		9.6b/s
+} FrameSystemParamMaster_t;								//  1/5s		1.2B/s		9.6b/s
 
 //12
 typedef struct __attribute__((__packed__)){
@@ -253,12 +253,12 @@ typedef struct __attribute__((__packed__)){
 	int16_t roll;										//	-2048	-	+2047
 	int16_t throttle;									//	-2048	-	+2047
 	uint16_t status;
-}FrameRcControl;
+} FrameRcControl_t;
 
 //13
 typedef struct __attribute__((__packed__)){
 	uint8_t pid_type;
-}FrameGetPidSettings;
+} FrameGetPidSettings_t;
 
 //14
 typedef struct __attribute__((__packed__)){
@@ -268,26 +268,26 @@ typedef struct __attribute__((__packed__)){
 	float kd;
 	float out_limit;
 	float d_filter_coeff;
-}FrameSetPidSettings;
+} FrameSetPidSettings_t;
 
 //15
 typedef struct __attribute__((__packed__)){
 	//Necessary for QT, no zero size structure possible at QT side
 	uint8_t none;
-}FrameReqDisplayChannels;
+} FrameReqDisplayChannels_t;
 
 //16
 typedef struct __attribute__((__packed__)){
 	uint8_t channels[8];
 	uint8_t mode;
-}FrameRespDisplayChannels;
+} FrameRespDisplayChannels_t;
 
 //17
 typedef struct __attribute__((__packed__)){
 	int16_t ch1[FRAME_MAX_DISPLAY_CHANNELS_8 * 4];
 	int16_t ch2[FRAME_MAX_DISPLAY_CHANNELS_8 * 4];
 	uint8_t packet_cnt;
-}FrameDisplayChannelsData2;
+} FrameDisplayChannelsData2_t;
 
 //18
 typedef struct __attribute__((__packed__)){
@@ -296,7 +296,7 @@ typedef struct __attribute__((__packed__)){
 	int16_t ch3[FRAME_MAX_DISPLAY_CHANNELS_8 * 2];
 	int16_t ch4[FRAME_MAX_DISPLAY_CHANNELS_8 * 2];
 	uint8_t packet_cnt;
-}FrameDisplayChannelsData4;
+} FrameDisplayChannelsData4_t;
 
 //19
 typedef struct __attribute__((__packed__)){
@@ -309,7 +309,7 @@ typedef struct __attribute__((__packed__)){
 	int16_t ch7[FRAME_MAX_DISPLAY_CHANNELS_8];
 	int16_t ch8[FRAME_MAX_DISPLAY_CHANNELS_8];
 	uint8_t packet_cnt;
-}FrameDisplayChannelsData8;
+} FrameDisplayChannelsData8_t;
 
 //20
 typedef struct __attribute__((__packed__)){
@@ -319,6 +319,6 @@ typedef struct __attribute__((__packed__)){
 	uint16_t recived_frames;							//	   0	- 65534
 	uint16_t transmitted_frames;						//	   0	- 65534
 	uint8_t	max_tran_deph;								//	   0	-	255
-}FrameUartStat;
+} FrameUartStat_t;
 
 #endif

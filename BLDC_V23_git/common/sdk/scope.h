@@ -6,25 +6,25 @@
 #define SCOPE_FRAME_8CH_BUFF_SIZE		8
 
 typedef union {
-	FrameDisplayChannelsData2 channels2[SCOPE_FRAME_8CH_BUFF_SIZE * 4];
-	FrameDisplayChannelsData4 channels4[SCOPE_FRAME_8CH_BUFF_SIZE * 2];
-	FrameDisplayChannelsData8 channels8[SCOPE_FRAME_8CH_BUFF_SIZE * 1];
-}ScopeFrameBuffer;
+	FrameDisplayChannelsData2_t channels2[SCOPE_FRAME_8CH_BUFF_SIZE * 4];
+	FrameDisplayChannelsData4_t channels4[SCOPE_FRAME_8CH_BUFF_SIZE * 2];
+	FrameDisplayChannelsData8_t channels8[SCOPE_FRAME_8CH_BUFF_SIZE * 1];
+} ScopeFrameBuffer_t;
 
 typedef enum{
 	SCOPE_MODE_NOT_SET,
 	SCOPE_2CH_MODE,
 	SCOPE_4CH_MODE,
 	SCOPE_8CH_MODE,
-}ScopeMode;
+} ScopeMode_t;
 
 uint32_t scope_get_max_queue_depth(void);
 
-FrameDisplayChannelsData2 * scope_get_2ch_frame(uint32_t index);
+FrameDisplayChannelsData2_t * scope_get_2ch_frame(uint32_t index);
 
-FrameDisplayChannelsData4 * scope_get_4ch_frame(uint32_t index);
+FrameDisplayChannelsData4_t * scope_get_4ch_frame(uint32_t index);
 
-FrameDisplayChannelsData8 * scope_get_8ch_frame(uint32_t index);
+FrameDisplayChannelsData8_t * scope_get_8ch_frame(uint32_t index);
 
 void scope_send_2ch(int16_t ch1, int16_t ch2);
 
