@@ -1,5 +1,5 @@
-#include <devices/lsm6dsl.h>
-#include <devices/lps22hb.h>
+#include <devices/mpu9250.h>
+//#include <devices/lps22hb.h>
 #include <sdk/tick.h>
 #include <sdk/debug.h>
 #include "Led/led.h"
@@ -336,7 +336,7 @@ static void print_slow_param(void) {
 	frame.adc.ldo_v = SCALE_FLOAT_TO_UINT16(bldc_get_v_ldo_v(), 0.0f, 4.0f);											//	   0 	-     4		V
 
 	//IMU
-	float *acc = lsm6dsl_get_imu_acceleration();
+	float *acc = mpu9250_get_imu_acceleration();
 
 	frame.imu.acc[0] = SCALE_FLOAT_TO_INT16(acc[0], -80.0f, 80.0f);														//	 -80 	-    80		m/s2
 	frame.imu.acc[1] = SCALE_FLOAT_TO_INT16(acc[1], -80.0f, 80.0f);														//	 -80 	-    80		m/s2
@@ -346,11 +346,12 @@ static void print_slow_param(void) {
 	frame.imu.vel[1] = SCALE_FLOAT_TO_INT16(vel_compensated[1], -2000.0f, 2000.0f);										//   -2k 	-  	 2k		deg/s
 	frame.imu.vel[2] = SCALE_FLOAT_TO_INT16(vel_compensated[2], -2000.0f, 2000.0f);										//   -2k 	-  	 2k		deg/s
 
-	frame.imu.temp = SCALE_FLOAT_TO_UINT16(lsm6dsl_get_temperature_c(), -128.0f, 256.0f);								//	-128 	- 	256		C
+	frame.imu.temp = SCALE_FLOAT_TO_UINT16(mpu9250_get_temperature_c(), -128.0f, 256.0f);								//	-128 	- 	256		C
 
 	frame.pressure.height = SCALE_FLOAT_TO_INT16(height_compensated, -1000.0f, 1000.0f);								//	 -1000 	-  1000		m
-	frame.pressure.press = SCALE_FLOAT_TO_UINT16(lps22hb_get_pressure_pa(), 90000.0f, 110000.0f);						//	 90k	-  110k 	Pa
-	frame.pressure.temp = SCALE_FLOAT_TO_UINT16(lps22hb_get_temperature_c(), -128.0f, 256.0f);							//	-128 	- 	256		C
+	//TODO enable
+	//frame.pressure.press = SCALE_FLOAT_TO_UINT16(lps22hb_get_pressure_pa(), 90000.0f, 110000.0f);						//	 90k	-  110k 	Pa
+	//frame.pressure.temp = SCALE_FLOAT_TO_UINT16(lps22hb_get_temperature_c(), -128.0f, 256.0f);							//	-128 	- 	256		C
 
 	//Slave->Master->PC
 	radio_send_frame(FRAME_TYPE_SLOW_PARAMS_SLAVE, (uint8_t *) (&frame), FRAME_SOURCE_SLAVE | FRAME_DESTINATION_MASTER_PC);
@@ -631,6 +632,10 @@ static void task_led(void) {
 }
 
 static void task_read_pressure(void) {
+	//TODO remove
+	return;
+
+	/*
 	static float height_offset = 0;
 	static float height_tmp = 0;
 	static uint32_t height_offset_cnt = 0;
@@ -647,34 +652,14 @@ static void task_read_pressure(void) {
 	}
 
 	height_compensated = lps22hb_get_height_m() - height_offset;
+	*/
 }
 
-static volatile float coeff = 0.f;
-
-static volatile float acc_x_lpf = 0.0f;
-static volatile float acc_y_lpf = 0.0f;
-static volatile float acc_z_lpf = 0.0f;
-static volatile float acc_lpf_coeff = 0.95f;
-
-static volatile float gyro_x_lpf = 0.0f;
-static volatile float gyro_y_lpf = 0.0f;
-static volatile float gyro_z_lpf = 0.0f;
-static volatile float gyro_lpf_coeff = 0.9f;
-
-
 static void task_imu_read(void) {
-	float *acc = lsm6dsl_get_imu_acceleration();
-	float *vel = lsm6dsl_get_angular_velocity();
-	lsm6dsl_read_sensor();
+	float *acc = mpu9250_get_imu_acceleration();
+	float *vel = mpu9250_get_angular_velocity();
 
-	//Calculate acc noise
-	acc_x_lpf = acc_x_lpf * acc_lpf_coeff + (1.0f - acc_lpf_coeff) * acc[0];
-	acc_y_lpf = acc_y_lpf * acc_lpf_coeff + (1.0f - acc_lpf_coeff) * acc[1];
-	acc_z_lpf = acc_z_lpf * acc_lpf_coeff + (1.0f - acc_lpf_coeff) * acc[2];
-
-	gyro_x_lpf = gyro_x_lpf * gyro_lpf_coeff + (1.0f - gyro_lpf_coeff) * vel[0];
-	gyro_y_lpf = gyro_y_lpf * gyro_lpf_coeff + (1.0f - gyro_lpf_coeff) * vel[1];
-	gyro_z_lpf = gyro_z_lpf * gyro_lpf_coeff + (1.0f - gyro_lpf_coeff) * vel[2];
+	mpu9250_read_sensor();
 
 	//Offset compensation
 	if (gyro_offset_cnt < IMU_OFFSET_COUNTER) {
@@ -698,14 +683,6 @@ static void task_imu_read(void) {
 	vel_compensated[1] = vel[1] - vel_offset[1];
 	vel_compensated[2] = vel[2] - vel_offset[2];
 
-	acc[0] = acc_x_lpf;
-	acc[1] = acc_y_lpf;
-	acc[2] = acc_z_lpf;
-
-	vel_compensated[0] = gyro_x_lpf - vel_offset[0];
-	vel_compensated[1] = gyro_y_lpf - vel_offset[1];
-	vel_compensated[2] = gyro_z_lpf - vel_offset[2];
-
 	//AHRS update
 	ahrs_update(DEG_TO_RAD(vel_compensated[0]), DEG_TO_RAD(-vel_compensated[1]), DEG_TO_RAD(-vel_compensated[2]), acc[0], -acc[1], -acc[2]); //YPR 0 0 0
 
@@ -713,10 +690,9 @@ static void task_imu_read(void) {
 	//ahrs_rotate_0();
 
 	//toll <--> yaw
-	roll_deg = roll_deg * coeff + ahrs_get_yaw() * (1.0f - coeff);
-	pitch_deg = pitch_deg * coeff + ahrs_get_pitch() * (1.0f - coeff);
-	yaw_deg = yaw_deg * coeff + ahrs_get_roll() * (1.0f - coeff);
-
+	roll_deg = ahrs_get_yaw();
+	pitch_deg = ahrs_get_pitch();
+	yaw_deg = ahrs_get_roll();
 
 	//Control
 	control_drone();
@@ -978,8 +954,8 @@ int main(void) {
 	tick_init();
 	buzzer_init();
 	uart_init();
-	lsm6dsl_init();
-	lps22hb_init();
+	mpu9250_init();
+	//lps22hb_init();
 	servo_init();
 	bldc_init();
 	adc_init();

@@ -7,6 +7,9 @@
 #define SWAP_UINT16(x) 								((uint16_t)((x) >> 8) | (uint16_t)((x) << 8))
 #define FAST_SWAP_UINT16(x) 						__REV16(x)
 
+#define SWAP_INT16(x) 								((int16_t)((x) >> 8) | (int16_t)((x) << 8))
+#define FAST_SWAP_INT16(x) 							__REVSH(x)
+
 #define UNUSED(x) 									(void)(x)
 #define IS_NAN(x)									((x) != (x))
 #define UNUSED_WARNING_DISABLE 						__attribute__((unused))
